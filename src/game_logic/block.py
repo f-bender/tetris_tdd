@@ -100,10 +100,16 @@ class Block:
     def actual_bounding_box(self) -> tuple[tuple[int, int], tuple[int, int]]:
         """Returns the actual bounding box of the active cells within the block."""
         rows_with_active_cells = np.where(np.any(self.cells, axis=1))[0]
-        first_row_with_active_cells, last_row_with_active_cells = rows_with_active_cells[0], rows_with_active_cells[-1]
+        first_row_with_active_cells, last_row_with_active_cells = (
+            int(rows_with_active_cells[0]),
+            int(rows_with_active_cells[-1]),
+        )
 
         cols_with_active_cells = np.where(np.any(self.cells, axis=0))[0]
-        first_col_with_active_cells, last_col_with_active_cells = cols_with_active_cells[0], cols_with_active_cells[-1]
+        first_col_with_active_cells, last_col_with_active_cells = (
+            int(cols_with_active_cells[0]),
+            int(cols_with_active_cells[-1]),
+        )
 
         return (
             first_row_with_active_cells,

@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from math import ceil
 from typing import Self
 
 import numpy as np
@@ -49,14 +50,16 @@ class Board:
         return board
 
     def spawn(self, block: Block, position: tuple[int, int] | None = None) -> None:
-        if position is None:
-            # todo: automatically determine spawn position in top middle, based on the block
-            position = (0, 0)
+        position = position or self._top_middle_position(block)
 
         if not self._can_spawn(block, position):
             raise ValueError("Cannot spawn block at given position")
 
         self._active_block = ActiveBlock(block=block, position=position)
+
+    def _top_middle_position(self, block: Block) -> tuple[int, int]:
+        y_offset = block.actual_bounding_box[0][0]
+        return -y_offset, ceil((self.width - block.sidelength) / 2)
 
     def has_active_block(self) -> bool:
         return self._active_block is not None

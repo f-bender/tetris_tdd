@@ -179,3 +179,63 @@ def test_spawn_block_overlapping_existing_cells() -> None:
             "XXXX...XXX",
         ]
     )
+
+
+def test_spawn_block_top_middle_without_specified_position() -> None:
+    board = Board.empty(4, 10)
+    board.spawn(Block(BlockType.T))
+    assert str(board) == "\n".join(
+        [
+            "....XXX...",
+            ".....X....",
+            "..........",
+            "..........",
+        ]
+    )
+
+    board = Board.empty(4, 10)
+    board.spawn(Block(BlockType.I))
+    assert str(board) == "\n".join(
+        [
+            "...XXXX...",
+            "..........",
+            "..........",
+            "..........",
+        ]
+    )
+
+    board = Board.empty(4, 10)
+    board.spawn(Block(BlockType.SQUARE))
+    assert str(board) == "\n".join(
+        [
+            "....XX....",
+            "....XX....",
+            "..........",
+            "..........",
+        ]
+    )
+
+
+def test_spawn_block_top_middle_without_specified_position_overlapping_existing_blocks() -> None:
+    board = Board.from_string_representation(
+        """
+            ..........
+            ....XXXX..
+            ...XXX....
+            .XXXXXXXXX
+            XXXXXXXXX.
+            XXXX...XXX
+        """
+    )
+    with pytest.raises(ValueError):
+        board.spawn(Block(BlockType.T))
+    assert str(board) == "\n".join(
+        [
+            "..........",
+            "....XXXX..",
+            "...XXX....",
+            ".XXXXXXXXX",
+            "XXXXXXXXX.",
+            "XXXX...XXX",
+        ]
+    )
