@@ -1,8 +1,27 @@
 import pytest  # type: ignore
-
 from game_logic.block import Block, BlockType
 from game_logic.board import Board
-from game_logic.exceptions import CannotDropBlock, CannotSpawnBlock
+from game_logic.exceptions import CannotDropBlock, CannotSpawnBlock, NoActiveBlock
+
+
+def test_create_empty_board() -> None:
+    board = Board.empty(10, 10)
+    assert board.width == 10
+    assert board.height == 10
+    assert str(board) == "\n".join(
+        [
+            "..........",
+            "..........",
+            "..........",
+            "..........",
+            "..........",
+            "..........",
+            "..........",
+            "..........",
+            "..........",
+            "..........",
+        ]
+    )
 
 
 def test_board_from_string_representation() -> None:
@@ -449,8 +468,7 @@ def test_rotate_block_beyond_top() -> None:
 def test_rotate_block_out_of_bounds_gets_nudged() -> None:
     board = Board.empty(4, 10)
 
-    block = Block(BlockType.I)
-    block.rotate_left()
+    block = vertical_I_block()
 
     board.spawn(block, position=(0, -2))
     assert str(board) == "\n".join(
@@ -472,6 +490,12 @@ def test_rotate_block_out_of_bounds_gets_nudged() -> None:
     )
 
 
+def vertical_I_block() -> Block:
+    block = Block(BlockType.I)
+    block.rotate_left()
+    return block
+
+
 def test_rotate_block_into_other_blocks_nudging_fails() -> None:
     board = Board.from_string_representation(
         """
@@ -482,8 +506,7 @@ def test_rotate_block_into_other_blocks_nudging_fails() -> None:
         """
     )
 
-    block = Block(BlockType.I)
-    block.rotate_left()
+    block = vertical_I_block()
 
     board.spawn(block, position=(0, 0))
     assert str(board) == "\n".join(
@@ -639,3 +662,43 @@ def test_move_not_possible_other_cells() -> None:
             "...X......",
         ]
     )
+
+
+def test_merge_active_block_into_board() -> None:
+    board = Board.empty(4, 10)
+    board.spawn(Block(BlockType.T), position=(0, 0))
+    assert str(board) == "\n".join(
+        [
+            "..........",
+            "XXX.......",
+            ".X........",
+            "..........",
+        ]
+    )
+
+    board.merge_active_block()
+    assert_no_active_block_action_possible(board)
+
+    board.spawn(Block(BlockType.T), position=(0, 3))
+    assert str(board) == "\n".join(
+        [
+            "..........",
+            "XXXXXX....",
+            ".X..X.....",
+            "..........",
+        ]
+    )
+
+
+def assert_no_active_block_action_possible(board: Board) -> None:
+    with pytest.raises(NoActiveBlock):
+        board.try_move_active_block_left()
+
+    with pytest.raises(NoActiveBlock):
+        board.try_move_active_block_right()
+
+    with pytest.raises(NoActiveBlock):
+        board.try_rotate_active_block_left()
+
+    with pytest.raises(NoActiveBlock):
+        board.try_rotate_active_block_right()

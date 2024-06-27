@@ -186,24 +186,30 @@ class Board:
     def _board_with_block(self) -> NDArray[np.bool]:
         if self._active_block is not None:
             board = self._board.copy()
-
-            (top, left), (bottom, right) = self._actual_block_bounding_box(
-                self._active_block.block, self._active_block.position
-            )
-
-            # blocks are allowed to stretch beyond the top line; in this case the corresponding cells are not considered
-            # part of the board
-            top_cutoff = max(0, -top)
-
-            board[top + top_cutoff : bottom, left:right] |= self._active_block.block.actual_cells[top_cutoff:, :]
-
+            self._merge_active_block_into_board(self._active_block, board)
             return board
 
         return self._board
 
-    def _actual_block_bounding_box(
-        self, block: Block, position: tuple[int, int]
-    ) -> tuple[tuple[int, int], tuple[int, int]]:
+    def merge_active_block(self) -> None:
+        if self._active_block is None:
+            raise NoActiveBlock()
+
+        self._merge_active_block_into_board(self._active_block, self._board)
+        self._active_block = None
+
+    @staticmethod
+    def _merge_active_block_into_board(active_block: ActiveBlock, board: NDArray[np.bool]) -> None:
+        (top, left), (bottom, right) = Board._actual_block_bounding_box(active_block.block, active_block.position)
+
+        # blocks are allowed to stretch beyond the top line; in this case the corresponding cells are not considered
+        # part of the board
+        top_cutoff = max(0, -top)
+
+        board[top + top_cutoff : bottom, left:right] |= active_block.block.actual_cells[top_cutoff:, :]
+
+    @staticmethod
+    def _actual_block_bounding_box(block: Block, position: tuple[int, int]) -> tuple[tuple[int, int], tuple[int, int]]:
         (y_offset, x_offset), (y_end_offset, x_end_offset) = block.actual_bounding_box
         top = position[0] + y_offset
         left = position[1] + x_offset
