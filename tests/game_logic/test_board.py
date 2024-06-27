@@ -504,6 +504,7 @@ def test_rotate_block_into_other_blocks_nudging_fails() -> None:
         ]
     )
 
+
 def test_rotate_block_into_other_blocks_gets_nudged() -> None:
     board = Board.from_string_representation(
         """
@@ -532,6 +533,109 @@ def test_rotate_block_into_other_blocks_gets_nudged() -> None:
             "..........",
             "...X......",
             "...XXXXX..",
+            "...X......",
+        ]
+    )
+
+
+def test_move_right() -> None:
+    board = Board.empty(4, 10)
+    board.spawn(Block(BlockType.T))
+    assert str(board) == "\n".join(
+        [
+            "....XXX...",
+            ".....X....",
+            "..........",
+            "..........",
+        ]
+    )
+
+    board.try_move_active_block_right()
+
+    assert str(board) == "\n".join(
+        [
+            ".....XXX..",
+            "......X...",
+            "..........",
+            "..........",
+        ]
+    )
+
+
+def test_move_left() -> None:
+    board = Board.empty(4, 10)
+    board.spawn(Block(BlockType.T))
+    assert str(board) == "\n".join(
+        [
+            "....XXX...",
+            ".....X....",
+            "..........",
+            "..........",
+        ]
+    )
+
+    board.try_move_active_block_left()
+
+    assert str(board) == "\n".join(
+        [
+            "...XXX....",
+            "....X.....",
+            "..........",
+            "..........",
+        ]
+    )
+
+
+def test_move_not_possible_out_of_bounds() -> None:
+    board = Board.empty(4, 10)
+    board.spawn(Block(BlockType.T), position=(0, 0))
+    assert str(board) == "\n".join(
+        [
+            "..........",
+            "XXX.......",
+            ".X........",
+            "..........",
+        ]
+    )
+
+    board.try_move_active_block_left()
+
+    assert str(board) == "\n".join(
+        [
+            "..........",
+            "XXX.......",
+            ".X........",
+            "..........",
+        ]
+    )
+
+
+def test_move_not_possible_other_cells() -> None:
+    board = Board.from_string_representation(
+        """
+            ...X......
+            ...X......
+            ...X......
+            ...X......
+        """
+    )
+    board.spawn(Block(BlockType.T), position=(0, 0))
+    assert str(board) == "\n".join(
+        [
+            "...X......",
+            "XXXX......",
+            ".X.X......",
+            "...X......",
+        ]
+    )
+
+    board.try_move_active_block_right()
+
+    assert str(board) == "\n".join(
+        [
+            "...X......",
+            "XXXX......",
+            ".X.X......",
             "...X......",
         ]
     )

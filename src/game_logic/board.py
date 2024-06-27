@@ -8,6 +8,7 @@ from numpy.typing import NDArray
 from game_logic.block import Block
 from game_logic.exceptions import CannotDropBlock, CannotNudge, CannotSpawnBlock, NoActiveBlock
 
+
 @dataclass(slots=True)
 class ActiveBlock:
     block: Block
@@ -85,6 +86,24 @@ class Board:
         # part of the board
         top_cutoff = max(0, -top)
         return bool(np.any(self._board[top + top_cutoff : bottom, left:right] & cells[top_cutoff:, :]))
+
+    def try_move_active_block_left(self) -> None:
+        self._move(-1)
+
+    def try_move_active_block_right(self) -> None:
+        self._move(1)
+
+    def _move(self, x_offset: Literal[-1, 1]) -> None:
+        if self._active_block is None:
+            raise NoActiveBlock()
+
+        moved_position = (
+            self._active_block.position[0],
+            self._active_block.position[1] + x_offset,
+        )
+
+        if self._active_block_is_in_valid_position(ActiveBlock(self._active_block.block, position=moved_position)):
+            self._active_block.position = moved_position
 
     def try_rotate_active_block_left(self) -> None:
         self._rotate("left")
