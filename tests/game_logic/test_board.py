@@ -2,6 +2,7 @@ import pytest  # type: ignore
 
 from game_logic.block import Block, BlockType
 from game_logic.board import Board
+from game_logic.exceptions import CannotDropBlock, CannotSpawnBlock
 
 
 def test_board_from_string_representation() -> None:
@@ -123,7 +124,7 @@ def test_spawn_block_partially_out_of_bounds_ok() -> None:
 
 def test_spawn_block_partially_out_of_bounds_not_ok() -> None:
     board = Board.empty(10, 10)
-    with pytest.raises(ValueError):
+    with pytest.raises(CannotSpawnBlock):
         # the section of the I block that is out of bounds does have active cells
         board.spawn(Block(BlockType.I), position=(-3, 0))
 
@@ -166,7 +167,7 @@ def test_spawn_block_overlapping_existing_cells() -> None:
             XXXX...XXX
         """
     )
-    with pytest.raises(ValueError):
+    with pytest.raises(CannotSpawnBlock):
         board.spawn(Block(BlockType.S), position=(0, 4))
     assert str(board) == "\n".join(
         [
@@ -227,7 +228,7 @@ def test_spawn_block_top_middle_without_specified_position_overlapping_existing_
             XXXX...XXX
         """
     )
-    with pytest.raises(ValueError):
+    with pytest.raises(CannotSpawnBlock):
         board.spawn(Block(BlockType.T))
     assert str(board) == "\n".join(
         [
@@ -237,5 +238,300 @@ def test_spawn_block_top_middle_without_specified_position_overlapping_existing_
             ".XXXXXXXXX",
             "XXXXXXXXX.",
             "XXXX...XXX",
+        ]
+    )
+
+
+def test_drop_active_block() -> None:
+    board = Board.empty(10, 10)
+    board.spawn(Block(BlockType.I), position=(0, 0))
+    assert str(board) == "\n".join(
+        [
+            "..........",
+            "..........",
+            "XXXX......",
+            "..........",
+            "..........",
+            "..........",
+            "..........",
+            "..........",
+            "..........",
+            "..........",
+        ]
+    )
+    board.drop_active_block()
+    assert str(board) == "\n".join(
+        [
+            "..........",
+            "..........",
+            "..........",
+            "XXXX......",
+            "..........",
+            "..........",
+            "..........",
+            "..........",
+            "..........",
+            "..........",
+        ]
+    )
+
+
+def test_drop_active_block_not_possible_bottom_of_board() -> None:
+    board = Board.empty(3, 10)
+    board.spawn(Block(BlockType.I), position=(0, 0))
+    assert str(board) == "\n".join(
+        [
+            "..........",
+            "..........",
+            "XXXX......",
+        ]
+    )
+    with pytest.raises(CannotDropBlock):
+        board.drop_active_block()
+    assert str(board) == "\n".join(
+        [
+            "..........",
+            "..........",
+            "XXXX......",
+        ]
+    )
+
+
+def test_drop_active_block_not_possible_hitting_active_cell_on_edge() -> None:
+    board = Board.from_string_representation(
+        """
+            ..........
+            ..........
+            .....X....
+        """
+    )
+    board.spawn(Block(BlockType.T))
+    assert str(board) == "\n".join(
+        [
+            "....XXX...",
+            ".....X....",
+            ".....X....",
+        ]
+    )
+    with pytest.raises(CannotDropBlock):
+        board.drop_active_block()
+    assert str(board) == "\n".join(
+        [
+            "....XXX...",
+            ".....X....",
+            ".....X....",
+        ]
+    )
+
+
+def test_drop_active_block_non_actual_bounding_box_overlapping_cell() -> None:
+    board = Board.from_string_representation(
+        """
+            ..........
+            ..........
+            ....X.....
+            ....X.....
+        """
+    )
+    board.spawn(Block(BlockType.T))
+    assert str(board) == "\n".join(
+        [
+            "....XXX...",
+            ".....X....",
+            "....X.....",
+            "....X.....",
+        ]
+    )
+    board.drop_active_block()
+    assert str(board) == "\n".join(
+        [
+            "..........",
+            "....XXX...",
+            "....XX....",
+            "....X.....",
+        ]
+    )
+
+
+def test_drop_active_block_not_possible_hitting_active_cell_on_side() -> None:
+    board = Board.from_string_representation(
+        """
+            ..........
+            ....X.....
+            ....X.....
+        """
+    )
+    board.spawn(Block(BlockType.T))
+    assert str(board) == "\n".join(
+        [
+            "....XXX...",
+            "....XX....",
+            "....X.....",
+        ]
+    )
+    with pytest.raises(CannotDropBlock):
+        board.drop_active_block()
+    assert str(board) == "\n".join(
+        [
+            "....XXX...",
+            "....XX....",
+            "....X.....",
+        ]
+    )
+
+
+def test_rotate_block_left() -> None:
+    board = Board.empty(4, 10)
+    board.spawn(Block(BlockType.T), position=(1, 1))
+    assert str(board) == "\n".join(
+        [
+            "..........",
+            "..........",
+            ".XXX......",
+            "..X.......",
+        ]
+    )
+    board.try_rotate_active_block_left()
+    assert str(board) == "\n".join(
+        [
+            "..........",
+            "..X.......",
+            "..XX......",
+            "..X.......",
+        ]
+    )
+
+
+def test_rotate_block_right() -> None:
+    board = Board.empty(4, 10)
+    board.spawn(Block(BlockType.T), position=(1, 1))
+    assert str(board) == "\n".join(
+        [
+            "..........",
+            "..........",
+            ".XXX......",
+            "..X.......",
+        ]
+    )
+    board.try_rotate_active_block_right()
+    assert str(board) == "\n".join(
+        [
+            "..........",
+            "..X.......",
+            ".XX.......",
+            "..X.......",
+        ]
+    )
+
+
+def test_rotate_block_beyond_top() -> None:
+    board = Board.empty(4, 10)
+    board.spawn(Block(BlockType.T))
+    assert str(board) == "\n".join(
+        [
+            "....XXX...",
+            ".....X....",
+            "..........",
+            "..........",
+        ]
+    )
+    board.try_rotate_active_block_right()
+    assert str(board) == "\n".join(
+        [
+            "....XX....",
+            ".....X....",
+            "..........",
+            "..........",
+        ]
+    )
+
+
+def test_rotate_block_out_of_bounds_gets_nudged() -> None:
+    board = Board.empty(4, 10)
+
+    block = Block(BlockType.I)
+    block.rotate_left()
+
+    board.spawn(block, position=(0, -2))
+    assert str(board) == "\n".join(
+        [
+            "X.........",
+            "X.........",
+            "X.........",
+            "X.........",
+        ]
+    )
+    board.try_rotate_active_block_right()
+    assert str(board) == "\n".join(
+        [
+            "..........",
+            "..........",
+            "XXXX......",
+            "..........",
+        ]
+    )
+
+
+def test_rotate_block_into_other_blocks_nudging_fails() -> None:
+    board = Board.from_string_representation(
+        """
+            ..........
+            ...X......
+            ...X......
+            ...X......
+        """
+    )
+
+    block = Block(BlockType.I)
+    block.rotate_left()
+
+    board.spawn(block, position=(0, 0))
+    assert str(board) == "\n".join(
+        [
+            "..X.......",
+            "..XX......",
+            "..XX......",
+            "..XX......",
+        ]
+    )
+    board.try_rotate_active_block_right()
+    assert str(board) == "\n".join(
+        [
+            "..X.......",
+            "..XX......",
+            "..XX......",
+            "..XX......",
+        ]
+    )
+
+def test_rotate_block_into_other_blocks_gets_nudged() -> None:
+    board = Board.from_string_representation(
+        """
+            ..........
+            ...X......
+            ...X......
+            ...X......
+        """
+    )
+
+    block = Block(BlockType.I)
+    block.rotate_left()
+
+    board.spawn(block, position=(0, 2))
+    assert str(board) == "\n".join(
+        [
+            "....X.....",
+            "...XX.....",
+            "...XX.....",
+            "...XX.....",
+        ]
+    )
+    board.try_rotate_active_block_right()
+    assert str(board) == "\n".join(
+        [
+            "..........",
+            "...X......",
+            "...XXXXX..",
+            "...X......",
         ]
     )

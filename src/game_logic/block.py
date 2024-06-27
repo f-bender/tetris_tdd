@@ -133,6 +133,11 @@ class Block:
             self.actual_bounding_box[0][1] : self.actual_bounding_box[1][1],
         ]
 
+    # @property
+    # def actual_lower_edge(self) -> NDArray[np.int]:
+    #     """Returns the actual lower edge of the block."""
+    #     return
+
     def __str__(self) -> str:
         return "\n".join("".join("X" if cell else "." for cell in row) for row in self.cells)
 

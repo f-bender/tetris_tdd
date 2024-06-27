@@ -1,12 +1,12 @@
 from dataclasses import dataclass
 from math import ceil
-from typing import Self
+from typing import Literal, Self
 
 import numpy as np
 from numpy.typing import NDArray
 
 from game_logic.block import Block
-
+from game_logic.exceptions import CannotDropBlock, CannotNudge, CannotSpawnBlock, NoActiveBlock
 
 @dataclass(slots=True)
 class ActiveBlock:
@@ -53,7 +53,7 @@ class Board:
         position = position or self._top_middle_position(block)
 
         if not self._can_spawn(block, position):
-            raise ValueError("Cannot spawn block at given position")
+            raise CannotSpawnBlock()
 
         self._active_block = ActiveBlock(block=block, position=position)
 
@@ -61,24 +61,105 @@ class Board:
         y_offset = block.actual_bounding_box[0][0]
         return -y_offset, ceil((self.width - block.sidelength) / 2)
 
-    def has_active_block(self) -> bool:
-        return self._active_block is not None
-
     def _can_spawn(self, block: Block, position: tuple[int, int]) -> bool:
         (top, left), (bottom, right) = self._actual_block_bounding_box(block, position)
 
-        if not self.bbox_fully_in_bounds(top, left, bottom, right) or self.overlaps_with_active_cells(
-            block.actual_cells, top, left, bottom, right
+        if (
+            not self._bbox_in_bounds(top, left, bottom, right)
+            or top < 0  # top of board is considered in bounds, but blocks shouldn't spawn there
+            or self._overlaps_with_active_cells(block.actual_cells, top, left, bottom, right)
         ):
             return False
 
         return True
 
-    def bbox_fully_in_bounds(self, top, left, bottom, right) -> bool:
-        return not (top < 0 or left < 0 or bottom > self.height or right > self.width)
+    def _bbox_in_bounds(self, _: int, left: int, bottom: int, right: int) -> bool:
+        # note: top is not relevant since blocks may stretch beyond the top of the board
+        # its spot however left in the signature to avoid confusing arguments
+        return not (left < 0 or bottom > self.height or right > self.width)
 
-    def overlaps_with_active_cells(self, cells: NDArray[np.bool], top: int, left: int, bottom: int, right: int) -> bool:
-        return bool(np.any(self._board[top:bottom, left:right] & cells))
+    def _overlaps_with_active_cells(
+        self, cells: NDArray[np.bool], top: int, left: int, bottom: int, right: int
+    ) -> bool:
+        # blocks are allowed to stretch beyond the top line; in this case the corresponding cells are not considered
+        # part of the board
+        top_cutoff = max(0, -top)
+        return bool(np.any(self._board[top + top_cutoff : bottom, left:right] & cells[top_cutoff:, :]))
+
+    def try_rotate_active_block_left(self) -> None:
+        self._rotate("left")
+
+    def try_rotate_active_block_right(self) -> None:
+        self._rotate("right")
+
+    def _rotate(self, direction: Literal["left", "right"]) -> None:
+        if self._active_block is None:
+            raise NoActiveBlock()
+
+        if direction == "left":
+            self._active_block.block.rotate_left()
+        else:
+            self._active_block.block.rotate_right()
+
+        if not self._active_block_is_in_valid_position(self._active_block):
+            try:
+                self._nudge_block_into_valid_position(self._active_block)
+            except CannotNudge:
+                if direction == "left":
+                    self._active_block.block.rotate_right()
+                else:
+                    self._active_block.block.rotate_left()
+
+    def _active_block_is_in_valid_position(self, active_block: ActiveBlock) -> bool:
+        (top, left), (bottom, right) = self._actual_block_bounding_box(active_block.block, active_block.position)
+
+        return self._bbox_in_bounds(top, left, bottom, right) and not self._overlaps_with_active_cells(
+            active_block.block.actual_cells, top, left, bottom, right
+        )
+
+    # TODO: this is more game logic than board scorekeeping -> different responsibility, move into own class, maybe make
+    # part of eventual Game class?
+    def _nudge_block_into_valid_position(self, active_block: ActiveBlock) -> None:
+        # we can only nudge laterally (left, right)
+        # we can nudge at most nudge the block by half its sidelength
+        # we must nudge the least possible amount
+
+        max_nudge = active_block.block.sidelength // 2
+
+        for x_offset in sorted(range(-max_nudge, max_nudge + 1), key=abs):
+            nudged_position = (
+                active_block.position[0],
+                active_block.position[1] + x_offset,
+            )
+
+            if self._active_block_is_in_valid_position(ActiveBlock(active_block.block, position=nudged_position)):
+                active_block.position = nudged_position
+                return
+
+        raise CannotNudge()
+
+    def drop_active_block(self) -> None:
+        if self._active_block is None:
+            raise NoActiveBlock()
+
+        dropped_position = (
+            self._active_block.position[0] + 1,
+            self._active_block.position[1],
+        )
+
+        (dropped_top, dropped_left), (dropped_bottom, dropped_right) = self._actual_block_bounding_box(
+            self._active_block.block, dropped_position
+        )
+
+        if not self._bbox_in_bounds(dropped_top, dropped_left, dropped_bottom, dropped_right):
+            raise CannotDropBlock("Active block reached bottom of the board")
+
+        if self._overlaps_with_active_cells(
+            self._active_block.block.actual_cells, dropped_top, dropped_left, dropped_bottom, dropped_right
+        ):
+            raise CannotDropBlock("Active block has landed on an active cell")
+
+        self._active_block.position = dropped_position
 
     def __str__(self) -> str:
         return "\n".join("".join(("X" if c else ".") for c in row) for row in self._board_with_block())
@@ -90,7 +171,12 @@ class Board:
             (top, left), (bottom, right) = self._actual_block_bounding_box(
                 self._active_block.block, self._active_block.position
             )
-            board[top:bottom, left:right] |= self._active_block.block.actual_cells
+
+            # blocks are allowed to stretch beyond the top line; in this case the corresponding cells are not considered
+            # part of the board
+            top_cutoff = max(0, -top)
+
+            board[top + top_cutoff : bottom, left:right] |= self._active_block.block.actual_cells[top_cutoff:, :]
 
             return board
 
