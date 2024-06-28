@@ -702,3 +702,155 @@ def assert_no_active_block_action_possible(board: Board) -> None:
 
     with pytest.raises(NoActiveBlock):
         board.try_rotate_active_block_right()
+
+
+def test_zero_lines_cleared() -> None:
+    board = Board.empty(2, 10)
+    board.spawn(Block(BlockType.I), position=(-1, 0))
+    assert str(board) == "\n".join(
+        [
+            "..........",
+            "XXXX......",
+        ]
+    )
+    assert board.merge_active_block() == 0
+    assert str(board) == "\n".join(
+        [
+            "..........",
+            "XXXX......",
+        ]
+    )
+
+
+def test_one_line_cleared() -> None:
+    board = Board.from_string_representation(
+        """
+            ..........
+            ....XXXXXX
+        """
+    )
+
+    board.spawn(Block(BlockType.I), position=(-1, 0))
+    assert str(board) == "\n".join(
+        [
+            "..........",
+            "XXXXXXXXXX",
+        ]
+    )
+    assert board.merge_active_block() == 1
+    assert str(board) == "\n".join(
+        [
+            "..........",
+            "..........",
+        ]
+    )
+
+def test_one_line_cleared() -> None:
+    board = Board.from_string_representation(
+        """
+            ..........
+            ....XXXXXX
+        """
+    )
+
+    board.spawn(Block(BlockType.I), position=(-1, 0))
+    assert str(board) == "\n".join(
+        [
+            "..........",
+            "XXXXXXXXXX",
+        ]
+    )
+    assert board.merge_active_block() == 1
+    assert str(board) == "\n".join(
+        [
+            "..........",
+            "..........",
+        ]
+    )
+
+def test_four_lines_cleared() -> None:
+    board = Board.from_string_representation(
+        """
+            .XXXXXXXXX
+            .XXXXXXXXX
+            .XXXXXXXXX
+            .XXXXXXXXX
+        """
+    )
+
+    board.spawn(vertical_I_block(), position=(0, -2))
+    assert str(board) == "\n".join(
+        [
+            "XXXXXXXXXX",
+            "XXXXXXXXXX",
+            "XXXXXXXXXX",
+            "XXXXXXXXXX",
+        ]
+    )
+    assert board.merge_active_block() == 4
+    assert str(board) == "\n".join(
+        [
+            "..........",
+            "..........",
+            "..........",
+            "..........",
+        ]
+    )
+
+def test_lines_above_clear_drop_down() -> None:
+    board = Board.from_string_representation(
+        """
+            .........X
+            ...XX....X
+            .XXXXXXXXX
+            .....XXXXX
+        """
+    )
+
+    board.spawn(vertical_I_block(), position=(0, -2))
+    assert str(board) == "\n".join(
+        [
+            "X........X",
+            "X..XX....X",
+            "XXXXXXXXXX",
+            "X....XXXXX",
+        ]
+    )
+    assert board.merge_active_block() == 1
+    assert str(board) == "\n".join(
+        [
+            "..........",
+            "X........X",
+            "X..XX....X",
+            "X....XXXXX",
+        ]
+    )
+
+def test_lines_above_disconnected_line_clear_drop_down_correctly() -> None:
+    board = Board.from_string_representation(
+        """
+            .........X
+            .XXXXXXXXX
+            .....XXXXX
+            .XXXXXXXXX
+        """
+    )
+
+    board.spawn(vertical_I_block(), position=(0, -2))
+    assert str(board) == "\n".join(
+        [
+            "X........X",
+            "XXXXXXXXXX",
+            "X....XXXXX",
+            "XXXXXXXXXX",
+        ]
+    )
+    assert board.merge_active_block() == 2
+    assert str(board) == "\n".join(
+        [
+            "..........",
+            "..........",
+            "X........X",
+            "X....XXXXX",
+        ]
+    )

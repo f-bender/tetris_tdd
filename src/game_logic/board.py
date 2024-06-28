@@ -191,12 +191,31 @@ class Board:
 
         return self._board
 
-    def merge_active_block(self) -> None:
+    def merge_active_block(self) -> int:
+        """Merge the active block into the board.
+
+        If this fills up lines, they are cleared.
+        The number of cleared lines is returned.
+        """
         if self._active_block is None:
             raise NoActiveBlock()
 
         self._merge_active_block_into_board(self._active_block, self._board)
         self._active_block = None
+
+        full_line_positions = self._get_full_line_positions_ordered_top_to_bottom()
+        self._clear_lines(full_line_positions)
+        return len(full_line_positions)
+
+    def _clear_lines(self, full_line_positions: NDArray[np.int_]) -> None:
+        for line_position in full_line_positions:
+            # move everything above the cleared line position one line down
+            self._board[1 : line_position + 1] = self._board[:line_position]
+            # fill the top row with zeros (empty)
+            self._board[0] = np.zeros_like(self._board[0])
+
+    def _get_full_line_positions_ordered_top_to_bottom(self) -> NDArray[np.int_]:
+        return np.where(np.all(self._board, axis=1))[0]
 
     @staticmethod
     def _merge_active_block_into_board(active_block: ActiveBlock, board: NDArray[np.bool]) -> None:
