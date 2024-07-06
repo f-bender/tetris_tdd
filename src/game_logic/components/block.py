@@ -1,5 +1,7 @@
+import random
 from enum import Enum, auto
 from functools import cached_property
+from typing import Self
 
 import numpy as np
 from numpy.typing import NDArray
@@ -133,11 +135,6 @@ class Block:
             self.actual_bounding_box[0][1] : self.actual_bounding_box[1][1],
         ]
 
-    # @property
-    # def actual_lower_edge(self) -> NDArray[np.int]:
-    #     """Returns the actual lower edge of the block."""
-    #     return
-
     def __str__(self) -> str:
         return "\n".join("".join("X" if cell else "." for cell in row) for row in self.cells)
 
@@ -148,3 +145,7 @@ class Block:
     def rotate_right(self) -> None:
         self.cells = np.rot90(self.cells, k=-1)
         self._invalidate_actual_bounding_box_cache()
+
+    @classmethod
+    def create_random(cls) -> Self:
+        return cls(random.choice(list(BlockType)))

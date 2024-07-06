@@ -5,8 +5,8 @@ from typing import Literal, Self
 import numpy as np
 from numpy.typing import NDArray
 
-from game_logic.block import Block
-from game_logic.exceptions import CannotDropBlock, CannotNudge, CannotSpawnBlock, NoActiveBlock
+from game_logic.components import Block
+from game_logic.components.exceptions import CannotDropBlock, CannotNudge, CannotSpawnBlock, NoActiveBlock
 
 
 @dataclass(slots=True)
@@ -22,7 +22,7 @@ class Board:
         self._active_block: ActiveBlock | None = None
 
     @classmethod
-    def empty(cls, height: int, width: int) -> Self:
+    def create_empty(cls, height: int, width: int) -> Self:
         board = cls()
         board._board = np.zeros((height, width), dtype=np.bool)
         return board
@@ -50,6 +50,23 @@ class Board:
         board._board = np.array(_board, dtype=np.bool)
         return board
 
+    @property
+    def height(self) -> int:
+        return self._board.shape[0]
+
+    @property
+    def width(self) -> int:
+        return self._board.shape[1]
+
+    def __str__(self) -> str:
+        return "\n".join("".join(("X" if c else ".") for c in row) for row in self._board_with_block())
+
+    def has_active_block(self) -> bool:
+        return self._active_block is not None
+
+    def spawn_random_block(self) -> None:
+        self.spawn(Block.create_random())
+
     def spawn(self, block: Block, position: tuple[int, int] | None = None) -> None:
         position = position or self._top_middle_position(block)
 
@@ -57,6 +74,57 @@ class Board:
             raise CannotSpawnBlock()
 
         self._active_block = ActiveBlock(block=block, position=position)
+
+    def try_move_active_block_left(self) -> None:
+        self._move(-1)
+
+    def try_move_active_block_right(self) -> None:
+        self._move(1)
+
+    def try_rotate_active_block_left(self) -> None:
+        self._rotate("left")
+
+    def try_rotate_active_block_right(self) -> None:
+        self._rotate("right")
+
+    def drop_active_block(self) -> None:
+        if self._active_block is None:
+            raise NoActiveBlock()
+
+        dropped_position = (
+            self._active_block.position[0] + 1,
+            self._active_block.position[1],
+        )
+
+        (dropped_top, dropped_left), (dropped_bottom, dropped_right) = self._actual_block_bounding_box(
+            self._active_block.block, dropped_position
+        )
+
+        if not self._bbox_in_bounds(dropped_top, dropped_left, dropped_bottom, dropped_right):
+            raise CannotDropBlock("Active block reached bottom of the board")
+
+        if self._overlaps_with_active_cells(
+            self._active_block.block.actual_cells, dropped_top, dropped_left, dropped_bottom, dropped_right
+        ):
+            raise CannotDropBlock("Active block has landed on an active cell")
+
+        self._active_block.position = dropped_position
+
+    def merge_active_block(self) -> int:
+        """Merge the active block into the board.
+
+        If this fills up lines, they are cleared.
+        The number of cleared lines is returned.
+        """
+        if self._active_block is None:
+            raise NoActiveBlock()
+
+        self._merge_active_block_into_board(self._active_block, self._board)
+        self._active_block = None
+
+        full_line_positions = self._get_full_line_positions_ordered_top_to_bottom()
+        self._clear_lines(full_line_positions)
+        return len(full_line_positions)
 
     def _top_middle_position(self, block: Block) -> tuple[int, int]:
         y_offset = block.actual_bounding_box[0][0]
@@ -87,12 +155,6 @@ class Board:
         top_cutoff = max(0, -top)
         return bool(np.any(self._board[top + top_cutoff : bottom, left:right] & cells[top_cutoff:, :]))
 
-    def try_move_active_block_left(self) -> None:
-        self._move(-1)
-
-    def try_move_active_block_right(self) -> None:
-        self._move(1)
-
     def _move(self, x_offset: Literal[-1, 1]) -> None:
         if self._active_block is None:
             raise NoActiveBlock()
@@ -104,12 +166,6 @@ class Board:
 
         if self._active_block_is_in_valid_position(ActiveBlock(self._active_block.block, position=moved_position)):
             self._active_block.position = moved_position
-
-    def try_rotate_active_block_left(self) -> None:
-        self._rotate("left")
-
-    def try_rotate_active_block_right(self) -> None:
-        self._rotate("right")
 
     def _rotate(self, direction: Literal["left", "right"]) -> None:
         if self._active_block is None:
@@ -136,11 +192,10 @@ class Board:
             active_block.block.actual_cells, top, left, bottom, right
         )
 
-    # TODO: this is more game logic than board scorekeeping -> different responsibility, move into own class, maybe make
-    # part of eventual Game class?
     def _nudge_block_into_valid_position(self, active_block: ActiveBlock) -> None:
+        # RULES:
         # we can only nudge laterally (left, right)
-        # we can nudge at most nudge the block by half its sidelength
+        # we can nudge at most the block by half its sidelength
         # we must nudge the least possible amount
 
         max_nudge = active_block.block.sidelength // 2
@@ -157,32 +212,6 @@ class Board:
 
         raise CannotNudge()
 
-    def drop_active_block(self) -> None:
-        if self._active_block is None:
-            raise NoActiveBlock()
-
-        dropped_position = (
-            self._active_block.position[0] + 1,
-            self._active_block.position[1],
-        )
-
-        (dropped_top, dropped_left), (dropped_bottom, dropped_right) = self._actual_block_bounding_box(
-            self._active_block.block, dropped_position
-        )
-
-        if not self._bbox_in_bounds(dropped_top, dropped_left, dropped_bottom, dropped_right):
-            raise CannotDropBlock("Active block reached bottom of the board")
-
-        if self._overlaps_with_active_cells(
-            self._active_block.block.actual_cells, dropped_top, dropped_left, dropped_bottom, dropped_right
-        ):
-            raise CannotDropBlock("Active block has landed on an active cell")
-
-        self._active_block.position = dropped_position
-
-    def __str__(self) -> str:
-        return "\n".join("".join(("X" if c else ".") for c in row) for row in self._board_with_block())
-
     def _board_with_block(self) -> NDArray[np.bool]:
         if self._active_block is not None:
             board = self._board.copy()
@@ -190,22 +219,6 @@ class Board:
             return board
 
         return self._board
-
-    def merge_active_block(self) -> int:
-        """Merge the active block into the board.
-
-        If this fills up lines, they are cleared.
-        The number of cleared lines is returned.
-        """
-        if self._active_block is None:
-            raise NoActiveBlock()
-
-        self._merge_active_block_into_board(self._active_block, self._board)
-        self._active_block = None
-
-        full_line_positions = self._get_full_line_positions_ordered_top_to_bottom()
-        self._clear_lines(full_line_positions)
-        return len(full_line_positions)
 
     def _clear_lines(self, full_line_positions: NDArray[np.int_]) -> None:
         for line_position in full_line_positions:
@@ -236,11 +249,3 @@ class Board:
         right = position[1] + x_end_offset
 
         return (top, left), (bottom, right)
-
-    @property
-    def height(self) -> int:
-        return self._board.shape[0]
-
-    @property
-    def width(self) -> int:
-        return self._board.shape[1]

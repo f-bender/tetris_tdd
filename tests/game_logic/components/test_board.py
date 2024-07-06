@@ -1,11 +1,10 @@
 import pytest  # type: ignore
-from game_logic.block import Block, BlockType
-from game_logic.board import Board
-from game_logic.exceptions import CannotDropBlock, CannotSpawnBlock, NoActiveBlock
+from game_logic.components import Block, BlockType, Board
+from game_logic.components.exceptions import CannotDropBlock, CannotSpawnBlock, NoActiveBlock
 
 
 def test_create_empty_board() -> None:
-    board = Board.empty(10, 10)
+    board = Board.create_empty(10, 10)
     assert board.width == 10
     assert board.height == 10
     assert str(board) == "\n".join(
@@ -84,7 +83,7 @@ def test_board_from_string_representation_exceptions() -> None:
 
 
 def test_spawn_block() -> None:
-    board = Board.empty(10, 10)
+    board = Board.create_empty(10, 10)
     board.spawn(Block(BlockType.I), position=(0, 0))
     assert str(board) == "\n".join(
         [
@@ -103,7 +102,7 @@ def test_spawn_block() -> None:
 
 
 def test_spawn_block_at_position() -> None:
-    board = Board.empty(10, 10)
+    board = Board.create_empty(10, 10)
     board.spawn(Block(BlockType.S), position=(3, 2))
     assert str(board) == "\n".join(
         [
@@ -122,7 +121,7 @@ def test_spawn_block_at_position() -> None:
 
 
 def test_spawn_block_partially_out_of_bounds_ok() -> None:
-    board = Board.empty(10, 10)
+    board = Board.create_empty(10, 10)
     # the section of the I block that is out of bounds has no active cells
     board.spawn(Block(BlockType.I), position=(-2, 0))
     assert str(board) == "\n".join(
@@ -142,7 +141,7 @@ def test_spawn_block_partially_out_of_bounds_ok() -> None:
 
 
 def test_spawn_block_partially_out_of_bounds_not_ok() -> None:
-    board = Board.empty(10, 10)
+    board = Board.create_empty(10, 10)
     with pytest.raises(CannotSpawnBlock):
         # the section of the I block that is out of bounds does have active cells
         board.spawn(Block(BlockType.I), position=(-3, 0))
@@ -202,7 +201,7 @@ def test_spawn_block_overlapping_existing_cells() -> None:
 
 
 def test_spawn_block_top_middle_without_specified_position() -> None:
-    board = Board.empty(4, 10)
+    board = Board.create_empty(4, 10)
     board.spawn(Block(BlockType.T))
     assert str(board) == "\n".join(
         [
@@ -213,7 +212,7 @@ def test_spawn_block_top_middle_without_specified_position() -> None:
         ]
     )
 
-    board = Board.empty(4, 10)
+    board = Board.create_empty(4, 10)
     board.spawn(Block(BlockType.I))
     assert str(board) == "\n".join(
         [
@@ -224,7 +223,7 @@ def test_spawn_block_top_middle_without_specified_position() -> None:
         ]
     )
 
-    board = Board.empty(4, 10)
+    board = Board.create_empty(4, 10)
     board.spawn(Block(BlockType.SQUARE))
     assert str(board) == "\n".join(
         [
@@ -262,7 +261,7 @@ def test_spawn_block_top_middle_without_specified_position_overlapping_existing_
 
 
 def test_drop_active_block() -> None:
-    board = Board.empty(10, 10)
+    board = Board.create_empty(10, 10)
     board.spawn(Block(BlockType.I), position=(0, 0))
     assert str(board) == "\n".join(
         [
@@ -296,7 +295,7 @@ def test_drop_active_block() -> None:
 
 
 def test_drop_active_block_not_possible_bottom_of_board() -> None:
-    board = Board.empty(3, 10)
+    board = Board.create_empty(3, 10)
     board.spawn(Block(BlockType.I), position=(0, 0))
     assert str(board) == "\n".join(
         [
@@ -400,7 +399,7 @@ def test_drop_active_block_not_possible_hitting_active_cell_on_side() -> None:
 
 
 def test_rotate_block_left() -> None:
-    board = Board.empty(4, 10)
+    board = Board.create_empty(4, 10)
     board.spawn(Block(BlockType.T), position=(1, 1))
     assert str(board) == "\n".join(
         [
@@ -422,7 +421,7 @@ def test_rotate_block_left() -> None:
 
 
 def test_rotate_block_right() -> None:
-    board = Board.empty(4, 10)
+    board = Board.create_empty(4, 10)
     board.spawn(Block(BlockType.T), position=(1, 1))
     assert str(board) == "\n".join(
         [
@@ -444,7 +443,7 @@ def test_rotate_block_right() -> None:
 
 
 def test_rotate_block_beyond_top() -> None:
-    board = Board.empty(4, 10)
+    board = Board.create_empty(4, 10)
     board.spawn(Block(BlockType.T))
     assert str(board) == "\n".join(
         [
@@ -466,7 +465,7 @@ def test_rotate_block_beyond_top() -> None:
 
 
 def test_rotate_block_out_of_bounds_gets_nudged() -> None:
-    board = Board.empty(4, 10)
+    board = Board.create_empty(4, 10)
 
     block = vertical_I_block()
 
@@ -562,7 +561,7 @@ def test_rotate_block_into_other_blocks_gets_nudged() -> None:
 
 
 def test_move_right() -> None:
-    board = Board.empty(4, 10)
+    board = Board.create_empty(4, 10)
     board.spawn(Block(BlockType.T))
     assert str(board) == "\n".join(
         [
@@ -586,7 +585,7 @@ def test_move_right() -> None:
 
 
 def test_move_left() -> None:
-    board = Board.empty(4, 10)
+    board = Board.create_empty(4, 10)
     board.spawn(Block(BlockType.T))
     assert str(board) == "\n".join(
         [
@@ -610,7 +609,7 @@ def test_move_left() -> None:
 
 
 def test_move_not_possible_out_of_bounds() -> None:
-    board = Board.empty(4, 10)
+    board = Board.create_empty(4, 10)
     board.spawn(Block(BlockType.T), position=(0, 0))
     assert str(board) == "\n".join(
         [
@@ -665,7 +664,7 @@ def test_move_not_possible_other_cells() -> None:
 
 
 def test_merge_active_block_into_board() -> None:
-    board = Board.empty(4, 10)
+    board = Board.create_empty(4, 10)
     board.spawn(Block(BlockType.T), position=(0, 0))
     assert str(board) == "\n".join(
         [
@@ -705,7 +704,7 @@ def assert_no_active_block_action_possible(board: Board) -> None:
 
 
 def test_zero_lines_cleared() -> None:
-    board = Board.empty(2, 10)
+    board = Board.create_empty(2, 10)
     board.spawn(Block(BlockType.I), position=(-1, 0))
     assert str(board) == "\n".join(
         [
@@ -745,28 +744,6 @@ def test_one_line_cleared() -> None:
         ]
     )
 
-def test_one_line_cleared() -> None:
-    board = Board.from_string_representation(
-        """
-            ..........
-            ....XXXXXX
-        """
-    )
-
-    board.spawn(Block(BlockType.I), position=(-1, 0))
-    assert str(board) == "\n".join(
-        [
-            "..........",
-            "XXXXXXXXXX",
-        ]
-    )
-    assert board.merge_active_block() == 1
-    assert str(board) == "\n".join(
-        [
-            "..........",
-            "..........",
-        ]
-    )
 
 def test_four_lines_cleared() -> None:
     board = Board.from_string_representation(
@@ -797,6 +774,7 @@ def test_four_lines_cleared() -> None:
         ]
     )
 
+
 def test_lines_above_clear_drop_down() -> None:
     board = Board.from_string_representation(
         """
@@ -825,6 +803,7 @@ def test_lines_above_clear_drop_down() -> None:
             "X....XXXXX",
         ]
     )
+
 
 def test_lines_above_disconnected_line_clear_drop_down_correctly() -> None:
     board = Board.from_string_representation(
