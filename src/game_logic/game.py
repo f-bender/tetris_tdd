@@ -1,6 +1,9 @@
 from math import ceil
+from time import perf_counter
 from typing import Callable
 
+import ansi
+from ansi import cursor
 from exceptions import BaseTetrisException
 
 from game_logic.components import Board
@@ -46,14 +49,15 @@ class Game:
             try:
                 self.advance_frame(self._controller.get_action())
             except GameOver:
-                self._ui.game_over(self._board)
+                self._ui.game_over(self._board.as_array())
                 return
 
     def initialize(self) -> None:
-        self._ui.initialize()
+        self._ui.initialize(self._board.height, self._board.width)
         self._board.spawn_random_block()
 
     def advance_frame(self, action: Action = Action()) -> None:
+        t0 = perf_counter()
         self._try_performing_move_rotate(action)
 
         if (not action.quick_drop and self._frame_counter % self._frame_interval == 0) or (
@@ -67,7 +71,9 @@ class Game:
                 except CannotSpawnBlock:
                     raise GameOver
 
-        self._ui.draw(self._board)
+        t = perf_counter()
+        self._ui.draw(self._board.as_array())
+        print(cursor.goto(50, 0) + ansi.color.fx.reset, (perf_counter() - t) * 1e6, "\n", (perf_counter() - t0) * 1e6)
 
         self._frame_counter += 1
 

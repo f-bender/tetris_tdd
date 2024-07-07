@@ -50,6 +50,9 @@ class Board:
         board._board = np.array(_board, dtype=np.bool)
         return board
 
+    def as_array(self) -> NDArray[np.bool]:
+        return self._board_with_block()
+
     @property
     def height(self) -> int:
         return self._board.shape[0]
