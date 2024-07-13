@@ -1,3 +1,4 @@
+from time import sleep
 from clock.amortizing import AmortizingClock
 from controllers.random import RandomController
 from game_logic.components import Board
@@ -10,7 +11,7 @@ def main() -> None:
         ui=CLI(),
         board=Board.create_empty(20, 10),
         controller=RandomController(p_do_nothing=0.5, only_valid_combinations=True),
-        clock=AmortizingClock(fps=60, window_size=60),
+        clock=AmortizingClock(fps=10, window_size=60),
         initial_frame_interval=1,
     ).run()
 
@@ -18,3 +19,4 @@ def main() -> None:
 if __name__ == "__main__":
     while True:
         main()
+        sleep(1)

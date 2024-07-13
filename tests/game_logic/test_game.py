@@ -544,7 +544,7 @@ def test_game_runs_as_expected() -> None:
         # THEN the board state is as expected on every frame
         assert str(board) == "\n".join(expected_board_state)
         # THEN the UI been told to draw the game at every frame
-        ui_mock.draw.assert_has_calls([call(board)] * idx)
+        assert ui_mock.draw.call_count == idx
 
     # THEN the game raises GameOver after the last game-ending board-state
     with pytest.raises(GameOver):

@@ -1,11 +1,11 @@
 from typing import Protocol
 
-from game_logic.components import Board
+import numpy as np
 
-# TODO draw should take the board string representation needed for drawing, not the whole board (need-to-know)
+from numpy.typing import NDArray
 
 
 class UI(Protocol):
-    def draw(self, board: Board) -> None: ...
-    def initialize(self) -> None: ...
-    def game_over(self, board: Board) -> None: ...  # TODO should also get a score
+    def initialize(self, board_height: int, board_width: int) -> None: ...
+    def draw(self, board: NDArray[np.bool]) -> None: ...
+    def game_over(self, board: NDArray[np.bool]) -> None: ...

@@ -1,5 +1,9 @@
-from controllers.dummy import DummyController
-from game_logic.interfaces.controller import Action
+from game_logic.interfaces.controller import Action, Controller
+
+
+class DummyController(Controller):
+    def get_action(self) -> Action:
+        return Action()
 
 
 def test_button_description_default_implementation() -> None:
