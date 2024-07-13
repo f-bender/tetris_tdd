@@ -57,7 +57,6 @@ class Game:
         self._board.spawn_random_block()
 
     def advance_frame(self, action: Action = Action()) -> None:
-        t0 = perf_counter()
         self._try_performing_move_rotate(action)
 
         if (not action.quick_drop and self._frame_counter % self._frame_interval == 0) or (
@@ -71,9 +70,7 @@ class Game:
                 except CannotSpawnBlock:
                     raise GameOver
 
-        t = perf_counter()
         self._ui.draw(self._board.as_array())
-        print(cursor.goto(50, 0) + ansi.color.fx.reset, (perf_counter() - t) * 1e6, "\n", (perf_counter() - t0) * 1e6)
 
         self._frame_counter += 1
 
