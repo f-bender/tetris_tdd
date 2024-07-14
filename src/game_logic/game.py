@@ -17,6 +17,9 @@ class GameOver(BaseTetrisException):
 
 
 class Game:
+    MOVE_REPEAT_INTERVAL: int = 6  # if a move button is held, perform the action on every nth frame
+    ROTATE_REPEAT_INTERVAL: int = 20  # if a rotate button is held, perform the action on every nth frame
+
     def __init__(
         self,
         ui: UI,
@@ -34,8 +37,9 @@ class Game:
         self._select_new_block_fn = select_new_block_fn  # will be moved into the rule that handles block spawning
         # how many frame pass between e.g. block dropping (lower value = faster gameplay)
         self._frame_interval = initial_frame_interval
-        self._quick_drop_interval = ceil(initial_frame_interval / 4)
+        self._quick_drop_interval = ceil(initial_frame_interval / 8)
         self._action_counter = ActionCounter()
+        self._last_merge_frame_count: int | None = None
 
     @property
     def frame_counter(self) -> int:
@@ -57,22 +61,26 @@ class Game:
 
     def initialize(self) -> None:
         self._ui.initialize(self._board.height, self._board.width)
-        self._board.spawn_random_block()
 
     def advance_frame(self) -> None:
         self._try_performing_move_rotate()
 
         quick_drop_held_since = self._action_counter.held_since(Action(quick_drop=True))
-        if (quick_drop_held_since == 0 and self._frame_counter % self._frame_interval == 0) or (
-            quick_drop_held_since % self._quick_drop_interval == 1
-        ):
-            if self._board.has_active_block():
-                self._drop_or_merge_active_block()
-            else:
-                try:
-                    self._board.spawn(self._select_new_block_fn())
-                except CannotSpawnBlock:
-                    raise GameOver
+        if (
+            (quick_drop_held_since == 0 and self._frame_counter % self._frame_interval == 0)
+            or (quick_drop_held_since > 0 and (quick_drop_held_since - 1) % self._quick_drop_interval == 0)
+        ) and self._board.has_active_block():
+            self._drop_or_merge_active_block()
+            self._last_merge_frame_count = self._frame_counter
+
+        if (
+            self._last_merge_frame_count is None
+            or self._frame_counter - self._last_merge_frame_count == self._frame_interval
+        ) and not self._board.has_active_block():
+            try:
+                self._board.spawn(self._select_new_block_fn())
+            except CannotSpawnBlock:
+                raise GameOver
 
         self._ui.draw(self._board.as_array())
 
@@ -80,13 +88,20 @@ class Game:
 
     def _try_performing_move_rotate(self) -> None:
         try:
-            if self._action_counter.held_since(Action(move_left=True)) > 0:
+            move_left_held_since = self._action_counter.held_since(Action(move_left=True))
+            if move_left_held_since > 0 and (move_left_held_since - 1) % self.MOVE_REPEAT_INTERVAL == 0:
                 self._board.try_move_active_block_left()
-            if self._action_counter.held_since(Action(move_right=True)) > 0:
+
+            move_right_held_since = self._action_counter.held_since(Action(move_right=True))
+            if move_right_held_since > 0 and (move_right_held_since - 1) % self.MOVE_REPEAT_INTERVAL == 0:
                 self._board.try_move_active_block_right()
-            if self._action_counter.held_since(Action(rotate_left=True)) > 0:
+
+            rotate_left_held_since = self._action_counter.held_since(Action(rotate_left=True))
+            if rotate_left_held_since > 0 and (rotate_left_held_since - 1) % self.ROTATE_REPEAT_INTERVAL == 0:
                 self._board.try_rotate_active_block_left()
-            if self._action_counter.held_since(Action(rotate_right=True)) > 0:
+
+            rotate_right_held_since = self._action_counter.held_since(Action(rotate_right=True))
+            if rotate_right_held_since > 0 and (rotate_right_held_since - 1) % self.ROTATE_REPEAT_INTERVAL == 0:
                 self._board.try_rotate_active_block_right()
         except NoActiveBlock:
             pass

@@ -1,5 +1,5 @@
 from itertools import cycle
-from unittest.mock import Mock, call
+from unittest.mock import Mock
 
 import pytest
 from game_logic.components.block import Block, BlockType
@@ -69,6 +69,11 @@ def test_game_runs_as_expected() -> None:
     )
 
     ui_mock = Mock()
+
+    # ensure every single input is counted, even on adjacent frames
+    Game.ROTATE_REPEAT_INTERVAL = 1
+    Game.MOVE_REPEAT_INTERVAL = 1
+
     game = Game(
         ui=ui_mock,
         board=board,
