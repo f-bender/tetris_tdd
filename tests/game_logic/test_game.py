@@ -538,7 +538,8 @@ def test_game_runs_as_expected() -> None:
 
     for idx, (action, expected_board_state) in enumerate(zip(actions, expected_board_states), start=1):
         # WHEN advancing the game frame by frame
-        game.advance_frame(action)
+        game.action_input(action)
+        game.advance_frame()
         print(f"Actual board after step {idx}:", str(board), sep="\n", end="\n\n")
 
         # THEN the board state is as expected on every frame

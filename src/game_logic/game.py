@@ -1,11 +1,9 @@
 from math import ceil
-from time import perf_counter
 from typing import Callable
 
-import ansi
-from ansi import cursor
 from exceptions import BaseTetrisException
 
+from game_logic.action_counter import ActionCounter
 from game_logic.components import Board
 from game_logic.components.block import Block
 from game_logic.components.exceptions import CannotDropBlock, CannotSpawnBlock, NoActiveBlock
@@ -36,7 +34,8 @@ class Game:
         self._select_new_block_fn = select_new_block_fn  # will be moved into the rule that handles block spawning
         # how many frame pass between e.g. block dropping (lower value = faster gameplay)
         self._frame_interval = initial_frame_interval
-        self._quick_drop_interval = ceil(initial_frame_interval / 2)
+        self._quick_drop_interval = ceil(initial_frame_interval / 4)
+        self._action_counter = ActionCounter()
 
     @property
     def frame_counter(self) -> int:
@@ -47,20 +46,25 @@ class Game:
         while True:
             self._clock.tick()
             try:
-                self.advance_frame(self._controller.get_action())
+                self.action_input(self._controller.get_action())
+                self.advance_frame()
             except GameOver:
                 self._ui.game_over(self._board.as_array())
                 return
+
+    def action_input(self, action: Action) -> None:
+        self._action_counter.update(action)
 
     def initialize(self) -> None:
         self._ui.initialize(self._board.height, self._board.width)
         self._board.spawn_random_block()
 
-    def advance_frame(self, action: Action = Action()) -> None:
-        self._try_performing_move_rotate(action)
+    def advance_frame(self) -> None:
+        self._try_performing_move_rotate()
 
-        if (not action.quick_drop and self._frame_counter % self._frame_interval == 0) or (
-            action.quick_drop and self._frame_counter % self._quick_drop_interval == 0
+        quick_drop_held_since = self._action_counter.held_since(Action(quick_drop=True))
+        if (quick_drop_held_since == 0 and self._frame_counter % self._frame_interval == 0) or (
+            quick_drop_held_since % self._quick_drop_interval == 1
         ):
             if self._board.has_active_block():
                 self._drop_or_merge_active_block()
@@ -74,15 +78,15 @@ class Game:
 
         self._frame_counter += 1
 
-    def _try_performing_move_rotate(self, action: Action) -> None:
+    def _try_performing_move_rotate(self) -> None:
         try:
-            if action.move_left:
+            if self._action_counter.held_since(Action(move_left=True)) > 0:
                 self._board.try_move_active_block_left()
-            if action.move_right:
+            if self._action_counter.held_since(Action(move_right=True)) > 0:
                 self._board.try_move_active_block_right()
-            if action.rotate_left:
+            if self._action_counter.held_since(Action(rotate_left=True)) > 0:
                 self._board.try_rotate_active_block_left()
-            if action.rotate_right:
+            if self._action_counter.held_since(Action(rotate_right=True)) > 0:
                 self._board.try_rotate_active_block_right()
         except NoActiveBlock:
             pass
