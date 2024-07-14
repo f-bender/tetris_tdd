@@ -72,11 +72,15 @@ class Board:
 
     def spawn(self, block: Block, position: tuple[int, int] | None = None) -> None:
         position = position or self._top_middle_position(block)
+        active_block = ActiveBlock(block, position)
 
-        if not self._can_spawn(block, position):
-            raise CannotSpawnBlock()
+        if not self._active_block_is_in_valid_position(active_block):
+            try:
+                self._nudge_block_into_valid_position(active_block)
+            except CannotNudge:
+                raise CannotSpawnBlock()
 
-        self._active_block = ActiveBlock(block=block, position=position)
+        self._active_block = active_block
 
     def try_move_active_block_left(self) -> None:
         self._move(-1)
@@ -132,18 +136,6 @@ class Board:
     def _top_middle_position(self, block: Block) -> tuple[int, int]:
         y_offset = block.actual_bounding_box[0][0]
         return -y_offset, ceil((self.width - block.sidelength) / 2)
-
-    def _can_spawn(self, block: Block, position: tuple[int, int]) -> bool:
-        (top, left), (bottom, right) = self._actual_block_bounding_box(block, position)
-
-        if (
-            not self._bbox_in_bounds(top, left, bottom, right)
-            or top < 0  # top of board is considered in bounds, but blocks shouldn't spawn there
-            or self._overlaps_with_active_cells(block.actual_cells, top, left, bottom, right)
-        ):
-            return False
-
-        return True
 
     def _bbox_in_bounds(self, _: int, left: int, bottom: int, right: int) -> bool:
         # note: top is not relevant since blocks may stretch beyond the top of the board

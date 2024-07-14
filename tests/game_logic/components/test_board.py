@@ -140,11 +140,32 @@ def test_spawn_block_partially_out_of_bounds_ok() -> None:
     )
 
 
+def test_spawn_block_partially_out_of_bounds_not_ok_but_can_be_nudged() -> None:
+    board = Board.create_empty(10, 10)
+    # the section of the I block that is out of bounds does have active cells, but it's close enough that it can be
+    # nudged to be in bounds
+    board.spawn(Block(BlockType.I), position=(0, -2))
+    assert str(board) == "\n".join(
+        [
+            "..........",
+            "..........",
+            "XXXX......",
+            "..........",
+            "..........",
+            "..........",
+            "..........",
+            "..........",
+            "..........",
+            "..........",
+        ]
+    )
+
+
 def test_spawn_block_partially_out_of_bounds_not_ok() -> None:
     board = Board.create_empty(10, 10)
     with pytest.raises(CannotSpawnBlock):
-        # the section of the I block that is out of bounds does have active cells
-        board.spawn(Block(BlockType.I), position=(-3, 0))
+        # the section of the I block that is out of bounds does have active cells (too far to be nudged)
+        board.spawn(Block(BlockType.I), position=(0, -3))
 
 
 def test_spawn_block_not_overlapping_existing_cells() -> None:
@@ -173,6 +194,32 @@ def test_spawn_block_not_overlapping_existing_cells() -> None:
     )
 
 
+def test_spawn_block_overlapping_existing_cells_but_can_be_nudged() -> None:
+    board = Board.from_string_representation(
+        """
+            ..........
+            ..........
+            .....XXX..
+            ...XXX....
+            .XXXXXXXXX
+            XXXXXXXXX.
+            XXXX...XXX
+        """
+    )
+    board.spawn(Block(BlockType.S), position=(0, 4))
+    assert str(board) == "\n".join(
+        [
+            "..........",
+            "....XX....",
+            "...XXXXX..",
+            "...XXX....",
+            ".XXXXXXXXX",
+            "XXXXXXXXX.",
+            "XXXX...XXX",
+        ]
+    )
+
+
 def test_spawn_block_overlapping_existing_cells() -> None:
     board = Board.from_string_representation(
         """
@@ -186,7 +233,7 @@ def test_spawn_block_overlapping_existing_cells() -> None:
         """
     )
     with pytest.raises(CannotSpawnBlock):
-        board.spawn(Block(BlockType.S), position=(0, 4))
+        board.spawn(Block(BlockType.S), position=(0, 5))
     assert str(board) == "\n".join(
         [
             "..........",
