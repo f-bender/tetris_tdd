@@ -17,7 +17,8 @@ class GameOver(BaseTetrisException):
 
 
 class Game:
-    MOVE_REPEAT_INTERVAL: int = 6  # if a move button is held, perform the action on every nth frame
+    MOVE_SINGLE_PRESS_DELAY: int = 15  # for the first n frames of a move button being held, consider it a single press
+    MOVE_REPEAT_INTERVAL: int = 4  # if a move button is held longer, perform the action on every nth frame
     ROTATE_REPEAT_INTERVAL: int = 20  # if a rotate button is held, perform the action on every nth frame
 
     def __init__(
@@ -89,11 +90,19 @@ class Game:
     def _try_performing_move_rotate(self) -> None:
         try:
             move_left_held_since = self._action_counter.held_since(Action(move_left=True))
-            if move_left_held_since > 0 and (move_left_held_since - 1) % self.MOVE_REPEAT_INTERVAL == 0:
+            if (
+                move_left_held_since == 1
+                or move_left_held_since >= self.MOVE_SINGLE_PRESS_DELAY
+                and (move_left_held_since - self.MOVE_SINGLE_PRESS_DELAY) % self.MOVE_REPEAT_INTERVAL == 0
+            ):
                 self._board.try_move_active_block_left()
 
             move_right_held_since = self._action_counter.held_since(Action(move_right=True))
-            if move_right_held_since > 0 and (move_right_held_since - 1) % self.MOVE_REPEAT_INTERVAL == 0:
+            if (
+                move_right_held_since == 1
+                or move_right_held_since >= self.MOVE_SINGLE_PRESS_DELAY
+                and (move_right_held_since - self.MOVE_SINGLE_PRESS_DELAY) % self.MOVE_REPEAT_INTERVAL == 0
+            ):
                 self._board.try_move_active_block_right()
 
             rotate_left_held_since = self._action_counter.held_since(Action(rotate_left=True))

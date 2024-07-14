@@ -71,8 +71,9 @@ def test_game_runs_as_expected() -> None:
     ui_mock = Mock()
 
     # ensure every single input is counted, even on adjacent frames
-    Game.ROTATE_REPEAT_INTERVAL = 1
+    Game.MOVE_SINGLE_PRESS_DELAY = 1
     Game.MOVE_REPEAT_INTERVAL = 1
+    Game.ROTATE_REPEAT_INTERVAL = 1
 
     game = Game(
         ui=ui_mock,
