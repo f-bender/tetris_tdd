@@ -6,6 +6,9 @@ from game_logic.components.block import Block, BlockType
 from game_logic.components.board import Board
 from game_logic.game import Game, GameOver
 from game_logic.interfaces.controller import Action, Controller
+from game_logic.interfaces.rule_sequence import RuleSequence
+from rules.move_rotate_rules import HeldInputPolicy, MoveRule, RotateRule
+from rules.spawn_drop_merge_rule import SpawnDropMergeRule, SpawnStrategyImpl
 
 
 class DummyController(Controller):
@@ -20,7 +23,7 @@ def dummy_game() -> Game:
         board=Board.create_empty(20, 10),
         controller=DummyController(),
         clock=Mock(),
-        initial_frame_interval=60,
+        rule_sequence=RuleSequence([]),
     )
 
 
@@ -70,18 +73,24 @@ def test_game_runs_as_expected() -> None:
 
     ui_mock = Mock()
 
-    # ensure every single input is counted, even on adjacent frames
-    Game.MOVE_SINGLE_PRESS_DELAY = 1
-    Game.MOVE_REPEAT_INTERVAL = 1
-    Game.ROTATE_REPEAT_INTERVAL = 1
+    trigger_every_frame_policy = HeldInputPolicy(repeat_interval_frames=1)
 
     game = Game(
         ui=ui_mock,
         board=board,
         controller=DummyController(),
         clock=Mock(),
-        select_new_block_fn=Mock(side_effect=blocks_to_spawn),
-        initial_frame_interval=1,
+        rule_sequence=RuleSequence(
+            [
+                # ensure every single input is counted, even on adjacent frames
+                MoveRule(held_input_policy=trigger_every_frame_policy),
+                RotateRule(held_input_policy=trigger_every_frame_policy),
+                SpawnDropMergeRule(
+                    normal_interval=1,
+                    spawn_strategy=SpawnStrategyImpl(select_block_fn=Mock(side_effect=blocks_to_spawn)),
+                ),
+            ]
+        ),
     )
 
     expected_board_states = [

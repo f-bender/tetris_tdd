@@ -147,5 +147,5 @@ class Block:
         self._invalidate_actual_bounding_box_cache()
 
     @classmethod
-    def create_random(cls) -> Self:
-        return cls(random.choice(list(BlockType)))
+    def create_random(cls, rng: random.Random | None = None) -> Self:
+        return cls((rng or random).choice(list(BlockType)))
