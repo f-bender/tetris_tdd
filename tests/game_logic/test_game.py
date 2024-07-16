@@ -25,10 +25,10 @@ def dummy_game() -> Game:
 
 
 def test_advance_frame_increases_fame_counter(dummy_game: Game) -> None:
-    dummy_game.advance_frame()
+    dummy_game.advance_frame(Action())
     assert dummy_game.frame_counter == 1
 
-    dummy_game.advance_frame()
+    dummy_game.advance_frame(Action())
     assert dummy_game.frame_counter == 2
 
 
@@ -544,8 +544,7 @@ def test_game_runs_as_expected() -> None:
 
     for idx, (action, expected_board_state) in enumerate(zip(actions, expected_board_states), start=1):
         # WHEN advancing the game frame by frame
-        game.action_input(action)
-        game.advance_frame()
+        game.advance_frame(action)
         print(f"Actual board after step {idx}:", str(board), sep="\n", end="\n\n")
 
         # THEN the board state is as expected on every frame
@@ -555,7 +554,7 @@ def test_game_runs_as_expected() -> None:
 
     # THEN the game raises GameOver after the last game-ending board-state
     with pytest.raises(GameOver):
-        game.advance_frame()
+        game.advance_frame(Action())
 
     # THEN the frame counter matches the number of frames/board states
     assert game.frame_counter == len(expected_board_states)

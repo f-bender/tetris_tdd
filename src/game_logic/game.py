@@ -51,19 +51,16 @@ class Game:
         while True:
             self._clock.tick()
             try:
-                self.action_input(self._controller.get_action())
-                self.advance_frame()
+                self.advance_frame(self._controller.get_action())
             except GameOver:
                 self._ui.game_over(self._board.as_array())
                 return
 
-    def action_input(self, action: Action) -> None:
-        self._action_counter.update(action)
-
     def initialize(self) -> None:
         self._ui.initialize(self._board.height, self._board.width)
 
-    def advance_frame(self) -> None:
+    def advance_frame(self, action: Action) -> None:
+        self._action_counter.update(action)
         self._try_performing_move_rotate()
 
         quick_drop_held_since = self._action_counter.held_since(Action(quick_drop=True))
