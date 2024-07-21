@@ -5,25 +5,19 @@ from controllers.keyboard import KeyboardController
 from game_logic.components import Board
 from game_logic.game import Game
 from game_logic.interfaces.rule_sequence import RuleSequence
+from rules.hacky_pause_rule import PauseRule
 from rules.move_rotate_rules import MoveRule, RotateRule
 from rules.spawn_drop_merge_rule import SpawnDropMergeRule
 from ui.cli import CLI
 
 
 def main() -> None:
-    Game(
-        ui=CLI(),
-        board=Board.create_empty(20, 10),
-        controller=KeyboardController(),
-        clock=AmortizingClock(fps=60, window_size=120),
-        rule_sequence=RuleSequence(
-            [
-                MoveRule(),
-                RotateRule(),
-                SpawnDropMergeRule(),
-            ]
-        ),
-    ).run()
+    ui = CLI()
+    board = Board.create_empty(20, 10)
+    controller = KeyboardController()
+    clock = AmortizingClock(fps=60, window_size=120)
+    rule_sequence = RuleSequence([MoveRule(), RotateRule(), SpawnDropMergeRule(), PauseRule(controller, clock)])
+    Game(ui, board, controller, clock, rule_sequence).run()
 
 
 if __name__ == "__main__":

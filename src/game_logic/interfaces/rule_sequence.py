@@ -5,6 +5,8 @@ from game_logic.components.board import Board
 from game_logic.interfaces.rule import Rule
 
 
+# Note that `RuleSequence` itself implements the `Rule` Protocol, so it could be seen as an implementation of the
+# Composite pattern
 class RuleSequence:
     def __init__(self, rule_sequence: Sequence[Rule]) -> None:
         self._rule_sequence = rule_sequence
