@@ -17,5 +17,5 @@ def test_no_invalid_combinations() -> None:
     random_controller = RandomController(only_valid_combinations=True)
     for _ in range(50):
         action = random_controller.get_action()
-        assert not (action.move_left and action.move_right)
-        assert not (action.rotate_right and action.rotate_left)
+        assert not (action.left and action.right)
+        assert not (action.right_shoulder and action.left_shoulder)

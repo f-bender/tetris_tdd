@@ -6,7 +6,13 @@ import numpy as np
 from numpy.typing import NDArray
 
 from game_logic.components import Block
-from game_logic.components.exceptions import CannotDropBlock, CannotNudge, CannotSpawnBlock, NoActiveBlock
+from game_logic.components.exceptions import (
+    ActiveBlockOverlap,
+    CannotDropBlock,
+    CannotNudge,
+    CannotSpawnBlock,
+    NoActiveBlock,
+)
 
 
 @dataclass(slots=True)
@@ -52,6 +58,26 @@ class Board:
 
     def as_array(self) -> NDArray[np.bool]:
         return self._board_with_block()
+
+    def as_array_without_active_block(self) -> NDArray[np.bool]:
+        return self._board.copy()
+
+    def set_from_array(self, array: NDArray[np.bool]) -> None:
+        new_board = array.astype(np.bool)
+        if new_board.shape != self._board.shape:
+            raise ValueError("Array shape does not match board shape")
+
+        if self._active_block is not None:
+            (top, left), (bottom, right) = self._actual_block_bounding_box(
+                self._active_block.block, self._active_block.position
+            )
+
+            if self._active_block_overlaps_with_active_cells(
+                new_board, self._active_block.block.actual_cells, top, left, bottom, right
+            ):
+                raise ActiveBlockOverlap()
+
+        self._board = new_board
 
     @property
     def height(self) -> int:
@@ -110,8 +136,8 @@ class Board:
         if not self._bbox_in_bounds(dropped_top, dropped_left, dropped_bottom, dropped_right):
             raise CannotDropBlock("Active block reached bottom of the board")
 
-        if self._overlaps_with_active_cells(
-            self._active_block.block.actual_cells, dropped_top, dropped_left, dropped_bottom, dropped_right
+        if self._active_block_overlaps_with_active_cells(
+            self._board, self._active_block.block.actual_cells, dropped_top, dropped_left, dropped_bottom, dropped_right
         ):
             raise CannotDropBlock("Active block has landed on an active cell")
 
@@ -142,13 +168,14 @@ class Board:
         # its spot however left in the signature to avoid confusing arguments
         return not (left < 0 or bottom > self.height or right > self.width)
 
-    def _overlaps_with_active_cells(
-        self, cells: NDArray[np.bool], top: int, left: int, bottom: int, right: int
+    @staticmethod
+    def _active_block_overlaps_with_active_cells(
+        board: NDArray[np.bool], active_block_cells: NDArray[np.bool], top: int, left: int, bottom: int, right: int
     ) -> bool:
         # blocks are allowed to stretch beyond the top line; in this case the corresponding cells are not considered
         # part of the board
         top_cutoff = max(0, -top)
-        return bool(np.any(self._board[top + top_cutoff : bottom, left:right] & cells[top_cutoff:, :]))
+        return bool(np.any(board[top + top_cutoff : bottom, left:right] & active_block_cells[top_cutoff:, :]))
 
     def _move(self, x_offset: Literal[-1, 1]) -> None:
         if self._active_block is None:
@@ -183,8 +210,8 @@ class Board:
     def _active_block_is_in_valid_position(self, active_block: ActiveBlock) -> bool:
         (top, left), (bottom, right) = self._actual_block_bounding_box(active_block.block, active_block.position)
 
-        return self._bbox_in_bounds(top, left, bottom, right) and not self._overlaps_with_active_cells(
-            active_block.block.actual_cells, top, left, bottom, right
+        return self._bbox_in_bounds(top, left, bottom, right) and not self._active_block_overlaps_with_active_cells(
+            self._board, active_block.block.actual_cells, top, left, bottom, right
         )
 
     def _nudge_block_into_valid_position(self, active_block: ActiveBlock) -> None:

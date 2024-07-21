@@ -90,14 +90,14 @@ class CliController(Controller):
     def get_action(self) -> Action:
         match self._button_listener.get_held_char():
             case "a":
-                return Action(move_left=True)
+                return Action(left=True)
             case "s":
-                return Action(quick_drop=True)
+                return Action(down=True)
             case "d":
-                return Action(move_right=True)
+                return Action(right=True)
             case "q":
-                return Action(rotate_left=True)
+                return Action(left_shoulder=True)
             case "e":
-                return Action(rotate_right=True)
+                return Action(right_shoulder=True)
             case _:
                 return Action()

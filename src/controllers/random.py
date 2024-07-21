@@ -48,4 +48,4 @@ class RandomController(Controller):
 
     @staticmethod
     def _is_valid(action: Action) -> bool:
-        return not (action.move_left and action.move_right) and not (action.rotate_right and action.rotate_left)
+        return not (action.left and action.right) and not (action.right_shoulder and action.left_shoulder)

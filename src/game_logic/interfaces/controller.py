@@ -3,11 +3,14 @@ from typing import NamedTuple
 
 
 class Action(NamedTuple):
-    move_left: bool = False
-    move_right: bool = False
-    rotate_left: bool = False
-    rotate_right: bool = False
-    quick_drop: bool = False
+    left: bool = False
+    right: bool = False
+    up: bool = False
+    down: bool = False
+    left_shoulder: bool = False
+    right_shoulder: bool = False
+    confirm: bool = False
+    cancel: bool = False
 
 
 class Controller(ABC):

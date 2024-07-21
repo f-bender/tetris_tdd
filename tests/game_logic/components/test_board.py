@@ -1,6 +1,7 @@
+import numpy as np
 import pytest  # type: ignore
 from game_logic.components import Block, BlockType, Board
-from game_logic.components.exceptions import CannotDropBlock, CannotSpawnBlock, NoActiveBlock
+from game_logic.components.exceptions import ActiveBlockOverlap, CannotDropBlock, CannotSpawnBlock, NoActiveBlock
 
 
 def test_create_empty_board() -> None:
@@ -880,3 +881,56 @@ def test_lines_above_disconnected_line_clear_drop_down_correctly() -> None:
             "X....XXXXX",
         ]
     )
+
+
+def test_set_from_array() -> None:
+    board = Board.create_empty(5, 5)
+    board.set_from_array(
+        np.array(
+            [
+                [0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0],
+                [0, 0, 1, 0, 0],
+                [0, 1, 0, 1, 0],
+                [1, 1, 1, 1, 1],
+            ],
+            dtype=np.bool,
+        )
+    )
+    assert str(board) == "\n".join(
+        [
+            ".....",
+            ".....",
+            "..X..",
+            ".X.X.",
+            "XXXXX",
+        ]
+    )
+
+
+def test_set_from_array_overlapping_active_block() -> None:
+    board = Board.create_empty(5, 5)
+    board.spawn(Block(BlockType.T), position=(0, 0))
+    assert str(board) == "\n".join(
+        [
+            ".....",
+            "XXX..",
+            ".X...",
+            ".....",
+            ".....",
+        ]
+    )
+
+    with pytest.raises(ActiveBlockOverlap):
+        board.set_from_array(
+            np.array(
+                [
+                    [1, 0, 0, 0, 0],
+                    [1, 0, 0, 0, 0],
+                    [1, 0, 0, 0, 0],
+                    [1, 0, 0, 0, 0],
+                    [1, 0, 0, 0, 0],
+                ],
+                dtype=np.bool,
+            )
+        )

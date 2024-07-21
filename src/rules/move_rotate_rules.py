@@ -1,5 +1,6 @@
 from game_logic.action_counter import ActionCounter
 from game_logic.components.board import Board
+from game_logic.interfaces.callback_collection import CallbackCollection
 from game_logic.interfaces.controller import Action
 
 
@@ -46,14 +47,16 @@ class MoveRule:
         """
         self._held_input_policy = held_input_policy
 
-    def apply(self, frame_counter: int, action_counter: ActionCounter, board: Board) -> None:
+    def apply(
+        self, frame_counter: int, action_counter: ActionCounter, board: Board, callback_collection: CallbackCollection
+    ) -> None:
         if not board.has_active_block():
             return
 
-        if self._held_input_policy.should_trigger(held_since_frames=action_counter.held_since(Action(move_left=True))):
+        if self._held_input_policy.should_trigger(held_since_frames=action_counter.held_since(Action(left=True))):
             board.try_move_active_block_left()
 
-        if self._held_input_policy.should_trigger(held_since_frames=action_counter.held_since(Action(move_right=True))):
+        if self._held_input_policy.should_trigger(held_since_frames=action_counter.held_since(Action(right=True))):
             board.try_move_active_block_right()
 
 
@@ -70,16 +73,21 @@ class RotateRule:
         """
         self._held_input_policy = held_input_policy
 
-    def apply(self, frame_counter: int, action_counter: ActionCounter, board: Board) -> None:
+    def apply(
+        self, frame_counter: int, action_counter: ActionCounter, board: Board, callback_collection: CallbackCollection
+    ) -> None:
         if not board.has_active_block():
             return
 
         if self._held_input_policy.should_trigger(
-            held_since_frames=action_counter.held_since(Action(rotate_left=True))
+            held_since_frames=action_counter.held_since(Action(left_shoulder=True))
         ):
             board.try_rotate_active_block_left()
 
         if self._held_input_policy.should_trigger(
-            held_since_frames=action_counter.held_since(Action(rotate_right=True))
+            held_since_frames=max(
+                action_counter.held_since(Action(right_shoulder=True)),
+                action_counter.held_since(Action(up=True)),  # up can be used for right rotation as well
+            )
         ):
             board.try_rotate_active_block_right()

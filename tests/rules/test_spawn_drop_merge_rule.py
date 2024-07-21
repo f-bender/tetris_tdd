@@ -3,7 +3,7 @@ from unittest.mock import Mock
 from rules.spawn_drop_merge_rule import SpawnDropMergeRule
 
 
-def test_nothing() -> None:
+def test_drop_triggered_on_correct_frames() -> None:
     drop_rule = SpawnDropMergeRule(normal_interval=6, quick_interval_factor=2)
 
     # fmt: off
@@ -56,6 +56,7 @@ def assert_whether_drop_triggered_after(
         frame_counter=frame_counter,
         action_counter=Mock(held_since=Mock(return_value=quick_drop_held_since)),
         board=mock_board,
+        callback_collection=Mock(),
     )
     if should_trigger:
         mock_board.drop_active_block.assert_called()

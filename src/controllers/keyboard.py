@@ -1,16 +1,22 @@
 from typing import Mapping
+
 import keyboard
 from game_logic.interfaces.controller import Action, Controller
 
+type Key = str | int
+
 
 class KeyboardController(Controller):
-    def __init__(self, action_to_keys: Mapping[str, list[str]] | None = None) -> None:
+    def __init__(self, action_to_keys: Mapping[str, list[Key]] | None = None) -> None:
         self._action_to_keys = action_to_keys or {
-            "move_left": ["a", "left", "h"],
-            "move_right": ["d", "right", "l"],
-            "rotate_left": ["q"],
-            "rotate_right": ["e", "w", "up", "k"],
-            "quick_drop": ["s", "down", "j"],
+            "left": ["a", "left", "h"],
+            "right": ["d", "right", "l"],
+            "up": ["w", "up", "k"],
+            "down": ["s", "down", "j"],
+            "left_shoulder": ["q", "i"],
+            "right_shoulder": ["e", "o"],
+            "confirm": ["enter", "space", 82],  # numpad 0
+            "cancel": ["esc", "ctrl"],
         }
 
         if (mapped_actions := set(self._action_to_keys.keys())) != (all_actions := set(Action._fields)):

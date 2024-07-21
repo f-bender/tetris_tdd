@@ -5,6 +5,7 @@ from game_logic.components.block import Block
 from game_logic.components.board import Board
 from game_logic.components.exceptions import CannotDropBlock, CannotSpawnBlock
 from game_logic.game import GameOver
+from game_logic.interfaces.callback_collection import CallbackCollection
 from game_logic.interfaces.controller import Action
 
 
@@ -77,7 +78,9 @@ class SpawnDropMergeRule:
         self._normal_interval = normal_interval
         self._quick_interval = max(round(normal_interval / self._quick_interval_factor), 1)
 
-    def apply(self, frame_counter: int, action_counter: ActionCounter, board: Board) -> None:
+    def apply(
+        self, frame_counter: int, action_counter: ActionCounter, board: Board, callback_collection: CallbackCollection
+    ) -> None:
         """Do only one of the actions at a time: Either spawn a block, or drop the block, or merge it into the board.
 
         Block spawning happens `spawn_delay` frames after the last merge, regardless of the quick-drop-action.
@@ -88,11 +91,15 @@ class SpawnDropMergeRule:
                 self._spawn_strategy.apply(board)
             return
 
-        if (quick_drop_held_since := action_counter.held_since(Action(quick_drop=True))) != 0:
+        if (quick_drop_held_since := action_counter.held_since(Action(down=True))) != 0:
             if self._is_quick_action_frame(quick_drop_held_since):
-                self._drop_or_merge(frame_counter, board)
+                if self._drop_or_merge(board):
+                    self._last_merge_frame = frame_counter
+                    callback_collection.custom_message("quick merge")
         elif self._is_normal_action_frame(frame_counter):
-            self._drop_or_merge(frame_counter, board)
+            if self._drop_or_merge(board):
+                self._last_merge_frame = frame_counter
+                callback_collection.custom_message("slow merge")
 
     def _is_normal_action_frame(self, frame_counter: int) -> bool:
         return frame_counter % self._normal_interval == 0
@@ -100,9 +107,11 @@ class SpawnDropMergeRule:
     def _is_quick_action_frame(self, quick_drop_held_since: int) -> bool:
         return quick_drop_held_since != 0 and (quick_drop_held_since - 1) % self._quick_interval == 0
 
-    def _drop_or_merge(self, frame_counter: int, board: Board) -> None:
+    def _drop_or_merge(self, board: Board) -> bool:
+        """Returns bool whether a merge has happened."""
         try:
             self._drop_strategy.apply(board)
+            return False
         except CannotDropBlock:
             self._merge_strategy.apply(board)
-            self._last_merge_frame = frame_counter
+            return True

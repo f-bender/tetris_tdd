@@ -60,14 +60,14 @@ def test_game_runs_as_expected() -> None:
         [
             Action(),
             Action(),
-            Action(move_right=True),
-            Action(move_right=True),
-            Action(rotate_right=True),
-            Action(rotate_right=True),
-            Action(move_left=True),
-            Action(move_left=True),
-            Action(rotate_left=True),
-            Action(rotate_left=True),
+            Action(right=True),
+            Action(right=True),
+            Action(right_shoulder=True),
+            Action(right_shoulder=True),
+            Action(left=True),
+            Action(left=True),
+            Action(left_shoulder=True),
+            Action(left_shoulder=True),
         ]
     )
 

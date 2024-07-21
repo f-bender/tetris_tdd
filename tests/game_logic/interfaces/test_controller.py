@@ -9,11 +9,20 @@ class DummyController(Controller):
 def test_button_description_default_implementation() -> None:
     controller = DummyController()
     assert controller.get_button_description(Action()) == ""
-    assert controller.get_button_description(Action(rotate_left=True)) == "Rotate Left"
-    assert controller.get_button_description(Action(move_left=True, rotate_right=True)) == "Move Left + Rotate Right"
+    assert controller.get_button_description(Action(left_shoulder=True)) == "Left Shoulder"
+    assert controller.get_button_description(Action(left=True, right_shoulder=True)) == "Left + Right Shoulder"
     assert (
         controller.get_button_description(
-            Action(move_left=True, move_right=True, rotate_left=True, rotate_right=True, quick_drop=True)
+            Action(
+                left=True,
+                right=True,
+                up=True,
+                down=True,
+                left_shoulder=True,
+                right_shoulder=True,
+                confirm=True,
+                cancel=True,
+            )
         )
-        == "Move Left + Move Right + Rotate Left + Rotate Right + Quick Drop"
+        == "Left + Right + Up + Down + Left Shoulder + Right Shoulder + Confirm + Cancel"
     )
