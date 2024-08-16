@@ -2,6 +2,7 @@ from itertools import cycle
 from unittest.mock import Mock
 
 import pytest
+
 from game_logic.components.block import Block, BlockType
 from game_logic.components.board import Board
 from game_logic.game import Game, GameOver
@@ -551,7 +552,7 @@ def test_game_runs_as_expected() -> None:
         ],
     ]
 
-    for idx, (action, expected_board_state) in enumerate(zip(actions, expected_board_states), start=1):
+    for idx, (action, expected_board_state) in enumerate(zip(actions, expected_board_states, strict=False), start=1):
         # WHEN advancing the game frame by frame
         game.advance_frame(action)
         print(f"Actual board after step {idx}:", str(board), sep="\n", end="\n\n")

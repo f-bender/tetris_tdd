@@ -1,17 +1,20 @@
 import atexit
 import sys
+from dataclasses import dataclass
 from typing import Literal, NamedTuple, Self
 
 import numpy as np
 from ansi import color, cursor
-from ansi_extensions import color as colorx
 from numpy.typing import NDArray
+
+from ansi_extensions import color as colorx
 
 # see https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797 for a list of ANSI escape codes,
 # NOT ALL of which are provided in the `ansi` package
 
 
-class Vec(NamedTuple):
+@dataclass(frozen=True, slots=True)
+class Vec:
     y: int
     x: int
 
@@ -59,13 +62,13 @@ class CLI:
 
     def __init__(
         self,
-        color_palette: ColorPalette = ColorPalette.from_rgb(
-            board_bg=(80, 80, 80), board_bg_alt=(60, 60, 60), board_fg=(200, 200, 200)
-        ),
+        color_palette: ColorPalette | None = None,
     ) -> None:
         self._last_image_buffer: NDArray[np.uint8] | None = None
         self._board_background: NDArray[np.uint8] | None = None
-        self._color_palette = color_palette
+        self._color_palette = color_palette or ColorPalette.from_rgb(
+            board_bg=(80, 80, 80), board_bg_alt=(60, 60, 60), board_fg=(200, 200, 200)
+        )
 
     @staticmethod
     def _cursor_goto(vec: Vec) -> str:
@@ -91,7 +94,7 @@ class CLI:
         if self._last_image_buffer is None:
             self._draw_array(Vec(0, 0), image_buffer)
         else:
-            for y, x in zip(*(image_buffer != self._last_image_buffer).nonzero()):
+            for y, x in zip(*(image_buffer != self._last_image_buffer).nonzero(), strict=True):
                 self._draw_pixel(Vec(y, x), color_index=int(image_buffer[y, x]))
 
         sys.stdout.flush()  # make sure the changes are actually shown on screen

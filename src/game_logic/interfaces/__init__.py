@@ -1,3 +1,3 @@
-from .clock import Clock
-from .controller import Controller
-from .ui import UI
+from .clock import Clock as Clock
+from .controller import Controller as Controller
+from .ui import UI as UI

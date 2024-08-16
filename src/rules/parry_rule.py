@@ -7,13 +7,11 @@ from game_logic.interfaces.controller import Action
 
 
 class ParryRule:
-    def __init__(
-        self, leeway_frames: int = 1, reward_board_manipulation: BoardManipulation = Gravity(per_col_probability=0.2)
-    ) -> None:
+    def __init__(self, leeway_frames: int = 1, reward_board_manipulation: BoardManipulation | None = None) -> None:
         self._just_merged = False
         self._last_merge_frame: int | None = 0
         self._leeway_frames = leeway_frames
-        self._reward_board_manipulation = reward_board_manipulation
+        self._reward_board_manipulation = reward_board_manipulation or Gravity(per_col_probability=0.2)
         self._already_applied = False
         self._quick_merge = False
 

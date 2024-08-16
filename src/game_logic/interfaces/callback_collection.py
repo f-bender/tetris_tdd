@@ -1,4 +1,4 @@
-from typing import Collection
+from collections.abc import Collection
 
 from game_logic.interfaces.callback import Callback
 

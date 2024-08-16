@@ -1,4 +1,5 @@
-from typing import Callable, Protocol
+from collections.abc import Callable
+from typing import Protocol
 
 from game_logic.action_counter import ActionCounter
 from game_logic.components.block import Block
@@ -23,8 +24,8 @@ class SpawnStrategyImpl:
     def apply(self, board: Board) -> None:
         try:
             board.spawn(self._select_block_fn())
-        except CannotSpawnBlock:
-            raise GameOver
+        except CannotSpawnBlock as e:
+            raise GameOver from e
 
 
 class DropStrategy(Protocol):
@@ -51,9 +52,9 @@ class SpawnDropMergeRule:
         normal_interval: int = 25,
         quick_interval_factor: float = 8,
         spawn_delay: int | None = None,
-        spawn_strategy: SpawnStrategy = SpawnStrategyImpl(),
-        drop_strategy: DropStrategy = DropStrategyImpl(),
-        merge_strategy: MergeStrategy = MergeStrategyImpl(),
+        spawn_strategy: SpawnStrategy | None = None,
+        drop_strategy: DropStrategy | None = None,
+        merge_strategy: MergeStrategy | None = None,
     ) -> None:
         """Initialize the DropRule.
 
@@ -67,9 +68,9 @@ class SpawnDropMergeRule:
         self._quick_interval_factor = quick_interval_factor
         self.set_interval(normal_interval)
 
-        self._spawn_strategy = spawn_strategy
-        self._drop_strategy = drop_strategy
-        self._merge_strategy = merge_strategy
+        self._spawn_strategy = spawn_strategy or SpawnStrategyImpl()
+        self._drop_strategy = drop_strategy or DropStrategyImpl()
+        self._merge_strategy = merge_strategy or MergeStrategyImpl()
 
         self._spawn_delay = spawn_delay or normal_interval
         self._last_merge_frame: int | None = None
@@ -92,14 +93,12 @@ class SpawnDropMergeRule:
             return
 
         if (quick_drop_held_since := action_counter.held_since(Action(down=True))) != 0:
-            if self._is_quick_action_frame(quick_drop_held_since):
-                if self._drop_or_merge(board):
-                    self._last_merge_frame = frame_counter
-                    callback_collection.custom_message("quick merge")
-        elif self._is_normal_action_frame(frame_counter):
-            if self._drop_or_merge(board):
+            if self._is_quick_action_frame(quick_drop_held_since) and self._drop_or_merge(board):
                 self._last_merge_frame = frame_counter
-                callback_collection.custom_message("slow merge")
+                callback_collection.custom_message("quick merge")
+        elif self._is_normal_action_frame(frame_counter) and self._drop_or_merge(board):
+            self._last_merge_frame = frame_counter
+            callback_collection.custom_message("slow merge")
 
     def _is_normal_action_frame(self, frame_counter: int) -> bool:
         return frame_counter % self._normal_interval == 0

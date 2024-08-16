@@ -34,10 +34,7 @@ class HeldInputPolicy:
 
 
 class MoveRule:
-    def __init__(
-        self,
-        held_input_policy: HeldInputPolicy = HeldInputPolicy(repeat_interval_frames=4, single_press_delay_frames=15),
-    ) -> None:
+    def __init__(self, held_input_policy: HeldInputPolicy | None = None) -> None:
         """Initialize the Move Rule.
 
         Args:
@@ -45,7 +42,9 @@ class MoveRule:
                 been held for. The default values of repeat_interval_frames=4 and single_press_delay_frames=15 are
                 fine-tuned for 60 FPS gameplay.
         """
-        self._held_input_policy = held_input_policy
+        self._held_input_policy = held_input_policy or HeldInputPolicy(
+            repeat_interval_frames=4, single_press_delay_frames=15
+        )
 
     def apply(
         self, frame_counter: int, action_counter: ActionCounter, board: Board, callback_collection: CallbackCollection
@@ -61,17 +60,14 @@ class MoveRule:
 
 
 class RotateRule:
-    def __init__(
-        self,
-        held_input_policy: HeldInputPolicy = HeldInputPolicy(repeat_interval_frames=20),
-    ) -> None:
+    def __init__(self, held_input_policy: HeldInputPolicy | None = None) -> None:
         """Initialize the Rotate Rule.
 
         Args:
             held_input_policy: Policy when to trigger the move action based on how long the corresponding button has
                 been held for. The default value of repeat_interval_frames=20 is fine-tuned for 60 FPS gameplay.
         """
-        self._held_input_policy = held_input_policy
+        self._held_input_policy = held_input_policy or HeldInputPolicy(repeat_interval_frames=20)
 
     def apply(
         self, frame_counter: int, action_counter: ActionCounter, board: Board, callback_collection: CallbackCollection

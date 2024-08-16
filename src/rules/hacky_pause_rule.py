@@ -6,15 +6,10 @@ from game_logic.interfaces.controller import Action, Controller
 
 
 class PauseRule:
-    def __init__(
-        self,
-        controller: Controller,
-        clock: Clock,
-        pause_action: Action = Action(left=True, right=True, down=True),
-    ) -> None:
+    def __init__(self, controller: Controller, clock: Clock, pause_action: Action | None = None) -> None:
         self._controller = controller
         self._clock = clock
-        self._pause_action = pause_action
+        self._pause_action = pause_action or Action(left=True, right=True, down=True)
 
     def apply(
         self, frame_counter: int, action_counter: ActionCounter, board: Board, callback_collection: CallbackCollection

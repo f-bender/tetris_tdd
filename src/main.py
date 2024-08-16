@@ -6,9 +6,9 @@ from game_logic.components import Board
 from game_logic.game import Game
 from game_logic.interfaces.callback_collection import CallbackCollection
 from game_logic.interfaces.rule_sequence import RuleSequence
-from rules.parry_rule import ParryRule
 from rules.hacky_pause_rule import PauseRule
 from rules.move_rotate_rules import MoveRule, RotateRule
+from rules.parry_rule import ParryRule
 from rules.spawn_drop_merge_rule import SpawnDropMergeRule
 from ui.cli import CLI
 

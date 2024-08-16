@@ -1,5 +1,6 @@
 import numpy as np
-import pytest  # type: ignore
+import pytest
+
 from game_logic.components import Block, BlockType, Board
 from game_logic.components.exceptions import ActiveBlockOverlap, CannotDropBlock, CannotSpawnBlock, NoActiveBlock
 

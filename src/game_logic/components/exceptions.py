@@ -16,5 +16,6 @@ class CannotDropBlock(BaseTetrisException):
 class CannotNudge(BaseTetrisException):
     pass
 
+
 class ActiveBlockOverlap(BaseTetrisException):
     pass

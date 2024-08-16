@@ -6,12 +6,12 @@ really useful when the application waits and performs actions based and timed co
 
 import os
 import sys
+import warnings
 from functools import partial
 from threading import Thread
 from time import perf_counter
 from typing import NoReturn
 
-import warnings
 from game_logic.interfaces.controller import Action, Controller
 
 if os.name == "nt":
@@ -26,8 +26,8 @@ if os.name == "nt":
 else:
     import tty
 
-    tty.setcbreak(sys.stdin)
-    get_char = partial(sys.stdin.read, 1)
+    tty.setcbreak(sys.stdin)  # type: ignore[attr-defined]
+    get_char = partial(sys.stdin.read, 1)  # type: ignore[misc]
 
 
 class CliButtonListener(Thread):
@@ -83,6 +83,7 @@ class CliController(Controller):
             "CliController is deprecated: Is too clunky and doesn't work well for a clock-driven setting "
             "(as opposed to a user-input-driven setting)",
             category=DeprecationWarning,
+            stacklevel=2,
         )
         self._button_listener = CliButtonListener()
         self._button_listener.start()

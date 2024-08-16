@@ -103,8 +103,8 @@ class Board:
         if not self._active_block_is_in_valid_position(active_block):
             try:
                 self._nudge_block_into_valid_position(active_block)
-            except CannotNudge:
-                raise CannotSpawnBlock()
+            except CannotNudge as e:
+                raise CannotSpawnBlock() from e
 
         self._active_block = active_block
 

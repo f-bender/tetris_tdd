@@ -1,5 +1,4 @@
 from exceptions import BaseTetrisException
-
 from game_logic.action_counter import ActionCounter
 from game_logic.components import Board
 from game_logic.interfaces.callback_collection import CallbackCollection
@@ -21,7 +20,7 @@ class Game:
         controller: Controller,
         clock: Clock,
         rule_sequence: RuleSequence,
-        callback_collection: CallbackCollection = CallbackCollection(()),
+        callback_collection: CallbackCollection | None = None,
     ) -> None:
         self._ui = ui
         self._board = board
@@ -30,7 +29,7 @@ class Game:
         self._frame_counter = 0
         self._action_counter = ActionCounter()
         self._rule_sequence = rule_sequence
-        self._callback_collection = callback_collection
+        self._callback_collection = callback_collection or CallbackCollection(())
 
     @property
     def frame_counter(self) -> int:

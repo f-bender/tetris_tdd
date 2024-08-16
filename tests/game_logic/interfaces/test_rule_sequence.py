@@ -1,5 +1,5 @@
 from unittest.mock import Mock
-from game_logic.interfaces.callback_collection import CallbackCollection
+
 from game_logic.interfaces.rule_sequence import RuleSequence
 
 

@@ -1,6 +1,7 @@
-from typing import Mapping
+from collections.abc import Mapping
 
 import keyboard
+
 from game_logic.interfaces.controller import Action, Controller
 
 type Key = str | int

@@ -1,4 +1,4 @@
-from typing import Sequence
+from collections.abc import Sequence
 
 from game_logic.action_counter import ActionCounter
 from game_logic.components.board import Board

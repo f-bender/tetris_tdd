@@ -1,6 +1,7 @@
 import time
 
 import pytest
+
 from clock.amortizing import AmortizingClock
 from clock.simple import SimpleClock
 from game_logic.interfaces import Clock

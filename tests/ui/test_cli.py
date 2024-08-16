@@ -1,6 +1,6 @@
 import inspect
-from typing import get_type_hints
-from typing import Literal
+from typing import Literal, get_type_hints
+
 from ui.cli import ColorPalette
 
 

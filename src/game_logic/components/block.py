@@ -1,3 +1,4 @@
+import contextlib
 import random
 from enum import Enum, auto
 from functools import cached_property
@@ -122,10 +123,8 @@ class Block:
         )
 
     def _invalidate_actual_bounding_box_cache(self) -> None:
-        try:
+        with contextlib.suppress(AttributeError):
             del self.actual_bounding_box
-        except AttributeError:
-            pass
 
     @property
     def actual_cells(self) -> NDArray[np.bool]:

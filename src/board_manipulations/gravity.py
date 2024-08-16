@@ -1,8 +1,9 @@
 import random
 
 import numpy as np
-from game_logic.components.board import Board
 from numpy.typing import NDArray
+
+from game_logic.components.board import Board
 
 
 class Gravity:
