@@ -14,6 +14,7 @@ keyboard = "^0.13.5"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.2"
+pre-commit = "^3.8.0"
 
 [build-system]
 requires = ["poetry-core"]
@@ -21,3 +22,21 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
 line-length = 120
+target-version = "py312"
+src = ["src"]
+lint.select = [
+    "F",   # Pyflakes
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "SIM", # flake8-simplify
+    "C4",  # flake8-comprehensions
+    "I",   # isort
+    "E",   # pycodestyle
+]
+lint.pydocstyle.convention = "google"
+fix = true
+
+[tool.mypy]
+strict = true
+warn_return_any = false
+enable_incomplete_feature = "NewGenericSyntax"
