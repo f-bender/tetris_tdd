@@ -32,10 +32,6 @@ class ParryRule:
             action_counter
         ):
             self._reward_board_manipulation.manipulate(board)
-            # TODO change the interface of the Board class such that private methods don't need to be called here
-            # -> basically implement clear_lines_rule then this is obsolete
-            full_line_positions = board._get_full_line_positions_ordered_top_to_bottom()
-            board._clear_lines(full_line_positions)
             self._already_applied = True
 
     def _last_merge_within_leeway_frames(self, frame_counter: int) -> bool:

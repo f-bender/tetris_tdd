@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from dataclasses import dataclass
 from math import ceil
 from typing import Literal, Self
@@ -42,7 +43,7 @@ class Board:
             )
 
         width = 0
-        _board = []
+        _board: list[list[bool]] = []
         for line in string.strip().splitlines():
             line = line.strip()
             if not width:
@@ -88,7 +89,7 @@ class Board:
         return self._board.shape[1]
 
     def __str__(self) -> str:
-        return "\n".join("".join(("X" if c else ".") for c in row) for row in self._board_with_block())
+        return "\n".join("".join(("X" if c else ".") for c in line) for line in self._board_with_block())
 
     def has_active_block(self) -> bool:
         return self._active_block is not None
@@ -143,21 +144,12 @@ class Board:
 
         self._active_block.position = dropped_position
 
-    def merge_active_block(self) -> int:
-        """Merge the active block into the board.
-
-        If this fills up lines, they are cleared.
-        The number of cleared lines is returned.
-        """
+    def merge_active_block(self) -> None:
         if self._active_block is None:
             raise NoActiveBlock()
 
         self._merge_active_block_into_board(self._active_block, self._board)
         self._active_block = None
-
-        full_line_positions = self._get_full_line_positions_ordered_top_to_bottom()
-        self._clear_lines(full_line_positions)
-        return len(full_line_positions)
 
     def _top_middle_position(self, block: Block) -> tuple[int, int]:
         y_offset = block.actual_bounding_box[0][0]
@@ -217,7 +209,7 @@ class Board:
     def _nudge_block_into_valid_position(self, active_block: ActiveBlock) -> None:
         # RULES:
         # we can only nudge laterally (left, right)
-        # we can nudge at most the block by half its sidelength
+        # we can nudge the block at most by half its sidelength
         # we must nudge the least possible amount
 
         max_nudge = active_block.block.sidelength // 2
@@ -242,15 +234,21 @@ class Board:
 
         return self._board
 
-    def _clear_lines(self, full_line_positions: NDArray[np.int_]) -> None:
-        for line_position in full_line_positions:
-            # move everything above the cleared line position one line down
-            self._board[1 : line_position + 1] = self._board[:line_position]
-            # fill the top row with zeros (empty)
-            self._board[0] = np.zeros_like(self._board[0])
+    def clear_lines(self, line_idxs: Iterable[int]) -> None:
+        for line_idx in line_idxs:
+            self.clear_line(line_idx)
 
-    def _get_full_line_positions_ordered_top_to_bottom(self) -> NDArray[np.int_]:
-        return np.where(np.all(self._board, axis=1))[0]
+    def clear_line(self, line_idx: int) -> None:
+        if line_idx < 0 or line_idx >= self.height:
+            raise IndexError(f"Line index out of range (0-{self.height - 1})")
+
+        # move everything above the cleared line one line down
+        self._board[1 : line_idx + 1] = self._board[:line_idx]
+        # fill the top line with zeros (empty)
+        self._board[0] = np.zeros_like(self._board[0])
+
+    def get_full_line_idxs(self) -> list[int]:
+        return list(np.where(np.all(self._board, axis=1))[0])
 
     @staticmethod
     def _merge_active_block_into_board(active_block: ActiveBlock, board: NDArray[np.bool]) -> None:

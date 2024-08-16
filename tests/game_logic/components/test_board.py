@@ -761,7 +761,7 @@ def test_zero_lines_cleared() -> None:
             "XXXX......",
         ]
     )
-    assert board.merge_active_block() == 0
+    board.merge_active_block()
     assert str(board) == "\n".join(
         [
             "..........",
@@ -770,118 +770,150 @@ def test_zero_lines_cleared() -> None:
     )
 
 
-def test_one_line_cleared() -> None:
+def test_get_full_line_idxs_one_line() -> None:
     board = Board.from_string_representation(
         """
             ..........
-            ....XXXXXX
+            XXXXXXXXXX
         """
     )
 
-    board.spawn(Block(BlockType.I), position=(-1, 0))
-    assert str(board) == "\n".join(
-        [
-            "..........",
-            "XXXXXXXXXX",
-        ]
-    )
-    assert board.merge_active_block() == 1
-    assert str(board) == "\n".join(
-        [
-            "..........",
-            "..........",
-        ]
-    )
+    assert board.get_full_line_idxs() == [1]
 
 
-def test_four_lines_cleared() -> None:
+def test_get_full_line_idxs_four_lines() -> None:
     board = Board.from_string_representation(
         """
-            .XXXXXXXXX
-            .XXXXXXXXX
-            .XXXXXXXXX
-            .XXXXXXXXX
+            XXXXXXXXXX
+            XXXXXXXXXX
+            XXXXXXXXXX
+            XXXXXXXXXX
         """
     )
 
-    board.spawn(vertical_I_block(), position=(0, -2))
-    assert str(board) == "\n".join(
-        [
-            "XXXXXXXXXX",
-            "XXXXXXXXXX",
-            "XXXXXXXXXX",
-            "XXXXXXXXXX",
-        ]
-    )
-    assert board.merge_active_block() == 4
-    assert str(board) == "\n".join(
-        [
-            "..........",
-            "..........",
-            "..........",
-            "..........",
-        ]
-    )
+    assert board.get_full_line_idxs() == [0, 1, 2, 3]
 
 
-def test_lines_above_clear_drop_down() -> None:
+def test_get_full_line_idxs_partial_lines() -> None:
     board = Board.from_string_representation(
         """
-            .........X
-            ...XX....X
-            .XXXXXXXXX
-            .....XXXXX
+            X........X
+            X..XX....X
+            XXXXXXXXXX
+            X....XXXXX
         """
     )
 
-    board.spawn(vertical_I_block(), position=(0, -2))
+    assert board.get_full_line_idxs() == [2]
+
+
+def test_get_full_line_idxs_disconnected_lines() -> None:
+    board = Board.from_string_representation(
+        """
+            X........X
+            XXXXXXXXXX
+            X....XXXXX
+            XXXXXXXXXX
+        """
+    )
+
+    assert board.get_full_line_idxs() == [1, 3]
+
+
+def test_clear_line() -> None:
+    board = Board.from_string_representation(
+        """
+            ..........
+            XXXXXXXXXX
+        """
+    )
+
+    board.clear_line(1)
     assert str(board) == "\n".join(
         [
+            "..........",
+            "..........",
+        ]
+    )
+
+
+def test_clear_lines_four_lines() -> None:
+    board = Board.from_string_representation(
+        """
+            XXXXXXXXXX
+            XXXXXXXXXX
+            XXXXXXXXXX
+            XXXXXXXXXX
+        """
+    )
+
+    board.clear_lines([0, 1, 2, 3])
+    assert str(board) == "\n".join(
+        [
+            "..........",
+            "..........",
+            "..........",
+            "..........",
+        ]
+    )
+
+
+def test_clear_lines_partial_lines() -> None:
+    board = Board.from_string_representation(
+        """
+            X........X
+            X..XX....X
+            XXXXXXXXXX
+            X....XXXXX
+        """
+    )
+
+    board.clear_lines([2, 3])
+    assert str(board) == "\n".join(
+        [
+            "..........",
+            "..........",
             "X........X",
             "X..XX....X",
-            "XXXXXXXXXX",
-            "X....XXXXX",
-        ]
-    )
-    assert board.merge_active_block() == 1
-    assert str(board) == "\n".join(
-        [
-            "..........",
-            "X........X",
-            "X..XX....X",
-            "X....XXXXX",
         ]
     )
 
 
-def test_lines_above_disconnected_line_clear_drop_down_correctly() -> None:
+def test_clear_lines_disconnected_lines() -> None:
     board = Board.from_string_representation(
         """
-            .........X
-            .XXXXXXXXX
-            .....XXXXX
-            .XXXXXXXXX
+            X........X
+            XXXXXXXXXX
+            X....XXXXX
+            XXXXXXXXXX
         """
     )
 
-    board.spawn(vertical_I_block(), position=(0, -2))
-    assert str(board) == "\n".join(
-        [
-            "X........X",
-            "XXXXXXXXXX",
-            "X....XXXXX",
-            "XXXXXXXXXX",
-        ]
-    )
-    assert board.merge_active_block() == 2
+    board.clear_lines([0, 2])
     assert str(board) == "\n".join(
         [
             "..........",
             "..........",
-            "X........X",
-            "X....XXXXX",
+            "XXXXXXXXXX",
+            "XXXXXXXXXX",
         ]
     )
+
+
+def test_clear_line_invalid_idx() -> None:
+    board = Board.from_string_representation(
+        """
+            XXXXXXXXXX
+            XXXXXXXXXX
+            XXXXXXXXXX
+        """
+    )
+
+    with pytest.raises(IndexError):
+        board.clear_line(3)
+
+    with pytest.raises(IndexError):
+        board.clear_line(-1)
 
 
 def test_set_from_array() -> None:
