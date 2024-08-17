@@ -1,5 +1,5 @@
-from typing import Any, Protocol
+from typing import NamedTuple, Protocol
 
 
 class Callback(Protocol):
-    def custom_message(self, message: Any) -> None: ...
+    def custom_message(self, message: NamedTuple) -> None: ...

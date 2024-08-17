@@ -1,5 +1,5 @@
 from collections.abc import Collection
-from typing import Any
+from typing import NamedTuple
 
 from game_logic.interfaces.callback import Callback
 
@@ -10,6 +10,6 @@ class CallbackCollection:
     def __init__(self, callbacks: Collection[Callback]) -> None:
         self._callbacks = callbacks
 
-    def custom_message(self, message: Any) -> None:
+    def custom_message(self, message: NamedTuple) -> None:
         for callback in self._callbacks:
             callback.custom_message(message)

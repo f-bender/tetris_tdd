@@ -1,4 +1,4 @@
-from typing import Any
+from typing import NamedTuple
 
 from board_manipulations.board_manipulation import BoardManipulation
 from board_manipulations.gravity import Gravity
@@ -43,7 +43,7 @@ class ParryRule:
     def _parry_press_started_within_leeway_frames(self, action_counter: ActionCounter) -> bool:
         return 0 < action_counter.held_since(Action(confirm=True)) <= self._leeway_frames + 1
 
-    def custom_message(self, message: Any) -> None:
+    def custom_message(self, message: NamedTuple) -> None:
         if isinstance(message, MergeMessage):
             self._just_merged = True
             self._already_applied = False
