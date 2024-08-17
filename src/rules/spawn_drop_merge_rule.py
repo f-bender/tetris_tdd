@@ -6,6 +6,7 @@ from game_logic.components.block import Block
 from game_logic.components.board import Board
 from game_logic.components.exceptions import CannotDropBlock, CannotSpawnBlock
 from game_logic.game import GameOver
+from game_logic.interfaces.callback import Callback
 from game_logic.interfaces.callback_collection import CallbackCollection
 from game_logic.interfaces.controller import Action
 
@@ -50,7 +51,7 @@ class MergeMessage(NamedTuple):
     quick: bool
 
 
-class SpawnDropMergeRule:
+class SpawnDropMergeRule(Callback):
     def __init__(
         self,
         normal_interval: int = 25,
@@ -78,6 +79,9 @@ class SpawnDropMergeRule:
 
         self._spawn_delay = spawn_delay or normal_interval
         self._last_merge_frame: int | None = None
+
+    def on_game_start(self) -> None:
+        self._last_merge_frame = None
 
     def set_interval(self, normal_interval: int) -> None:
         self._normal_interval = normal_interval

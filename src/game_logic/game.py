@@ -24,6 +24,7 @@ class Game:
     ) -> None:
         self._ui = ui
         self._board = board
+        self._ui.initialize(self._board.height, self._board.width)
         self._controller = controller
         self._clock = clock
         self._frame_counter = 0
@@ -35,8 +36,12 @@ class Game:
     def frame_counter(self) -> int:
         return self._frame_counter
 
+    def reset(self) -> None:
+        self._frame_counter = 0
+        self._board.clear()
+        self._clock.reset()
+
     def run(self) -> None:
-        self.initialize()
         self._callback_collection.on_game_start()
         while True:
             self._clock.tick()
@@ -44,9 +49,6 @@ class Game:
                 self.advance_frame(self._controller.get_action())
             except GameOver:
                 return
-
-    def initialize(self) -> None:
-        self._ui.initialize(self._board.height, self._board.width)
 
     def advance_frame(self, action: Action) -> None:
         self._callback_collection.on_frame_start()

@@ -94,6 +94,9 @@ class Board:
     def has_active_block(self) -> bool:
         return self._active_block is not None
 
+    def clear(self) -> None:
+        self._board = np.zeros_like(self._board, dtype=np.bool)
+
     def spawn_random_block(self) -> None:
         self.spawn(Block.create_random())
 

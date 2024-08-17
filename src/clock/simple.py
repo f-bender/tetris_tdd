@@ -14,3 +14,6 @@ class SimpleClock:
             time.sleep(remaining_delay)
 
         self._last_tick = time.perf_counter()
+
+    def reset(self) -> None:
+        self._last_tick = None

@@ -20,25 +20,28 @@ def main() -> None:
     board = Board.create_empty(20, 10)
     controller = KeyboardController()
     clock = AmortizingClock(fps=60, window_size=120)
+    spawn_drop_merge_rule = SpawnDropMergeRule()
     parry_rule = ParryRule(leeway_frames=1)
     track_score_rule = TrackScoreRule()
     rule_sequence = RuleSequence(
         (
             MoveRule(),
             RotateRule(),
-            SpawnDropMergeRule(),
+            spawn_drop_merge_rule,
             PauseRule(controller, clock),
             parry_rule,
             ClearFullLinesRule(),
             track_score_rule,
         )
     )
-    callback_collection = CallbackCollection([parry_rule, track_score_rule])
+    callback_collection = CallbackCollection((spawn_drop_merge_rule, parry_rule, track_score_rule))
 
-    Game(ui, board, controller, clock, rule_sequence, callback_collection).run()
+    game = Game(ui, board, controller, clock, rule_sequence, callback_collection)
+    while True:
+        game.run()
+        game.reset()
+        sleep(2)
 
 
 if __name__ == "__main__":
-    while True:
-        main()
-        sleep(1)
+    main()
