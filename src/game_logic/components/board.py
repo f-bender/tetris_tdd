@@ -35,7 +35,7 @@ class Board:
 
     @classmethod
     def from_string_representation(cls, string: str) -> Self:
-        if set(string) != {"X", ".", " ", "\n"}:
+        if not set(string).issubset({"X", ".", " ", "\n"}):
             raise ValueError(
                 "Invalid string representation of board! "
                 f"Must consist of only 'X', '.', spaces, and newlines, but found {set(string)}"
