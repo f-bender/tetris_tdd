@@ -19,6 +19,6 @@ class AmortizingClock(Clock):
             )
             > 0
         ):
-            time.sleep(remaining_delay)
+            time.sleep(min(remaining_delay, self._tick_delay))
 
         self._last_ticks.append(time.perf_counter())
