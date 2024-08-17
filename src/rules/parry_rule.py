@@ -4,12 +4,13 @@ from board_manipulations.board_manipulation import BoardManipulation
 from board_manipulations.gravity import Gravity
 from game_logic.action_counter import ActionCounter
 from game_logic.components.board import Board
+from game_logic.interfaces.callback import Callback
 from game_logic.interfaces.callback_collection import CallbackCollection
 from game_logic.interfaces.controller import Action
 from rules.spawn_drop_merge_rule import MergeMessage
 
 
-class ParryRule:
+class ParryRule(Callback):
     def __init__(self, leeway_frames: int = 1, reward_board_manipulation: BoardManipulation | None = None) -> None:
         self._just_merged = False
         self._last_merge_frame: int | None = 0

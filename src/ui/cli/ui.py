@@ -92,10 +92,6 @@ class CLI:
         """
         print(self._cursor_goto(Vec(board_height, 0)) + color.fx.reset + cursorx.erase_to_end(""))
 
-    def game_over(self, board: NDArray[np.bool]) -> None:
-        print("Game Over")
-        self.draw(board)
-
     def _draw_array(self, top_left: Vec, array: NDArray[np.uint8]) -> None:
         for idx, row in enumerate(array):
             self._draw_array_row(top_left=top_left + Vec(idx, 0), array_row=row)

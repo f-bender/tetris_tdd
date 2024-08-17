@@ -1,5 +1,6 @@
-from typing import NamedTuple, Protocol
+from typing import NamedTuple
 
 
-class Callback(Protocol):
+class Callback:
     def custom_message(self, message: NamedTuple) -> None: ...
+    def on_game_start(self) -> None: ...

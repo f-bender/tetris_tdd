@@ -37,12 +37,12 @@ class Game:
 
     def run(self) -> None:
         self.initialize()
+        self._callback_collection.on_game_start()
         while True:
             self._clock.tick()
             try:
                 self.advance_frame(self._controller.get_action())
             except GameOver:
-                self._ui.game_over(self._board.as_array())
                 return
 
     def initialize(self) -> None:

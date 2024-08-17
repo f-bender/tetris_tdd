@@ -11,6 +11,7 @@ from rules.hacky_pause_rule import PauseRule
 from rules.move_rotate_rules import MoveRule, RotateRule
 from rules.parry_rule import ParryRule
 from rules.spawn_drop_merge_rule import SpawnDropMergeRule
+from rules.track_score_rule import TrackScoreRule
 from ui.cli import CLI
 
 
@@ -20,10 +21,19 @@ def main() -> None:
     controller = KeyboardController()
     clock = AmortizingClock(fps=60, window_size=120)
     parry_rule = ParryRule(leeway_frames=1)
+    track_score_rule = TrackScoreRule()
     rule_sequence = RuleSequence(
-        (MoveRule(), RotateRule(), SpawnDropMergeRule(), PauseRule(controller, clock), parry_rule, ClearFullLinesRule())
+        (
+            MoveRule(),
+            RotateRule(),
+            SpawnDropMergeRule(),
+            PauseRule(controller, clock),
+            parry_rule,
+            ClearFullLinesRule(),
+            track_score_rule,
+        )
     )
-    callback_collection = CallbackCollection([parry_rule])
+    callback_collection = CallbackCollection([parry_rule, track_score_rule])
 
     Game(ui, board, controller, clock, rule_sequence, callback_collection).run()
 

@@ -13,3 +13,7 @@ class CallbackCollection:
     def custom_message(self, message: NamedTuple) -> None:
         for callback in self._callbacks:
             callback.custom_message(message)
+
+    def on_game_start(self) -> None:
+        for callback in self._callbacks:
+            callback.on_game_start()
