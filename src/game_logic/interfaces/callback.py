@@ -1,5 +1,5 @@
-from typing import Protocol
+from typing import Any, Protocol
 
 
 class Callback(Protocol):
-    def custom_message(self, message: str) -> None: ...
+    def custom_message(self, message: Any) -> None: ...

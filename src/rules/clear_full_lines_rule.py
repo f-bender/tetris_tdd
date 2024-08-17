@@ -1,6 +1,12 @@
+from typing import NamedTuple
+
 from game_logic.action_counter import ActionCounter
 from game_logic.components.board import Board
 from game_logic.interfaces.callback_collection import CallbackCollection
+
+
+class LineClearMessage(NamedTuple):
+    cleared_lines: list[int]
 
 
 class ClearFullLinesRule:
@@ -9,4 +15,4 @@ class ClearFullLinesRule:
     ) -> None:
         full_lines = board.get_full_line_idxs()
         board.clear_lines(full_lines)
-        callback_collection.custom_message(f"line_clear {full_lines}")
+        callback_collection.custom_message(LineClearMessage(cleared_lines=full_lines))

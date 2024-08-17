@@ -1,5 +1,5 @@
 from collections.abc import Callable
-from typing import Protocol
+from typing import NamedTuple, Protocol
 
 from game_logic.action_counter import ActionCounter
 from game_logic.components.block import Block
@@ -44,6 +44,10 @@ class MergeStrategy(Protocol):
 class MergeStrategyImpl:
     def apply(self, board: Board) -> None:
         board.merge_active_block()
+
+
+class MergeMessage(NamedTuple):
+    quick: bool
 
 
 class SpawnDropMergeRule:
@@ -95,10 +99,10 @@ class SpawnDropMergeRule:
         if (quick_drop_held_since := action_counter.held_since(Action(down=True))) != 0:
             if self._is_quick_action_frame(quick_drop_held_since) and self._drop_or_merge(board):
                 self._last_merge_frame = frame_counter
-                callback_collection.custom_message("quick merge")
+                callback_collection.custom_message(MergeMessage(quick=True))
         elif self._is_normal_action_frame(frame_counter) and self._drop_or_merge(board):
             self._last_merge_frame = frame_counter
-            callback_collection.custom_message("slow merge")
+            callback_collection.custom_message(MergeMessage(quick=False))
 
     def _is_normal_action_frame(self, frame_counter: int) -> bool:
         return frame_counter % self._normal_interval == 0

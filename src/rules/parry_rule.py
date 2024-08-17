@@ -1,9 +1,12 @@
+from typing import Any
+
 from board_manipulations.board_manipulation import BoardManipulation
 from board_manipulations.gravity import Gravity
 from game_logic.action_counter import ActionCounter
 from game_logic.components.board import Board
 from game_logic.interfaces.callback_collection import CallbackCollection
 from game_logic.interfaces.controller import Action
+from rules.spawn_drop_merge_rule import MergeMessage
 
 
 class ParryRule:
@@ -40,8 +43,8 @@ class ParryRule:
     def _parry_press_started_within_leeway_frames(self, action_counter: ActionCounter) -> bool:
         return 0 < action_counter.held_since(Action(confirm=True)) <= self._leeway_frames + 1
 
-    def custom_message(self, message: str) -> None:
-        if message in ("slow merge", "quick merge"):
+    def custom_message(self, message: Any) -> None:
+        if isinstance(message, MergeMessage):
             self._just_merged = True
             self._already_applied = False
-            self._quick_merge = message == "quick merge"
+            self._quick_merge = message.quick

@@ -1,4 +1,5 @@
 from collections.abc import Collection
+from typing import Any
 
 from game_logic.interfaces.callback import Callback
 
@@ -9,7 +10,6 @@ class CallbackCollection:
     def __init__(self, callbacks: Collection[Callback]) -> None:
         self._callbacks = callbacks
 
-    # TODO instead of just a string, perhaps use an "Event" dataclass with e.g. id and info dict (additional/context)
-    def custom_message(self, message: str) -> None:
+    def custom_message(self, message: Any) -> None:
         for callback in self._callbacks:
             callback.custom_message(message)
