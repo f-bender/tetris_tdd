@@ -49,7 +49,11 @@ class Game:
         self._ui.initialize(self._board.height, self._board.width)
 
     def advance_frame(self, action: Action) -> None:
+        self._callback_collection.on_frame_start()
         self._action_counter.update(action)
+        self._callback_collection.on_action_counter_updated()
         self._rule_sequence.apply(self._frame_counter, self._action_counter, self._board, self._callback_collection)
+        self._callback_collection.on_rules_applied()
         self._ui.draw(self._board.as_array())
+        self._callback_collection.on_frame_end()
         self._frame_counter += 1
