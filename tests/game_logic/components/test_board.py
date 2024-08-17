@@ -273,7 +273,7 @@ def test_spawn_block_top_middle_without_specified_position() -> None:
     )
 
     board = Board.create_empty(4, 10)
-    board.spawn(Block(BlockType.SQUARE))
+    board.spawn(Block(BlockType.O))
     assert str(board) == "\n".join(
         [
             "....XX....",

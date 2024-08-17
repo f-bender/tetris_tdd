@@ -9,7 +9,7 @@ from numpy.typing import NDArray
 
 
 class BlockType(Enum):
-    SQUARE = auto()
+    O = auto()  # noqa: E741
     L = auto()
     J = auto()
     T = auto()
@@ -21,7 +21,7 @@ class BlockType(Enum):
 class Block:
     def __init__(self, block_type: BlockType) -> None:
         match block_type:
-            case BlockType.SQUARE:
+            case BlockType.O:
                 self.cells = np.array(
                     [
                         [1, 1],

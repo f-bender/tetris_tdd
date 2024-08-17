@@ -2,11 +2,11 @@ from game_logic.components import Block, BlockType
 
 
 def test_block_creation() -> None:
-    Block(BlockType.SQUARE)
+    Block(BlockType.O)
 
 
 def test_block_representation() -> None:
-    assert str(Block(BlockType.SQUARE)) == "\n".join(
+    assert str(Block(BlockType.O)) == "\n".join(
         [
             "XX",
             "XX",

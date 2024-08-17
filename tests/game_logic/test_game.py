@@ -49,7 +49,7 @@ def test_game_runs_as_expected() -> None:
             Block(BlockType.L),
             Block(BlockType.I),
             Block(BlockType.S),
-            Block(BlockType.SQUARE),
+            Block(BlockType.O),
             Block(BlockType.Z),
             Block(BlockType.I),
             Block(BlockType.T),
