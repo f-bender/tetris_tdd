@@ -51,3 +51,4 @@ if __name__ == "__main__":
     filler = TetrominoSpaceFiller(space)
     filler.fill()
     print(space)
+    print(filler._finished)

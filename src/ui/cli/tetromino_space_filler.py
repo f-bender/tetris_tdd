@@ -1,12 +1,23 @@
+import contextlib
+import sys
 from collections.abc import Iterator
-import time
 from typing import NamedTuple
 
 import numpy as np
-from ansi import color, cursor
+from ansi import cursor
 from numpy.typing import NDArray
 
 from game_logic.components.block import Block, BlockType
+
+
+@contextlib.contextmanager
+def ensure_sufficient_recursion_depth(depth: int) -> Iterator[None]:
+    prev_depth = sys.getrecursionlimit()
+    sys.setrecursionlimit(max(depth, prev_depth))
+    try:
+        yield
+    finally:
+        sys.setrecursionlimit(prev_depth)
 
 
 class PositionedTetromino(NamedTuple):
@@ -26,6 +37,7 @@ class TetrominoSpaceFiller:
             BlockType.S,
         )
     )
+    STACK_FRAMES_SAFETY_MARGIN = 50
 
     def __init__(self, space: NDArray[np.int16]) -> None:
         """Initialize the space filler.
@@ -44,14 +56,19 @@ class TetrominoSpaceFiller:
 
         self.space_rotated_transposed_views = (
             self.space,
-            np.rot90(self.space, k=1).T,
-            np.rot90(self.space, k=1),
-            np.rot90(self.space, k=2).T,
-            np.rot90(self.space, k=2),
-            np.rot90(self.space, k=3).T,
-            np.rot90(self.space, k=3),
-            self.space.T,
+            # np.rot90(self.space, k=1).T,
+            # np.rot90(self.space, k=1),
+            # np.rot90(self.space, k=2).T,
+            # np.rot90(self.space, k=2),
+            # np.rot90(self.space, k=3).T,
+            # np.rot90(self.space, k=3),
+            # self.space.T,
         )
+
+        self._total_blocks_to_place = np.sum(self.space.astype(bool)) // 4
+        self._blocks_placed = 0
+        self._finished = False
+        self._dead_ends: set[bytes] = set()
 
     def draw(self) -> None:
         print(cursor.goto(1, 1))
@@ -59,48 +76,54 @@ class TetrominoSpaceFiller:
             print("".join(row))
 
     def fill(self) -> None:
-        iteration = 0
-        while 0 in self.space:
-            self.draw()
-            time.sleep(0.025)
+        with ensure_sufficient_recursion_depth(self._total_blocks_to_place + self.STACK_FRAMES_SAFETY_MARGIN):
+            self._fill()
 
-            if not self._place(iteration):
-                raise RuntimeError("Could not place any tetromino! Algorithm must be flawed!")
-            iteration += 1
+    # TODO consider inlining the 5 functions into one; might make a notable performance difference
+    def _fill(self) -> None:
+        # sleep(0.5)
+        if self.space.astype(bool).tobytes() in self._dead_ends:
+            return
 
-    def _place(self, iteration: int) -> bool:
+        self.draw()
+        if np.all(self.space):
+            self._finished = True
+            return
+
+        for _ in self._generate_placements():
+            self._fill()
+            if self._finished:
+                return
+
+        self._dead_ends.add(self.space.astype(bool).tobytes())
+
+    def _generate_placements(self) -> Iterator[None]:
         for tetromino_idx in range(len(self.TETROMINOS)):
-            tetromino = self.TETROMINOS[(tetromino_idx + iteration) % len(self.TETROMINOS)]
-            if self._place_tetromino(tetromino, iteration):
-                return True
+            tetromino = self.TETROMINOS[(tetromino_idx + self._blocks_placed) % len(self.TETROMINOS)]
+            yield from self._place_tetromino(tetromino)
 
-        return False
-
-    def _place_tetromino(self, tetromino: NDArray[np.bool], iteration: int) -> bool:
-        # TODO efficiency: make sure only distinct versions of the tetromino are used (avoid duplicates because of
+    def _place_tetromino(self, tetromino: NDArray[np.bool]) -> Iterator[None]:
+        # for efficiency: make sure only distinct versions of the tetromino are used (avoid duplicates because of
         # symmetry (rotational or axial))
+        hashes: set[bytes] = set()
         for transpose in (False, True):
             for k in range(4):
-                if self._place_rotated_tetromino(
-                    np.rot90(tetromino, k=k).T if transpose else np.rot90(tetromino, k=k), iteration
-                ):
-                    return True
+                rotated_tetromino = np.rot90(tetromino, k=k).T if transpose else np.rot90(tetromino, k=k)
+                # NOTE: tobytes doesn't contain shape information, just the raw flat list of bytes
+                # -> Add shape info manually
+                tetromino_hash = rotated_tetromino.tobytes() + bytes(rotated_tetromino.shape[0])
+                if tetromino_hash in hashes:
+                    continue
+                yield from self._place_rotated_tetromino(rotated_tetromino)
+                hashes.add(tetromino_hash)
 
-        return False
+    def _place_rotated_tetromino(self, tetromino: NDArray[np.bool]) -> Iterator[None]:
+        space_view = self.space_rotated_transposed_views[self._blocks_placed % len(self.space_rotated_transposed_views)]
+        yield from self._place_rotated_tetromino_on_view(space_view, tetromino)
 
-    def _place_rotated_tetromino(self, tetromino: NDArray[np.bool], iteration: int) -> bool:
-        for view_idx in range(len(self.space_rotated_transposed_views)):
-            space_view = self.space_rotated_transposed_views[
-                (view_idx + iteration) % len(self.space_rotated_transposed_views)
-            ]
-            if self._place_tetromino_on_view(space_view, tetromino, iteration):
-                return True
-
-        return False
-
-    def _place_tetromino_on_view(
-        self, space_view: NDArray[np.int16], tetromino: NDArray[np.bool], iteration: int
-    ) -> bool:
+    def _place_rotated_tetromino_on_view(
+        self, space_view: NDArray[np.int16], tetromino: NDArray[np.bool]
+    ) -> Iterator[None]:
         windows = np.lib.stride_tricks.sliding_window_view(space_view, tetromino.shape)
         for window_index in np.ndindex(windows.shape[:2]):
             if np.any(np.logical_and(windows[window_index], tetromino)) or not self.space_fillable(
@@ -111,14 +134,22 @@ class TetrominoSpaceFiller:
             y, x = window_index
             height, width = tetromino.shape
 
+            self._blocks_placed += 1
             space_view[y : y + height, x : x + width] = np.where(
                 tetromino,
-                tetromino * (iteration + 1),
+                self._blocks_placed,
                 space_view[y : y + height, x : x + width],
             )
-            return True
 
-        return False
+            yield
+
+            self._blocks_placed -= 1
+            space_view[y : y + height, x : x + width] = np.where(
+                tetromino,
+                0,
+                space_view[y : y + height, x : x + width],
+            )
+            pass
 
     # TODO: use check_around argument to make this check more efficient, validating only the area around a newly placed
     # block
