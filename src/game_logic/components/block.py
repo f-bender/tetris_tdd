@@ -9,23 +9,42 @@ from numpy.typing import NDArray
 
 
 class BlockType(Enum):
-    O = auto()  # noqa: E741
-    L = auto()
-    J = auto()
     T = auto()
-    Z = auto()
-    S = auto()
+    O = auto()  # noqa: E741
     I = auto()  # noqa: E741
+    L = auto()
+    S = auto()
+    J = auto()
+    Z = auto()
 
 
 class Block:
     def __init__(self, block_type: BlockType) -> None:
         match block_type:
+            case BlockType.T:
+                self.cells = np.array(
+                    [
+                        [0, 0, 0],
+                        [1, 1, 1],
+                        [0, 1, 0],
+                    ],
+                    dtype=np.bool,
+                )
             case BlockType.O:
                 self.cells = np.array(
                     [
                         [1, 1],
                         [1, 1],
+                    ],
+                    dtype=np.bool,
+                )
+            case BlockType.I:
+                self.cells = np.array(
+                    [
+                        [0, 0, 0, 0],
+                        [0, 0, 0, 0],
+                        [1, 1, 1, 1],
+                        [0, 0, 0, 0],
                     ],
                     dtype=np.bool,
                 )
@@ -38,33 +57,6 @@ class Block:
                     ],
                     dtype=np.bool,
                 )
-            case BlockType.J:
-                self.cells = np.array(
-                    [
-                        [0, 0, 0],
-                        [1, 1, 1],
-                        [0, 0, 1],
-                    ],
-                    dtype=np.bool,
-                )
-            case BlockType.T:
-                self.cells = np.array(
-                    [
-                        [0, 0, 0],
-                        [1, 1, 1],
-                        [0, 1, 0],
-                    ],
-                    dtype=np.bool,
-                )
-            case BlockType.Z:
-                self.cells = np.array(
-                    [
-                        [0, 0, 0],
-                        [1, 1, 0],
-                        [0, 1, 1],
-                    ],
-                    dtype=np.bool,
-                )
             case BlockType.S:
                 self.cells = np.array(
                     [
@@ -74,13 +66,21 @@ class Block:
                     ],
                     dtype=np.bool,
                 )
-            case BlockType.I:
+            case BlockType.J:
                 self.cells = np.array(
                     [
-                        [0, 0, 0, 0],
-                        [0, 0, 0, 0],
-                        [1, 1, 1, 1],
-                        [0, 0, 0, 0],
+                        [0, 0, 0],
+                        [1, 1, 1],
+                        [0, 0, 1],
+                    ],
+                    dtype=np.bool,
+                )
+            case BlockType.Z:
+                self.cells = np.array(
+                    [
+                        [0, 0, 0],
+                        [1, 1, 0],
+                        [0, 1, 1],
                     ],
                     dtype=np.bool,
                 )

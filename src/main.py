@@ -1,5 +1,7 @@
 from time import sleep
 
+import numpy as np
+
 from clock.amortizing import AmortizingClock
 from controllers.keyboard import KeyboardController
 from game_logic.components import Board
@@ -13,6 +15,7 @@ from rules.parry_rule import ParryRule
 from rules.spawn_drop_merge_rule import SpawnDropMergeRule
 from rules.track_score_rule import TrackScoreRule
 from ui.cli import CLI
+from ui.cli.tetromino_space_filler import TetrominoSpaceFiller
 
 
 def main() -> None:
@@ -44,4 +47,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    space = np.zeros((16, 15), dtype=np.int16)
+    filler = TetrominoSpaceFiller(space)
+    filler.fill()
+    print(space)
