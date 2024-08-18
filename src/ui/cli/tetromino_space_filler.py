@@ -25,6 +25,18 @@ class PositionedTetromino(NamedTuple):
     tetromino: NDArray[np.bool]
 
 
+class Island(NamedTuple):
+    cells: set[tuple[int, int]]
+
+    @property
+    def bounding_box(self) -> tuple[slice, slice]:
+        min_x = min(x for x, _ in self.cells)
+        max_x = max(x for x, _ in self.cells)
+        min_y = min(y for _, y in self.cells)
+        max_y = max(y for _, y in self.cells)
+        return slice(min_x, max_x + 1), slice(min_y, max_y + 1)
+
+
 class TetrominoSpaceFiller:
     TETROMINOS = tuple(
         Block(block_type).actual_cells
@@ -39,18 +51,22 @@ class TetrominoSpaceFiller:
     )
     STACK_FRAMES_SAFETY_MARGIN = 50
 
-    def __init__(self, space: NDArray[np.int16]) -> None:
+    def __init__(self, space: NDArray[np.int16], blocks_placed: int = 0, to_be_filled_value: int = -1) -> None:
         """Initialize the space filler.
 
         Args:
             space: The space to be filled. Zeros will be filled in by tetrominos. -1s are considered holes and will be
                 left as is.
         """
-        if not set(np.unique(space)).issubset({-1, 0}):
-            raise ValueError("Space must consist of -1s and 0s only.")
+        if to_be_filled_value >= 0:
+            raise ValueError(
+                "0 is used for holes, positive numbers will be filled in by tetrominos. "
+                "`to_be_filled_value` must be < 0 and should be left at -1 when called from outside."
+            )
+        self._to_be_filled_value = to_be_filled_value
 
-        if not self.space_fillable(space):
-            raise ValueError("Space cannot be filled! Contains at least one island with size not divisible by 4!")
+        if self._to_be_filled_value == -1 and not set(np.unique(space)).issubset({-1, 0}):
+            raise ValueError("Space must consist of -1s and 0s only.")
 
         self.space = space
 
@@ -65,37 +81,70 @@ class TetrominoSpaceFiller:
             # self.space.T,
         )
 
-        self._total_blocks_to_place = np.sum(self.space.astype(bool)) // 4
-        self._blocks_placed = 0
+        self._total_blocks_to_place = np.sum(self.space == self._to_be_filled_value) // 4
+        self._blocks_placed = blocks_placed
         self._finished = False
         self._dead_ends: set[bytes] = set()
 
     def draw(self) -> None:
         print(cursor.goto(1, 1))
-        for row in np.where(self.space == 0, "  ", "XX"):
+        for row in np.where(self.space < 0, "  ", "XX"):
             print("".join(row))
 
-    def fill(self) -> None:
+    def fill(self) -> bool:
         with ensure_sufficient_recursion_depth(self._total_blocks_to_place + self.STACK_FRAMES_SAFETY_MARGIN):
-            self._fill()
+            return self._fill()
 
     # TODO consider inlining the 5 functions into one; might make a notable performance difference
-    def _fill(self) -> None:
-        # sleep(0.5)
-        if self.space.astype(bool).tobytes() in self._dead_ends:
-            return
+    def _fill(self) -> bool:
+        if (self.space >= 0).tobytes() in self._dead_ends:
+            return False
 
         self.draw()
-        if np.all(self.space):
+        if np.all(self.space >= 0):
             self._finished = True
-            return
+            return True
 
-        for _ in self._generate_placements():
-            self._fill()
-            if self._finished:
-                return
+        for island_size in self.flood_fill_islands():
+            self._to_be_filled_value -= 1
 
-        self._dead_ends.add(self.space.astype(bool).tobytes())
+            if island_size % 4 != 0:
+                self.space[self.space == self._to_be_filled_value] += 1
+                self._to_be_filled_value += 1
+                return False
+
+            for _ in self._generate_placements():
+                self._fill()
+                if self._finished:
+                    return True
+
+            self.space[self.space == self._to_be_filled_value] += 1
+            self._to_be_filled_value += 1
+
+        self._dead_ends.add((self.space >= 0).tobytes())
+        return False
+
+    def flood_fill_islands(self) -> Iterator[int]:
+        for index, cell in np.ndenumerate(self.space):
+            if cell == self._to_be_filled_value:
+                yield self.flood_fill_island(index)
+
+    def flood_fill_island(self, index: tuple[int, int]) -> int:
+        island_size = 0
+        to_visit = {index}
+
+        while to_visit:
+            y, x = to_visit.pop()
+            island_size += 1
+            self.space[y, x] = self._to_be_filled_value - 1
+            to_visit |= {
+                idx
+                for idx in [(y + 1, x), (y - 1, x), (y, x + 1), (y, x - 1)]
+                if TetrominoSpaceFiller._in_bounds(self.space.shape, idx)
+                and self.space[idx] == self._to_be_filled_value
+            }
+
+        return island_size
 
     def _generate_placements(self) -> Iterator[None]:
         for tetromino_idx in range(len(self.TETROMINOS)):
@@ -126,7 +175,9 @@ class TetrominoSpaceFiller:
     ) -> Iterator[None]:
         windows = np.lib.stride_tricks.sliding_window_view(space_view, tetromino.shape)
         for window_index in np.ndindex(windows.shape[:2]):
-            if np.any(np.logical_and(windows[window_index], tetromino)) or not self.space_fillable(
+            if np.any(
+                np.logical_and(windows[window_index] != self._to_be_filled_value, tetromino)
+            ) or not self.space_fillable(
                 space_view, to_be_placed_tetromino=PositionedTetromino(window_index, tetromino)
             ):
                 continue
@@ -146,7 +197,7 @@ class TetrominoSpaceFiller:
             self._blocks_placed -= 1
             space_view[y : y + height, x : x + width] = np.where(
                 tetromino,
-                0,
+                self._to_be_filled_value,
                 space_view[y : y + height, x : x + width],
             )
             pass
@@ -157,7 +208,7 @@ class TetrominoSpaceFiller:
     def space_fillable(
         space_view: NDArray[np.int16], to_be_placed_tetromino: PositionedTetromino | None = None
     ) -> bool:
-        island_map = np.where(space_view == 0, False, True)
+        island_map = np.where(space_view < 0, False, True)
 
         if to_be_placed_tetromino:
             y, x = to_be_placed_tetromino.position
@@ -170,13 +221,13 @@ class TetrominoSpaceFiller:
         return all(island_size % 4 == 0 for island_size in TetrominoSpaceFiller._generate_islands(island_map))
 
     @staticmethod
-    def _generate_islands(island_map: NDArray[np.int16]) -> Iterator[int]:
+    def _generate_islands(island_map: NDArray[np.bool]) -> Iterator[int]:
         for index, cell in np.ndenumerate(island_map):
-            if cell == 0:
+            if not cell:
                 yield TetrominoSpaceFiller._flood_fill_island(island_map, index)
 
     @staticmethod
-    def _flood_fill_island(island_map: NDArray[np.int16], index: tuple[int, int]) -> int:
+    def _flood_fill_island(island_map: NDArray[np.bool], index: tuple[int, int]) -> int:
         island_size = 0
         to_visit = [index]
 

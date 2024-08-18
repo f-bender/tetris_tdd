@@ -47,7 +47,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    space = np.zeros((16, 15), dtype=np.int16)
+    space = -np.ones((16, 15), dtype=np.int16)
     filler = TetrominoSpaceFiller(space)
     filler.fill()
     print(space)
