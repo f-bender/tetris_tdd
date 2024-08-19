@@ -125,9 +125,14 @@ class TetrominoSpaceFiller:
         return False
 
     def flood_fill_islands(self) -> Iterator[int]:
+        island_idxs_sizes: list[tuple[tuple[int, int], int]] = []
         for index, cell in np.ndenumerate(self.space):
             if cell == self._to_be_filled_value:
-                yield self.flood_fill_island(index)
+                island_idxs_sizes.append((index, self.flood_fill_island(index)))
+
+        self.space[self.space == self._to_be_filled_value - 1] += 1
+        for idx, _ in sorted(island_idxs_sizes, key=lambda x: x[1], reverse=True):
+            yield self.flood_fill_island(idx)
 
     def flood_fill_island(self, index: tuple[int, int]) -> int:
         island_size = 0
