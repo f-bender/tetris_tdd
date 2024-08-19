@@ -1,12 +1,14 @@
 import contextlib
+import random
 import sys
 from collections.abc import Iterator
 from typing import NamedTuple
 
 import numpy as np
-from ansi import cursor
+from ansi import color, cursor
 from numpy.typing import NDArray
 
+from ansi_extensions import color as colorx
 from game_logic.components.block import Block, BlockType
 
 
@@ -72,20 +74,37 @@ class TetrominoSpaceFiller:
 
     def draw(self) -> None:
         print(cursor.goto(1, 1))
-        for row in np.where(self.space == 0, "  ", "XX"):
-            print("".join(row))
+        for row in self.space:
+            print(
+                "".join(
+                    random.seed(int(val))
+                    or colorx.bg.rgb_truecolor(
+                        random.randrange(25, 256), random.randrange(25, 256), random.randrange(25, 256)
+                    )
+                    + "  "
+                    + color.fx.reset
+                    if val > 0
+                    else "  "
+                    for val in row
+                )
+            )
 
     def fill(self) -> None:
         with ensure_sufficient_recursion_depth(self._total_blocks_to_place + self.STACK_FRAMES_SAFETY_MARGIN):
             self._fill()
+        self.draw()
 
     # TODO consider inlining the 5 functions into one; might make a notable performance difference
-    def _fill(self, space_view: NDArray[np.int16] | None = None) -> None:
+    def _fill(
+        self, space_view: NDArray[np.int16] | None = None, empty_cell_index_to_fill: tuple[int, int] | None = None
+    ) -> None:
         # time.sleep(0.05)
         space = space_view if space_view is not None else self.space
 
         # if self.space.astype(bool).tobytes() in self._dead_ends:
         #     return
+
+        # find the empty cell which is the closes to last_placed_block_center
 
         # if self._blocks_placed % 10 == 0:
         self.draw()
@@ -93,20 +112,26 @@ class TetrominoSpaceFiller:
             self._finished = True
             return
 
-        for _ in self._generate_placements(space):
-            self._fill(np.rot90(space[1:]) if np.all(space[0]) else space)
-            # self._fill()
+        empty_cell_index_to_fill = empty_cell_index_to_fill or self._first_empty_cell_index(space)
+
+        for next_empty_cell_index_to_fill in self._generate_placements(space, empty_cell_index_to_fill):
+            # self._fill(np.rot90(space[1:]) if np.all(space[0]) else space)
+            self._fill(empty_cell_index_to_fill=next_empty_cell_index_to_fill)
             if self._finished:
                 return
 
         # self._dead_ends.add(self.space.astype(bool).tobytes())
 
-    def _generate_placements(self, space: NDArray[np.int16]) -> Iterator[None]:
+    def _generate_placements(
+        self, space: NDArray[np.int16], cell_to_be_filled_idx: tuple[int, int]
+    ) -> Iterator[tuple[int, int] | None]:
         for tetromino_idx in range(len(self.TETROMINOS)):
             tetromino = self.TETROMINOS[(tetromino_idx + self._blocks_placed) % len(self.TETROMINOS)]
-            yield from self._place_tetromino(space, tetromino)
+            yield from self._place_tetromino(space, tetromino, cell_to_be_filled_idx)
 
-    def _place_tetromino(self, space: NDArray[np.int16], tetromino: NDArray[np.bool]) -> Iterator[None]:
+    def _place_tetromino(
+        self, space: NDArray[np.int16], tetromino: NDArray[np.bool], cell_to_be_filled_idx: tuple[int, int]
+    ) -> Iterator[tuple[int, int] | None]:
         # for efficiency: make sure only distinct versions of the tetromino are used (avoid duplicates because of
         # symmetry (rotational or axial))
         hashes: set[bytes] = set()
@@ -118,7 +143,7 @@ class TetrominoSpaceFiller:
                 tetromino_hash = rotated_tetromino.tobytes() + bytes(rotated_tetromino.shape[0])
                 if tetromino_hash in hashes:
                     continue
-                yield from self._place_rotated_tetromino_on_view(space, rotated_tetromino)
+                yield from self._place_rotated_tetromino_on_view(space, rotated_tetromino, cell_to_be_filled_idx)
                 hashes.add(tetromino_hash)
 
     # def _place_rotated_tetromino(self, tetromino: NDArray[np.bool]) -> Iterator[None]:
@@ -127,11 +152,11 @@ class TetrominoSpaceFiller:
     #     ]
     #     yield from self._place_rotated_tetromino_on_view(space_view, tetromino)
 
-    def _place_rotated_tetromino_on_view(self, space: NDArray[np.int16], tetromino: NDArray[np.bool]) -> Iterator[None]:
-        first_empty_idx = np.array(self._first_empty_cell_index(space))
-
+    def _place_rotated_tetromino_on_view(
+        self, space: NDArray[np.int16], tetromino: NDArray[np.bool], cell_to_be_filled_idx: tuple[int, int]
+    ) -> Iterator[tuple[int, int] | None]:
         for tetromino_cell_idx in np.argwhere(tetromino):
-            tetromino_placement_idx = first_empty_idx - tetromino_cell_idx
+            tetromino_placement_idx = cell_to_be_filled_idx - tetromino_cell_idx
 
             if self._placement_out_of_bounds(tetromino_placement_idx, space.shape, tetromino.shape):
                 continue
@@ -149,10 +174,34 @@ class TetrominoSpaceFiller:
             self._blocks_placed += 1
             local_space_view[tetromino] = self._blocks_placed
 
-            yield
+            idx = self._get_first_neighboring_empty_cell_idx(space, tetromino, y, x)
+            # print(idx)
+            yield idx
 
             self._blocks_placed -= 1
             local_space_view[tetromino] = 0
+
+    @staticmethod
+    def _get_first_neighboring_empty_cell_idx(
+        space: NDArray[np.int16], tetromino: NDArray[np.bool], y: int, x: int
+    ) -> tuple[int, int] | None:
+        space_around_tetromino = space[
+            max(y - 1, 0) : y + tetromino.shape[0] + 1, max(x - 1, 0) : x + tetromino.shape[1] + 1
+        ]
+        windows = np.lib.stride_tricks.sliding_window_view(space_around_tetromino, tetromino.shape)
+        for (offset_y, offset_x, window_y, window_x), value in np.ndenumerate(windows):
+            if value != 0 or not tetromino[window_y, window_x]:
+                continue
+            # offset is the index of the sliding window, counting from the top left of the space_around_tetromino
+            # I am interested in the offset from the *center* window, which is a difference of 1:
+            if y > 0:
+                offset_y -= 1
+            if x > 0:
+                offset_x -= 1
+            if abs(offset_y) != abs(offset_x):
+                return y + offset_y + window_y, x + offset_x + window_x
+
+        return None
 
     @staticmethod
     def _first_empty_cell_index(space: NDArray[np.int16]) -> tuple[int, int]:
