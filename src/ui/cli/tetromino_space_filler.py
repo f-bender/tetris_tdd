@@ -2,6 +2,7 @@ import contextlib
 import random
 import sys
 from collections.abc import Iterator
+from itertools import product
 from typing import NamedTuple
 
 import numpy as np
@@ -135,16 +136,17 @@ class TetrominoSpaceFiller:
         # for efficiency: make sure only distinct versions of the tetromino are used (avoid duplicates because of
         # symmetry (rotational or axial))
         hashes: set[bytes] = set()
-        for transpose in (False, True):
-            for k in range(4):
-                rotated_tetromino = np.rot90(tetromino, k=k).T if transpose else np.rot90(tetromino, k=k)
-                # NOTE: tobytes doesn't contain shape information, just the raw flat list of bytes
-                # -> Add shape info manually
-                tetromino_hash = rotated_tetromino.tobytes() + bytes(rotated_tetromino.shape[0])
-                if tetromino_hash in hashes:
-                    continue
-                yield from self._place_rotated_tetromino_on_view(space, rotated_tetromino, cell_to_be_filled_idx)
-                hashes.add(tetromino_hash)
+        transpose_rotations = list(product((False, True), range(4)))
+        for i in range(len(transpose_rotations)):
+            transpose, rotations = transpose_rotations[(i + self._blocks_placed) % len(transpose_rotations)]
+            rotated_tetromino = np.rot90(tetromino, k=rotations).T if transpose else np.rot90(tetromino, k=rotations)
+            # NOTE: tobytes doesn't contain shape information, just the raw flat list of bytes
+            # -> Add shape info manually
+            tetromino_hash = rotated_tetromino.tobytes() + bytes(rotated_tetromino.shape[0])
+            if tetromino_hash in hashes:
+                continue
+            yield from self._place_rotated_tetromino_on_view(space, rotated_tetromino, cell_to_be_filled_idx)
+            hashes.add(tetromino_hash)
 
     # def _place_rotated_tetromino(self, tetromino: NDArray[np.bool]) -> Iterator[None]:
     #     space_view = self.space_rotated_transposed_views[
@@ -173,6 +175,9 @@ class TetrominoSpaceFiller:
             local_space_view[tetromino] = self._blocks_placed
 
             if not self._placement_created_new_island(space, tetromino, y, x) or self.space_fillable(space):
+                # MAYBE: in case of a new island being created, make sure the smallest of the islands is the one from
+                # which the next cell to fill is taken? (might be obsolete once we simply make sure all 3-neighbored
+                # cells are taken care of ASAP)
                 yield self._get_neighboring_empty_cell_with_most_filled_neighbors_idx(space, tetromino, y, x)
 
             self._blocks_placed -= 1
