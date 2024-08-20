@@ -113,7 +113,13 @@ class TetrominoSpaceFiller:
             self._finished = True
             return
 
-        empty_cell_index_to_fill = empty_cell_index_to_fill or self._first_empty_cell_index(space)
+        nums_neighbors = np.zeros_like(space)
+        bool_space = space.astype(np.bool)
+        nums_neighbors[1:] += bool_space[:-1]
+        nums_neighbors[:, 1:] += bool_space[:, :-1]
+        nums_neighbors[:-1] += bool_space[1:]
+        nums_neighbors[:, :-1] += bool_space[:, 1:]
+        empty_cell_index_to_fill = self._first_3(nums_neighbors * ~bool_space) or self._first_empty_cell_index(space)
 
         for next_empty_cell_index_to_fill in self._generate_placements(space, empty_cell_index_to_fill):
             # self._fill(np.rot90(space[1:]) if np.all(space[0]) else space)
@@ -280,6 +286,13 @@ class TetrominoSpaceFiller:
             if value == 0:
                 return idx
         raise ValueError("Space is full!")
+
+    @staticmethod
+    def _first_3(space: NDArray[np.int16]) -> tuple[int, int] | None:
+        for idx, value in np.ndenumerate(space):
+            if value == 3:
+                return idx
+        return None
 
     @staticmethod
     def _placement_out_of_bounds(
