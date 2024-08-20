@@ -72,7 +72,7 @@ class TetrominoSpaceFiller:
         self._total_blocks_to_place = np.sum(~self.space.astype(bool)) // 4
         self._blocks_placed = 0
         self._finished = False
-        self._3_neighbored_cell_deque: set[tuple[int, int]] = set()
+        self._3_neighbored_cell_deque: deque[tuple[int, int]] = deque()
         # self._dead_ends: set[bytes] = set()
 
     def draw(self) -> None:
@@ -117,7 +117,7 @@ class TetrominoSpaceFiller:
 
         pop = bool(self._3_neighbored_cell_deque)
         empty_cell_index_to_fill = (
-            self._3_neighbored_cell_deque.pop()
+            self._3_neighbored_cell_deque.popleft()
             if self._3_neighbored_cell_deque
             # TODO: not simply the first empty cell, but the clostest one to the last placed block!
             else self._first_empty_cell_index(space)
@@ -133,19 +133,17 @@ class TetrominoSpaceFiller:
                 return
 
         if pop:
-            self._3_neighbored_cell_deque.add(empty_cell_index_to_fill)
+            self._3_neighbored_cell_deque.appendleft(empty_cell_index_to_fill)
         # self._dead_ends.add(self.space.astype(bool).tobytes())
 
-    def _generate_placements(
-        self, space: NDArray[np.int16], cell_to_be_filled_idx: tuple[int, int]
-    ) -> Iterator[tuple[int, int] | None]:
+    def _generate_placements(self, space: NDArray[np.int16], cell_to_be_filled_idx: tuple[int, int]) -> Iterator[None]:
         for tetromino_idx in range(len(self.TETROMINOS)):
             tetromino = self.TETROMINOS[(tetromino_idx + self._blocks_placed) % len(self.TETROMINOS)]
             yield from self._place_tetromino(space, tetromino, cell_to_be_filled_idx)
 
     def _place_tetromino(
         self, space: NDArray[np.int16], tetromino: NDArray[np.bool], cell_to_be_filled_idx: tuple[int, int]
-    ) -> Iterator[tuple[int, int] | None]:
+    ) -> Iterator[None]:
         # for efficiency: make sure only distinct versions of the tetromino are used (avoid duplicates because of
         # symmetry (rotational or axial))
         hashes: set[bytes] = set()
@@ -169,7 +167,7 @@ class TetrominoSpaceFiller:
 
     def _place_rotated_tetromino_on_view(
         self, space: NDArray[np.int16], tetromino: NDArray[np.bool], cell_to_be_filled_idx: tuple[int, int]
-    ) -> Iterator[tuple[int, int] | None]:
+    ) -> Iterator[None]:
         for tetromino_cell_idx in np.argwhere(tetromino):
             tetromino_placement_idx = cell_to_be_filled_idx - tetromino_cell_idx
 
@@ -191,10 +189,11 @@ class TetrominoSpaceFiller:
                 # MAYBE: in case of a new island being created, make sure the smallest of the islands is the one from
                 # which the next cell to fill is taken? (might be obsolete once we simply make sure all 3-neighbored
                 # cells are taken care of ASAP)
-                cells = set(self._get_neighboring_empty_cells_with_3_filled_neighbors_idxs(space, tetromino, y, x))
-                self._3_neighbored_cell_deque |= cells
+                cells = list(self._get_neighboring_empty_cells_with_3_filled_neighbors_idxs(space, tetromino, y, x))
+                self._3_neighbored_cell_deque.extend(cells)
                 yield
-                self._3_neighbored_cell_deque -= cells
+                for _ in range(len(cells)):
+                    self._3_neighbored_cell_deque.pop()
 
             self._blocks_placed -= 1
             local_space_view[tetromino] = 0
