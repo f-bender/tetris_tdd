@@ -166,15 +166,14 @@ class TetrominoSpaceFiller:
 
             local_space_view = space[y : y + height, x : x + width]
 
-            if np.any(np.logical_and(local_space_view, tetromino)) or not self.space_fillable(
-                space, PositionedTetromino((y, x), tetromino)
-            ):
+            if np.any(np.logical_and(local_space_view, tetromino)):
                 continue
 
             self._blocks_placed += 1
             local_space_view[tetromino] = self._blocks_placed
 
-            yield self._get_neighboring_empty_cell_with_most_filled_neighbors_idx(space, tetromino, y, x)
+            if not self._placement_created_new_island(space, tetromino, y, x) or self.space_fillable(space):
+                yield self._get_neighboring_empty_cell_with_most_filled_neighbors_idx(space, tetromino, y, x)
 
             self._blocks_placed -= 1
             local_space_view[tetromino] = 0
@@ -217,6 +216,47 @@ class TetrominoSpaceFiller:
                 max_filled_neighbors_idx = y_in_space, x_in_space
 
         return max_filled_neighbors_idx
+
+    @staticmethod
+    def _placement_created_new_island(space: NDArray[np.int16], tetromino: NDArray[np.bool], y: int, x: int) -> bool:
+        space_around_tetromino = space[
+            max(y - 1, 0) : y + tetromino.shape[0] + 1, max(x - 1, 0) : x + tetromino.shape[1] + 1
+        ]
+        tetromino_offset_in_space_around_tetromino_y = 0 if y == 0 else 1
+        tetromino_offset_in_space_around_tetromino_x = 0 if x == 0 else 1
+        tetromino_outline = np.ones_like(space_around_tetromino, dtype=np.bool)
+
+        windows = np.lib.stride_tricks.sliding_window_view(space_around_tetromino, tetromino.shape)
+        for (offset_y, offset_x, window_y, window_x), value in np.ndenumerate(windows):
+            if value != 0 or not tetromino[window_y, window_x]:
+                continue
+
+            y_in_space_around_tetromino = offset_y + window_y
+            x_in_space_around_tetromino = offset_x + window_x
+            tetromino_outline[y_in_space_around_tetromino, x_in_space_around_tetromino] = False
+
+        # tetromino_outline[
+        #     tetromino_offset_in_space_around_tetromino_y : tetromino_offset_in_space_around_tetromino_y
+        #     + tetromino.shape[0],
+        #     tetromino_offset_in_space_around_tetromino_x : tetromino_offset_in_space_around_tetromino_x
+        #     + tetromino.shape[1],
+        # ] = np.logical_and(
+        #     tetromino_outline[
+        #         tetromino_offset_in_space_around_tetromino_y : tetromino_offset_in_space_around_tetromino_y
+        #         + tetromino.shape[0],
+        #         tetromino_offset_in_space_around_tetromino_x : tetromino_offset_in_space_around_tetromino_x
+        #         + tetromino.shape[1],
+        #     ],
+        #     ~tetromino,
+        # )
+        tetromino_outline[
+            tetromino_offset_in_space_around_tetromino_y : tetromino_offset_in_space_around_tetromino_y
+            + tetromino.shape[0],
+            tetromino_offset_in_space_around_tetromino_x : tetromino_offset_in_space_around_tetromino_x
+            + tetromino.shape[1],
+        ][tetromino] = True
+
+        return len(list(TetrominoSpaceFiller._generate_islands(island_map=tetromino_outline))) > 1
 
     @staticmethod
     def _count_filled_neighbors(space: NDArray[np.int16], x: int, y: int) -> int:
