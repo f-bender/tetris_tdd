@@ -1,6 +1,7 @@
 import contextlib
 import random
 import sys
+from collections import deque
 from collections.abc import Iterator
 from itertools import product
 from typing import NamedTuple
@@ -71,6 +72,7 @@ class TetrominoSpaceFiller:
         self._total_blocks_to_place = np.sum(~self.space.astype(bool)) // 4
         self._blocks_placed = 0
         self._finished = False
+        self._3_neighbored_cell_deque: set[tuple[int, int]] = set()
         # self._dead_ends: set[bytes] = set()
 
     def draw(self) -> None:
@@ -113,7 +115,16 @@ class TetrominoSpaceFiller:
             self._finished = True
             return
 
-        empty_cell_index_to_fill = empty_cell_index_to_fill or self._first_empty_cell_index(space)
+        pop = bool(self._3_neighbored_cell_deque)
+        empty_cell_index_to_fill = (
+            self._3_neighbored_cell_deque.pop()
+            if self._3_neighbored_cell_deque
+            # TODO: not simply the first empty cell, but the clostest one to the last placed block!
+            else self._first_empty_cell_index(space)
+        )
+        if space[empty_cell_index_to_fill] != 0:
+            # print("WEEE WOOO WEEE WOOO")
+            empty_cell_index_to_fill = self._first_empty_cell_index(space)
 
         for next_empty_cell_index_to_fill in self._generate_placements(space, empty_cell_index_to_fill):
             # self._fill(np.rot90(space[1:]) if np.all(space[0]) else space)
@@ -121,6 +132,8 @@ class TetrominoSpaceFiller:
             if self._finished:
                 return
 
+        if pop:
+            self._3_neighbored_cell_deque.add(empty_cell_index_to_fill)
         # self._dead_ends.add(self.space.astype(bool).tobytes())
 
     def _generate_placements(
@@ -178,20 +191,23 @@ class TetrominoSpaceFiller:
                 # MAYBE: in case of a new island being created, make sure the smallest of the islands is the one from
                 # which the next cell to fill is taken? (might be obsolete once we simply make sure all 3-neighbored
                 # cells are taken care of ASAP)
-                yield self._get_neighboring_empty_cell_with_most_filled_neighbors_idx(space, tetromino, y, x)
+                cells = set(self._get_neighboring_empty_cells_with_3_filled_neighbors_idxs(space, tetromino, y, x))
+                self._3_neighbored_cell_deque |= cells
+                yield
+                self._3_neighbored_cell_deque -= cells
 
             self._blocks_placed -= 1
             local_space_view[tetromino] = 0
 
     @staticmethod
-    def _get_neighboring_empty_cell_with_most_filled_neighbors_idx(
+    def _get_neighboring_empty_cells_with_3_filled_neighbors_idxs(
         space: NDArray[np.int16], tetromino: NDArray[np.bool], y: int, x: int
-    ) -> tuple[int, int] | None:
+    ) -> Iterator[tuple[int, int]]:
         space_around_tetromino = space[
             max(y - 1, 0) : y + tetromino.shape[0] + 1, max(x - 1, 0) : x + tetromino.shape[1] + 1
         ]
-        max_filled_neighbors = 0
-        max_filled_neighbors_idx: tuple[int, int] | None = None
+        # max_filled_neighbors = 0
+        # max_filled_neighbors_idx: tuple[int, int] | None = None
 
         windows = np.lib.stride_tricks.sliding_window_view(space_around_tetromino, tetromino.shape)
         for (offset_y, offset_x, window_y, window_x), value in np.ndenumerate(windows):
@@ -214,13 +230,13 @@ class TetrominoSpaceFiller:
 
             if filled_neighbors == 3:
                 # 3 is the maximum possible -> immediately return
-                return y_in_space, x_in_space
+                yield y_in_space, x_in_space
 
-            if filled_neighbors > max_filled_neighbors:
-                max_filled_neighbors = filled_neighbors
-                max_filled_neighbors_idx = y_in_space, x_in_space
+        #     if filled_neighbors > max_filled_neighbors:
+        #         max_filled_neighbors = filled_neighbors
+        #         max_filled_neighbors_idx = y_in_space, x_in_space
 
-        return max_filled_neighbors_idx
+        # return max_filled_neighbors_idx
 
     @staticmethod
     def _placement_created_new_island(space: NDArray[np.int16], tetromino: NDArray[np.bool], y: int, x: int) -> bool:
