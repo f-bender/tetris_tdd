@@ -98,7 +98,7 @@ class TetrominoSpaceFiller:
     def _fill(
         self, space_view: NDArray[np.int16] | None = None, empty_cell_index_to_fill: tuple[int, int] | None = None
     ) -> None:
-        # time.sleep(0.05)
+        # time.sleep(0.1)
         space = space_view if space_view is not None else self.space
 
         # if self.space.astype(bool).tobytes() in self._dead_ends:
@@ -174,20 +174,21 @@ class TetrominoSpaceFiller:
             self._blocks_placed += 1
             local_space_view[tetromino] = self._blocks_placed
 
-            idx = self._get_first_neighboring_empty_cell_idx(space, tetromino, y, x)
-            # print(idx)
-            yield idx
+            yield self._get_neighboring_empty_cell_with_most_filled_neighbors_idx(space, tetromino, y, x)
 
             self._blocks_placed -= 1
             local_space_view[tetromino] = 0
 
     @staticmethod
-    def _get_first_neighboring_empty_cell_idx(
+    def _get_neighboring_empty_cell_with_most_filled_neighbors_idx(
         space: NDArray[np.int16], tetromino: NDArray[np.bool], y: int, x: int
     ) -> tuple[int, int] | None:
         space_around_tetromino = space[
             max(y - 1, 0) : y + tetromino.shape[0] + 1, max(x - 1, 0) : x + tetromino.shape[1] + 1
         ]
+        max_filled_neighbors = 0
+        max_filled_neighbors_idx: tuple[int, int] | None = None
+
         windows = np.lib.stride_tricks.sliding_window_view(space_around_tetromino, tetromino.shape)
         for (offset_y, offset_x, window_y, window_x), value in np.ndenumerate(windows):
             if value != 0 or not tetromino[window_y, window_x]:
@@ -198,10 +199,35 @@ class TetrominoSpaceFiller:
                 offset_y -= 1
             if x > 0:
                 offset_x -= 1
-            if abs(offset_y) != abs(offset_x):
-                return y + offset_y + window_y, x + offset_x + window_x
+            if bool(offset_y) == bool(offset_x):
+                # discard diagonal movement or not movement at all
+                continue
 
-        return None
+            y_in_space = y + offset_y + window_y
+            x_in_space = x + offset_x + window_x
+
+            filled_neighbors = TetrominoSpaceFiller._count_filled_neighbors(space, x_in_space, y_in_space)
+
+            if filled_neighbors == 3:
+                # 3 is the maximum possible -> immediately return
+                return y_in_space, x_in_space
+
+            if filled_neighbors > max_filled_neighbors:
+                max_filled_neighbors = filled_neighbors
+                max_filled_neighbors_idx = y_in_space, x_in_space
+
+        return max_filled_neighbors_idx
+
+    @staticmethod
+    def _count_filled_neighbors(space: NDArray[np.int16], x: int, y: int) -> int:
+        return sum(
+            (
+                not 0 <= neighbor_y < space.shape[0]
+                or not 0 <= neighbor_x < space.shape[1]
+                or space[neighbor_y, neighbor_x] != 0
+            )
+            for neighbor_y, neighbor_x in ((y - 1, x), (y + 1, x), (y, x - 1), (y, x + 1))
+        )
 
     @staticmethod
     def _first_empty_cell_index(space: NDArray[np.int16]) -> tuple[int, int]:
