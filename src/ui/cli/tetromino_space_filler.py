@@ -72,6 +72,7 @@ class TetrominoSpaceFiller:
         self._blocks_placed = 0
         self._finished = False
         # self._dead_ends: set[bytes] = set()
+        self._unfillable_cell: tuple[int, int] | None = None
 
     def draw(self) -> None:
         print(cursor.goto(1, 1))
@@ -99,7 +100,6 @@ class TetrominoSpaceFiller:
     def _fill(
         self, space_view: NDArray[np.int16] | None = None, empty_cell_index_to_fill: tuple[int, int] | None = None
     ) -> None:
-        # time.sleep(0.1)
         space = space_view if space_view is not None else self.space
 
         # if self.space.astype(bool).tobytes() in self._dead_ends:
@@ -108,7 +108,6 @@ class TetrominoSpaceFiller:
         # find the empty cell which is the closes to last_placed_block_center
 
         # if self._blocks_placed % 10 == 0:
-        self.draw()
         if np.all(space):
             self._finished = True
             return
@@ -127,6 +126,9 @@ class TetrominoSpaceFiller:
             if self._finished:
                 return
 
+        # remember this one as the cell that could not be filled, then backtrack until one of it's neighbors is removed,
+        # hopefully removing the issue that made it unfillable
+        self._unfillable_cell = empty_cell_index_to_fill
         # self._dead_ends.add(self.space.astype(bool).tobytes())
 
     def _generate_placements(
@@ -179,12 +181,51 @@ class TetrominoSpaceFiller:
 
             self._blocks_placed += 1
             local_space_view[tetromino] = self._blocks_placed
+            self.draw()
+            # time.sleep(0.1)
 
             if not self._placement_created_new_island(space, tetromino, y, x) or self.space_fillable(space):
                 yield self._get_neighboring_empty_cell_with_most_filled_neighbors_idx(space, tetromino, y, x)
 
             self._blocks_placed -= 1
             local_space_view[tetromino] = 0
+            self.draw()
+            # time.sleep(0.1)
+
+            if self._unfillable_cell and self._is_adjacent(tetromino, x, y, self._unfillable_cell):
+                self._unfillable_cell = None
+
+            if self._unfillable_cell:
+                # time.sleep(0.2)
+                return
+
+    @staticmethod
+    def _is_adjacent(tetromino: NDArray[np.bool], y: int, x: int, cell_index: tuple[int, int]) -> bool:
+        cell_y, cell_x = cell_index
+
+        if not TetrominoSpaceFiller._in_or_adjacent_to_bounding_box(tetromino, y, x, cell_y, cell_x):
+            return False
+
+        for cell_neighbor_y, cell_neighbor_x in (
+            (cell_y - 1, cell_x),
+            (cell_y + 1, cell_x),
+            (cell_y, cell_x - 1),
+            (cell_y, cell_x + 1),
+        ):
+            local_cell_neighbor_y = cell_neighbor_y - y
+            local_cell_neighbor_x = cell_neighbor_x - x
+            if (
+                0 <= local_cell_neighbor_y < tetromino.shape[0]
+                and 0 <= local_cell_neighbor_x < tetromino.shape[1]
+                and tetromino[local_cell_neighbor_y, local_cell_neighbor_x]
+            ):
+                return True
+
+        return False
+
+    @staticmethod
+    def _in_or_adjacent_to_bounding_box(tetromino: NDArray[np.bool], y: int, x: int, cell_y: int, cell_x: int) -> bool:
+        return y - 1 <= cell_y <= y + tetromino.shape[0] and x - 1 <= cell_x <= x + tetromino.shape[1]
 
     @staticmethod
     def _get_neighboring_empty_cell_with_most_filled_neighbors_idx(

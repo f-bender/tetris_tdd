@@ -49,7 +49,7 @@ def main() -> None:
 if __name__ == "__main__":
     # main()
     space = np.zeros((72, 72), dtype=np.int16)
-    space[8:24, 8:24] = -1
+    # space[8:24, 8:24] = -1
     filler = TetrominoSpaceFiller(space)
     filler.fill()
     print(space)
