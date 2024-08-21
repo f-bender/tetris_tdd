@@ -113,7 +113,13 @@ class TetrominoSpaceFiller:
             self._finished = True
             return
 
-        empty_cell_index_to_fill = empty_cell_index_to_fill or self._first_empty_cell_index(space)
+        empty_cell_index_to_fill = (
+            empty_cell_index_to_fill
+            # TODO: not simply the first empty cell, but the closest one to the last placed block!
+            # NOTE: I don't think this makes the algorithm more efficient, but it makes the animation of the space
+            # filling up nicer to watch, which is also one of my objectives :)
+            or self._first_empty_cell_index(space)
+        )
 
         for next_empty_cell_index_to_fill in self._generate_placements(space, empty_cell_index_to_fill):
             # self._fill(np.rot90(space[1:]) if np.all(space[0]) else space)
@@ -175,9 +181,6 @@ class TetrominoSpaceFiller:
             local_space_view[tetromino] = self._blocks_placed
 
             if not self._placement_created_new_island(space, tetromino, y, x) or self.space_fillable(space):
-                # MAYBE: in case of a new island being created, make sure the smallest of the islands is the one from
-                # which the next cell to fill is taken? (might be obsolete once we simply make sure all 3-neighbored
-                # cells are taken care of ASAP)
                 yield self._get_neighboring_empty_cell_with_most_filled_neighbors_idx(space, tetromino, y, x)
 
             self._blocks_placed -= 1
