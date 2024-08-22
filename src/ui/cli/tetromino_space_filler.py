@@ -128,7 +128,8 @@ class TetrominoSpaceFiller:
 
         # remember this one as the cell that could not be filled, then backtrack until one of it's neighbors is removed,
         # hopefully removing the issue that made it unfillable
-        self._unfillable_cell = empty_cell_index_to_fill
+        if not self._unfillable_cell:
+            self._unfillable_cell = empty_cell_index_to_fill
         # self._dead_ends.add(self.space.astype(bool).tobytes())
 
     def _generate_placements(
@@ -137,6 +138,8 @@ class TetrominoSpaceFiller:
         for tetromino_idx in range(len(self.TETROMINOS)):
             tetromino = self.TETROMINOS[(tetromino_idx + self._blocks_placed) % len(self.TETROMINOS)]
             yield from self._place_tetromino(space, tetromino, cell_to_be_filled_idx)
+            if self._unfillable_cell:
+                return
 
     def _place_tetromino(
         self, space: NDArray[np.int16], tetromino: NDArray[np.bool], cell_to_be_filled_idx: tuple[int, int]
@@ -154,6 +157,8 @@ class TetrominoSpaceFiller:
             if tetromino_hash in hashes:
                 continue
             yield from self._place_rotated_tetromino_on_view(space, rotated_tetromino, cell_to_be_filled_idx)
+            if self._unfillable_cell:
+                return
             hashes.add(tetromino_hash)
 
     # def _place_rotated_tetromino(self, tetromino: NDArray[np.bool]) -> Iterator[None]:
@@ -184,7 +189,10 @@ class TetrominoSpaceFiller:
             self.draw()
             # time.sleep(0.1)
 
-            if not self._placement_created_new_island(space, tetromino, y, x) or self.space_fillable(space):
+            if (
+                # not self._placement_created_new_island(space, tetromino, y, x) or
+                self.space_fillable(space)
+            ):
                 yield self._get_neighboring_empty_cell_with_most_filled_neighbors_idx(space, tetromino, y, x)
 
             self._blocks_placed -= 1
@@ -192,7 +200,7 @@ class TetrominoSpaceFiller:
             self.draw()
             # time.sleep(0.1)
 
-            if self._unfillable_cell and self._is_adjacent(tetromino, x, y, self._unfillable_cell):
+            if self._unfillable_cell and self._is_adjacent(tetromino, y, x, self._unfillable_cell):
                 self._unfillable_cell = None
 
             if self._unfillable_cell:
@@ -268,6 +276,8 @@ class TetrominoSpaceFiller:
 
     @staticmethod
     def _placement_created_new_island(space: NDArray[np.int16], tetromino: NDArray[np.bool], y: int, x: int) -> bool:
+        #! TODO: FIX: when at the edge of the board, sliding window can't slide in the respective direction, although
+        #! the slide in that direction might still reveal a neighbor (i.e. a cell fo the outline!)
         space_around_tetromino = space[
             max(y - 1, 0) : y + tetromino.shape[0] + 1, max(x - 1, 0) : x + tetromino.shape[1] + 1
         ]
