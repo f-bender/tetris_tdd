@@ -63,6 +63,7 @@ class TetrominoSpaceFiller:
         self._finished = False
         # self._dead_ends: set[bytes] = set()
         self._unfillable_cell: tuple[int, int] | None = None
+        self._smallest_island: NDArray[np.bool] | None = None
 
     def draw(self) -> None:
         print(cursor.goto(1, 1))
@@ -102,11 +103,16 @@ class TetrominoSpaceFiller:
             self._finished = True
             return
 
-        empty_cell_index_to_fill = (
-            empty_cell_index_to_fill
-            if space[empty_cell_index_to_fill] == 0
-            else self._closest_empty_cell_index(empty_cell_index_to_fill)
-        )
+        # Prio 1: Fill the smallest island (in case the requested index is not inside it, change it)
+        if self._smallest_island is not None and not self._smallest_island[empty_cell_index_to_fill]:
+            empty_cell_index_to_fill = self._closest_index_in_area(
+                allowed_area=self._smallest_island, index=empty_cell_index_to_fill
+            )
+        # Prio 2: Select an empty cell as close as possible to the requested cell (the cell itself in case it's empty)
+        elif space[empty_cell_index_to_fill] != 0:
+            empty_cell_index_to_fill = self._closest_index_in_area(
+                allowed_area=self.space == 0, index=empty_cell_index_to_fill
+            )
 
         for next_empty_cell_index_to_fill in self._generate_placements(space, empty_cell_index_to_fill):
             # self._fill(np.rot90(space[1:]) if np.all(space[0]) else space)
@@ -282,16 +288,32 @@ class TetrominoSpaceFiller:
                 return idx
         raise ValueError("Space is full!")
 
-    def _closest_empty_cell_index(self, index: tuple[int, int]) -> tuple[int, int]:
-        empty_cell_idxs = np.argwhere(self.space == 0)
-        distances_to_index = np.abs(empty_cell_idxs[:, 0] - index[0]) + np.abs(empty_cell_idxs[:, 1] - index[1])
-        return tuple(empty_cell_idxs[np.argmin(distances_to_index)])
-
     @staticmethod
-    def space_fillable(
-        space_view: NDArray[np.int16], to_be_placed_tetromino: PositionedTetromino | None = None
-    ) -> bool:
-        island_map = (space_view == 0).astype(np.uint8)
-        space_with_filled_islands, num_islands = measure.label(island_map, connectivity=1, return_num=True)
+    def _closest_index_in_area(allowed_area: NDArray[np.bool], index: tuple[int, int]) -> tuple[int, int]:
+        allowed_idxs = np.argwhere(allowed_area)
+        distances_to_index = np.abs(allowed_idxs[:, 0] - index[0]) + np.abs(allowed_idxs[:, 1] - index[1])
+        return tuple(allowed_idxs[np.argmin(distances_to_index)])
 
-        return all(np.sum(space_with_filled_islands == i) % 4 == 0 for i in range(1, num_islands + 1))
+    def space_fillable(self, to_be_placed_tetromino: PositionedTetromino | None = None) -> bool:
+        island_map = (self.space == 0).astype(np.uint8)
+        space_with_labeled_islands, num_islands = measure.label(island_map, connectivity=1, return_num=True)
+
+        if num_islands <= 1:
+            self._smallest_island = None
+            return True
+
+        smallest_island_size = self.space.shape[0] * self.space.shape[1]
+
+        for i in range(1, num_islands + 1):
+            island = space_with_labeled_islands == i
+            island_size = np.sum(island)
+
+            if island_size % 4 != 0:
+                self._smallest_island = None
+                return False
+
+            if island_size < smallest_island_size:
+                smallest_island_size = island_size
+                self._smallest_island = island
+
+        return True
