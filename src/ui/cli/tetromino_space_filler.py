@@ -88,7 +88,7 @@ class TetrominoSpaceFiller:
 
     # TODO consider inlining the 5 functions into one; might make a notable performance difference
     def _fill(
-        self, space_view: NDArray[np.int16] | None = None, empty_cell_index_to_fill: tuple[int, int] | None = None
+        self, space_view: NDArray[np.int16] | None = None, empty_cell_index_to_fill: tuple[int, int] = (0, 0)
     ) -> None:
         space = space_view if space_view is not None else self.space
 
@@ -104,10 +104,8 @@ class TetrominoSpaceFiller:
 
         empty_cell_index_to_fill = (
             empty_cell_index_to_fill
-            # TODO: not simply the first empty cell, but the closest one to the last placed block!
-            # NOTE: I don't think this makes the algorithm more efficient, but it makes the animation of the space
-            # filling up nicer to watch, which is also one of my objectives :)
-            or self._first_empty_cell_index(space)
+            if space[empty_cell_index_to_fill] == 0
+            else self._closest_empty_cell_index(empty_cell_index_to_fill)
         )
 
         for next_empty_cell_index_to_fill in self._generate_placements(space, empty_cell_index_to_fill):
@@ -124,7 +122,7 @@ class TetrominoSpaceFiller:
 
     def _generate_placements(
         self, space: NDArray[np.int16], cell_to_be_filled_idx: tuple[int, int]
-    ) -> Iterator[tuple[int, int] | None]:
+    ) -> Iterator[tuple[int, int]]:
         for tetromino_idx in range(len(self.TETROMINOS)):
             tetromino = self.TETROMINOS[(tetromino_idx + self._blocks_placed) % len(self.TETROMINOS)]
             yield from self._place_tetromino(space, tetromino, cell_to_be_filled_idx)
@@ -133,7 +131,7 @@ class TetrominoSpaceFiller:
 
     def _place_tetromino(
         self, space: NDArray[np.int16], tetromino: NDArray[np.bool], cell_to_be_filled_idx: tuple[int, int]
-    ) -> Iterator[tuple[int, int] | None]:
+    ) -> Iterator[tuple[int, int]]:
         # for efficiency: make sure only distinct versions of the tetromino are used (avoid duplicates because of
         # symmetry (rotational or axial))
         hashes: set[bytes] = set()
@@ -159,7 +157,7 @@ class TetrominoSpaceFiller:
 
     def _place_rotated_tetromino_on_view(
         self, space: NDArray[np.int16], tetromino: NDArray[np.bool], cell_to_be_filled_idx: tuple[int, int]
-    ) -> Iterator[tuple[int, int] | None]:
+    ) -> Iterator[tuple[int, int]]:
         for tetromino_cell_idx in np.argwhere(tetromino):
             tetromino_placement_idx = cell_to_be_filled_idx - tetromino_cell_idx
 
@@ -182,11 +180,11 @@ class TetrominoSpaceFiller:
             # self.draw()
             # time.sleep(0.1)
 
-            if (
-                # not self._placement_created_new_island(space, tetromino, y, x) or
-                self.space_fillable(space)
-            ):
-                yield self._get_neighboring_empty_cell_with_most_filled_neighbors_idx(space, tetromino, y, x)
+            if self.space_fillable(space):
+                yield self._get_neighboring_empty_cell_with_most_filled_neighbors_idx(space, tetromino, y, x) or (
+                    y + tetromino.shape[0] // 2,
+                    x + tetromino.shape[1] // 2,
+                )
 
             self._blocks_placed -= 1
             local_space_view[tetromino] = 0
@@ -278,12 +276,16 @@ class TetrominoSpaceFiller:
             for neighbor_y, neighbor_x in ((y - 1, x), (y + 1, x), (y, x - 1), (y, x + 1))
         )
 
-    @staticmethod
-    def _first_empty_cell_index(space: NDArray[np.int16]) -> tuple[int, int]:
-        for idx, value in np.ndenumerate(space):
+    def _first_empty_cell_index(self) -> tuple[int, int]:
+        for idx, value in np.ndenumerate(self.space):
             if value == 0:
                 return idx
         raise ValueError("Space is full!")
+
+    def _closest_empty_cell_index(self, index: tuple[int, int]) -> tuple[int, int]:
+        empty_cell_idxs = np.argwhere(self.space == 0)
+        distances_to_index = np.abs(empty_cell_idxs[:, 0] - index[0]) + np.abs(empty_cell_idxs[:, 1] - index[1])
+        return tuple(empty_cell_idxs[np.argmin(distances_to_index)])
 
     @staticmethod
     def space_fillable(
