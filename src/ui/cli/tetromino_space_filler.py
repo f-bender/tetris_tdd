@@ -8,6 +8,7 @@ from typing import NamedTuple
 import numpy as np
 from ansi import color, cursor
 from numpy.typing import NDArray
+from skimage import measure
 
 from ansi_extensions import color as colorx
 from game_logic.components.block import Block, BlockType
@@ -56,17 +57,6 @@ class TetrominoSpaceFiller:
         #     raise ValueError("Space cannot be filled! Contains at least one island with size not divisible by 4!")
 
         self.space = space
-
-        self.space_rotated_transposed_views = (
-            self.space,
-            # np.rot90(self.space, k=1).T,
-            # np.rot90(self.space, k=1),
-            # np.rot90(self.space, k=2).T,
-            # np.rot90(self.space, k=2),
-            # np.rot90(self.space, k=3).T,
-            # np.rot90(self.space, k=3),
-            # self.space.T,
-        )
 
         self._total_blocks_to_place = np.sum(~self.space.astype(bool)) // 4
         self._blocks_placed = 0
@@ -186,7 +176,7 @@ class TetrominoSpaceFiller:
 
             self._blocks_placed += 1
             local_space_view[tetromino] = self._blocks_placed
-            self.draw()
+            # self.draw()
             # time.sleep(0.1)
 
             if (
@@ -197,7 +187,7 @@ class TetrominoSpaceFiller:
 
             self._blocks_placed -= 1
             local_space_view[tetromino] = 0
-            self.draw()
+            # self.draw()
             # time.sleep(0.1)
 
             if self._unfillable_cell and self._is_adjacent(tetromino, y, x, self._unfillable_cell):
@@ -275,49 +265,6 @@ class TetrominoSpaceFiller:
         return max_filled_neighbors_idx
 
     @staticmethod
-    def _placement_created_new_island(space: NDArray[np.int16], tetromino: NDArray[np.bool], y: int, x: int) -> bool:
-        #! TODO: FIX: when at the edge of the board, sliding window can't slide in the respective direction, although
-        #! the slide in that direction might still reveal a neighbor (i.e. a cell fo the outline!)
-        space_around_tetromino = space[
-            max(y - 1, 0) : y + tetromino.shape[0] + 1, max(x - 1, 0) : x + tetromino.shape[1] + 1
-        ]
-        tetromino_offset_in_space_around_tetromino_y = 0 if y == 0 else 1
-        tetromino_offset_in_space_around_tetromino_x = 0 if x == 0 else 1
-        tetromino_outline = np.ones_like(space_around_tetromino, dtype=np.bool)
-
-        windows = np.lib.stride_tricks.sliding_window_view(space_around_tetromino, tetromino.shape)
-        for (offset_y, offset_x, window_y, window_x), value in np.ndenumerate(windows):
-            if value != 0 or not tetromino[window_y, window_x]:
-                continue
-
-            y_in_space_around_tetromino = offset_y + window_y
-            x_in_space_around_tetromino = offset_x + window_x
-            tetromino_outline[y_in_space_around_tetromino, x_in_space_around_tetromino] = False
-
-        # tetromino_outline[
-        #     tetromino_offset_in_space_around_tetromino_y : tetromino_offset_in_space_around_tetromino_y
-        #     + tetromino.shape[0],
-        #     tetromino_offset_in_space_around_tetromino_x : tetromino_offset_in_space_around_tetromino_x
-        #     + tetromino.shape[1],
-        # ] = np.logical_and(
-        #     tetromino_outline[
-        #         tetromino_offset_in_space_around_tetromino_y : tetromino_offset_in_space_around_tetromino_y
-        #         + tetromino.shape[0],
-        #         tetromino_offset_in_space_around_tetromino_x : tetromino_offset_in_space_around_tetromino_x
-        #         + tetromino.shape[1],
-        #     ],
-        #     ~tetromino,
-        # )
-        tetromino_outline[
-            tetromino_offset_in_space_around_tetromino_y : tetromino_offset_in_space_around_tetromino_y
-            + tetromino.shape[0],
-            tetromino_offset_in_space_around_tetromino_x : tetromino_offset_in_space_around_tetromino_x
-            + tetromino.shape[1],
-        ][tetromino] = True
-
-        return len(list(TetrominoSpaceFiller._generate_islands(island_map=tetromino_outline))) > 1
-
-    @staticmethod
     def _count_filled_neighbors(space: NDArray[np.int16], x: int, y: int) -> int:
         return sum(
             (
@@ -349,42 +296,7 @@ class TetrominoSpaceFiller:
     def space_fillable(
         space_view: NDArray[np.int16], to_be_placed_tetromino: PositionedTetromino | None = None
     ) -> bool:
-        island_map = np.where(space_view == 0, False, True)
+        island_map = (space_view == 0).astype(np.uint8)
+        space_with_filled_islands, num_islands = measure.label(island_map, connectivity=1, return_num=True)
 
-        if to_be_placed_tetromino:
-            y, x = to_be_placed_tetromino.position
-            height, width = to_be_placed_tetromino.tetromino.shape
-            island_map[y : y + height, x : x + width] = np.logical_or(
-                to_be_placed_tetromino.tetromino,
-                island_map[y : y + height, x : x + width],
-            )
-
-        return all(island_size % 4 == 0 for island_size in TetrominoSpaceFiller._generate_islands(island_map))
-
-    @staticmethod
-    def _generate_islands(island_map: NDArray[np.int16]) -> Iterator[int]:
-        for index, cell in np.ndenumerate(island_map):
-            if cell == 0:
-                yield TetrominoSpaceFiller._flood_fill_island(island_map, index)
-
-    @staticmethod
-    def _flood_fill_island(island_map: NDArray[np.int16], index: tuple[int, int]) -> int:
-        island_size = 0
-        to_visit = [index]
-
-        while to_visit:
-            y, x = to_visit.pop()
-            if not island_map[y, x]:
-                island_size += 1
-                island_map[y, x] = True
-                to_visit.extend(
-                    idx
-                    for idx in [(y + 1, x), (y - 1, x), (y, x + 1), (y, x - 1)]
-                    if TetrominoSpaceFiller._in_bounds(island_map.shape, idx) and not island_map[idx]
-                )
-
-        return island_size
-
-    @staticmethod
-    def _in_bounds(shape: tuple[int, int], index: tuple[int, int]) -> bool:
-        return 0 <= index[0] < shape[0] and 0 <= index[1] < shape[1]
+        return all(np.sum(space_with_filled_islands == i) % 4 == 0 for i in range(1, num_islands + 1))
