@@ -284,14 +284,13 @@ class TetrominoSpaceFiller:
 
     @staticmethod
     def _placement_out_of_bounds(
-        placement_idx: NDArray[np.int_], space_shape: tuple[int, int], tetromino_shape: tuple[int, int]
+        placement_idx: tuple[int, int], space_shape: tuple[int, int], tetromino_shape: tuple[int, int]
     ) -> bool:
-        return bool(
-            np.any(placement_idx < 0) or np.any(placement_idx + np.array(tetromino_shape) > np.array(space_shape))
+        return (
+            not 0 <= placement_idx[0] <= space_shape[0] - tetromino_shape[0]
+            or not 0 <= placement_idx[1] <= space_shape[1] - tetromino_shape[1]
         )
 
-    # TODO: use check_around argument to make this check more efficient, validating only the area around a newly placed
-    # block
     @staticmethod
     def space_fillable(
         space_view: NDArray[np.int16], to_be_placed_tetromino: PositionedTetromino | None = None
