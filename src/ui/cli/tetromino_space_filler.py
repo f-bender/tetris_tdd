@@ -183,7 +183,8 @@ class TetrominoSpaceFiller:
 
             self._blocks_placed += 1
             local_space_view[tetromino] = self._blocks_placed
-            # self.draw()
+            if self._blocks_placed % 25 == 0:
+                self.draw()
             # time.sleep(0.1)
 
             if self.space_fillable(space):
@@ -194,7 +195,8 @@ class TetrominoSpaceFiller:
 
             self._blocks_placed -= 1
             local_space_view[tetromino] = 0
-            # self.draw()
+            if self._blocks_placed % 25 == 0:
+                self.draw()
             # time.sleep(0.1)
 
             if self._unfillable_cell and self._is_adjacent(tetromino, y, x, self._unfillable_cell):

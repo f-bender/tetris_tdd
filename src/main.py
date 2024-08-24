@@ -1,4 +1,4 @@
-from time import sleep
+from time import perf_counter, sleep
 
 import numpy as np
 
@@ -48,9 +48,11 @@ def main() -> None:
 
 if __name__ == "__main__":
     # main()
-    space = np.zeros((72, 72), dtype=np.int16)
+    t0 = perf_counter()
+    space = np.zeros((144, 144), dtype=np.int16)
     # space[8:24, 8:24] = -1
     filler = TetrominoSpaceFiller(space)
     filler.fill()
     print(space)
     print(filler._finished)
+    print(perf_counter() - t0)
