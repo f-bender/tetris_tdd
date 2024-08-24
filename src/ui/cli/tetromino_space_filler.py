@@ -163,13 +163,16 @@ class TetrominoSpaceFiller:
         for tetromino_cell_idx in np.argwhere(tetromino):
             tetromino_placement_idx = cell_to_be_filled_idx - tetromino_cell_idx
 
-            if self._placement_out_of_bounds(tetromino_placement_idx, space.shape, tetromino.shape):
-                continue
-
             y, x = tetromino_placement_idx
             height, width = tetromino.shape
 
             local_space_view = space[y : y + height, x : x + width]
+            # In case part of the tetromino placement is partly out of bounds, the slicing syntax above still works, but
+            # the shape of the obtained view is not as expected (height, width).
+            # We use this as an efficient way of checking whether the placement is partly out of bounds:
+            if local_space_view.shape != tetromino.shape:
+                # placement partly out of bounds
+                continue
 
             if np.any(np.logical_and(local_space_view, tetromino)):
                 continue
@@ -281,15 +284,6 @@ class TetrominoSpaceFiller:
             if value == 0:
                 return idx
         raise ValueError("Space is full!")
-
-    @staticmethod
-    def _placement_out_of_bounds(
-        placement_idx: tuple[int, int], space_shape: tuple[int, int], tetromino_shape: tuple[int, int]
-    ) -> bool:
-        return (
-            not 0 <= placement_idx[0] <= space_shape[0] - tetromino_shape[0]
-            or not 0 <= placement_idx[1] <= space_shape[1] - tetromino_shape[1]
-        )
 
     @staticmethod
     def space_fillable(
