@@ -68,12 +68,11 @@ class TetrominoSpaceFiller:
     def draw(self) -> None:
         print(cursor.goto(1, 1))
         for row in self.space:
+            rd = random.Random()
             print(
                 "".join(
-                    random.seed(int(val))
-                    or colorx.bg.rgb_truecolor(
-                        random.randrange(25, 256), random.randrange(25, 256), random.randrange(25, 256)
-                    )
+                    rd.seed(int(val))  # type: ignore[func-returns-value]
+                    or colorx.bg.rgb_truecolor(rd.randrange(50, 256), rd.randrange(50, 256), rd.randrange(50, 256))
                     + "  "
                     + color.fx.reset
                     if val > 0
@@ -103,12 +102,16 @@ class TetrominoSpaceFiller:
             self._finished = True
             return
 
-        # Prio 1: Fill the smallest island (in case the requested index is not inside it, change it)
-        if self._smallest_island is not None and not self._smallest_island[empty_cell_index_to_fill]:
+        # Prio 1: Try to fill the unfillable cell
+        if self._unfillable_cell:
+            empty_cell_index_to_fill = self._unfillable_cell
+            self._unfillable_cell = None
+        # Prio 2: Fill the smallest island (in case the requested index is not inside it, change it)
+        elif self._smallest_island is not None and not self._smallest_island[empty_cell_index_to_fill]:
             empty_cell_index_to_fill = self._closest_index_in_area(
                 allowed_area=self._smallest_island, index=empty_cell_index_to_fill
             )
-        # Prio 2: Select an empty cell as close as possible to the requested cell (the cell itself in case it's empty)
+        # Prio 3: Select an empty cell as close as possible to the requested cell (the cell itself in case it's empty)
         elif space[empty_cell_index_to_fill] != 0:
             empty_cell_index_to_fill = self._closest_index_in_area(
                 allowed_area=self.space == 0, index=empty_cell_index_to_fill
@@ -132,14 +135,13 @@ class TetrominoSpaceFiller:
         for tetromino_idx in range(len(self.TETROMINOS)):
             tetromino = self.TETROMINOS[(tetromino_idx + self._blocks_placed) % len(self.TETROMINOS)]
             yield from self._place_tetromino(space, tetromino, cell_to_be_filled_idx)
-            if self._unfillable_cell:
-                return
 
     def _place_tetromino(
         self, space: NDArray[np.int16], tetromino: NDArray[np.bool], cell_to_be_filled_idx: tuple[int, int]
     ) -> Iterator[tuple[int, int]]:
         # for efficiency: make sure only distinct versions of the tetromino are used (avoid duplicates because of
         # symmetry (rotational or axial))
+        # TODO: pre-generate all rotations and translations (I guess at import time even)
         hashes: set[bytes] = set()
         transpose_rotations = list(product((False, True), range(4)))
         for i in range(len(transpose_rotations)):
@@ -151,8 +153,6 @@ class TetrominoSpaceFiller:
             if tetromino_hash in hashes:
                 continue
             yield from self._place_rotated_tetromino_on_view(space, rotated_tetromino, cell_to_be_filled_idx)
-            if self._unfillable_cell:
-                return
             hashes.add(tetromino_hash)
 
     # def _place_rotated_tetromino(self, tetromino: NDArray[np.bool]) -> Iterator[None]:
@@ -183,11 +183,12 @@ class TetrominoSpaceFiller:
 
             self._blocks_placed += 1
             local_space_view[tetromino] = self._blocks_placed
-            if self._blocks_placed % 25 == 0:
-                self.draw()
-            # time.sleep(0.1)
 
-            if self.space_fillable(space):
+            filled = False
+            if self.space_fillable():
+                filled = True
+                if self._blocks_placed % 100 == 0:
+                    self.draw()
                 yield self._get_neighboring_empty_cell_with_most_filled_neighbors_idx(space, tetromino, y, x) or (
                     y + tetromino.shape[0] // 2,
                     x + tetromino.shape[1] // 2,
@@ -195,15 +196,18 @@ class TetrominoSpaceFiller:
 
             self._blocks_placed -= 1
             local_space_view[tetromino] = 0
-            if self._blocks_placed % 25 == 0:
+            if filled and self._blocks_placed % 100 == 0:
                 self.draw()
-            # time.sleep(0.1)
 
-            if self._unfillable_cell and self._is_adjacent(tetromino, y, x, self._unfillable_cell):
-                self._unfillable_cell = None
-
-            if self._unfillable_cell:
-                # time.sleep(0.2)
+            #! TODO:
+            #! run some automated randomized tests that check whether the addition of these 2 lines ever breaks
+            #! the algorithm, or if it ever creates a different result (as opposed to without these 2 lines)
+            if self._unfillable_cell and not self._is_adjacent(tetromino, y, x, self._unfillable_cell):
+                # We assume that if the block we have just removed during backtracking is not adjacent to the unfillable
+                # cell, then this change has likely not made the unfillable block fillable again, thus we don't even
+                # try.
+                # (Note that not returning would lead to yielding, which would lead to calling _fill, which would
+                # lead to trying to fill the unfillable cell)
                 return
 
     @staticmethod
