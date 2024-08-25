@@ -11,6 +11,7 @@ from numpy.typing import NDArray
 from skimage import measure
 
 from ansi_extensions import color as colorx
+from ansi_extensions import cursor as cursorx
 from game_logic.components.block import Block, BlockType
 
 
@@ -64,22 +65,41 @@ class TetrominoSpaceFiller:
         # self._dead_ends: set[bytes] = set()
         self._unfillable_cell: tuple[int, int] | None = None
         self._smallest_island: NDArray[np.bool] | None = None
+        self._i = 0
+        self._last_drawn = None
 
     def draw(self) -> None:
-        print(cursor.goto(1, 1))
-        for row in self.space:
-            rd = random.Random()
-            print(
-                "".join(
-                    rd.seed(int(val))  # type: ignore[func-returns-value]
+        rd = random.Random()
+        if self._last_drawn is None:
+            print(cursor.goto(1, 1), end="")
+            for row in self.space:
+                print(
+                    "".join(
+                        rd.seed(int(val))  # type: ignore[func-returns-value]
+                        or colorx.bg.rgb_truecolor(rd.randrange(50, 256), rd.randrange(50, 256), rd.randrange(50, 256))
+                        + "  "
+                        + color.fx.reset
+                        if val > 0
+                        else "  "
+                        for val in row
+                    )
+                )
+        else:
+            for y, x in np.argwhere(self.space != self._last_drawn):
+                print(cursor.goto(y + 1, x * 2 + 1), end="")
+                print(
+                    rd.seed(int(val))
                     or colorx.bg.rgb_truecolor(rd.randrange(50, 256), rd.randrange(50, 256), rd.randrange(50, 256))
                     + "  "
                     + color.fx.reset
-                    if val > 0
-                    else "  "
-                    for val in row
+                    if (val := self.space[y, x]) > 0
+                    else "  ",
+                    end="",
+                    flush=True,
                 )
-            )
+                print(cursor.goto(self.space.shape[0] + 1) + cursorx.erase_to_end(""), end="")
+
+        self._last_drawn = self.space.copy()
 
     def fill(self) -> None:
         with ensure_sufficient_recursion_depth(self._total_blocks_to_place + self.STACK_FRAMES_SAFETY_MARGIN):
@@ -194,16 +214,18 @@ class TetrominoSpaceFiller:
             filled = False
             if self.space_fillable():
                 filled = True
-                if self._blocks_placed % 100 == 0:
+                self._i += 1
+                if self._i % 10 == 0:
                     self.draw()
                 yield self._get_neighboring_empty_cell_with_most_filled_neighbors_idx(space, tetromino, y, x) or (
                     y + tetromino.shape[0] // 2,
                     x + tetromino.shape[1] // 2,
                 )
+                self._i += 1
 
             self._blocks_placed -= 1
             local_space_view[tetromino] = 0
-            if filled and self._blocks_placed % 100 == 0:
+            if filled and self._i % 10 == 0:
                 self.draw()
 
             if self._unfillable_cell and not self._is_close(tetromino, y, x, self._unfillable_cell):
