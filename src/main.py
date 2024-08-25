@@ -1,4 +1,6 @@
-from time import perf_counter, sleep
+import random
+import shutil
+from time import sleep
 
 import numpy as np
 
@@ -47,12 +49,8 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    # main()
-    t0 = perf_counter()
-    space = np.zeros((144, 144), dtype=np.int16)
-    # space[8:24, 8:24] = -1
+    w, h = shutil.get_terminal_size()
+    space = np.zeros((h // 4 * 4, w // 2), dtype=np.int32)
+
     filler = TetrominoSpaceFiller(space)
-    filler.fill()
-    print(space)
-    print(filler._finished)
-    print(perf_counter() - t0)
+    filler.fill((random.randrange(space.shape[0]), random.randrange(space.shape[1])))

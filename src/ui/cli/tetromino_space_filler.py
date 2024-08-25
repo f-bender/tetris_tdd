@@ -43,8 +43,9 @@ class TetrominoSpaceFiller:
         )
     )
     STACK_FRAMES_SAFETY_MARGIN = 50
+    CLOSE_DISTANCE_THRESHOLD = 4
 
-    def __init__(self, space: NDArray[np.int16]) -> None:
+    def __init__(self, space: NDArray[np.int32]) -> None:
         """Initialize the space filler.
 
         Args:
@@ -54,19 +55,28 @@ class TetrominoSpaceFiller:
         if not set(np.unique(space)).issubset({-1, 0}):
             raise ValueError("Space must consist of -1s and 0s only.")
 
-        # if not self.space_fillable(space):
-        #     raise ValueError("Space cannot be filled! Contains at least one island with size not divisible by 4!")
-
         self.space = space
+        cells_to_fill = np.sum(~self.space.astype(bool))
 
-        self._total_blocks_to_place = np.sum(~self.space.astype(bool)) // 4
-        self._blocks_placed = 0
+        if cells_to_fill % 4 != 0 or not self.space_fillable():
+            raise ValueError("Space cannot be filled! Contains at least one island with size not divisible by 4!")
+
+        self._total_blocks_to_place = cells_to_fill // 4
+        self._num_blocks_placed = 0
         self._finished = False
         # self._dead_ends: set[bytes] = set()
         self._unfillable_cell: tuple[int, int] | None = None
         self._smallest_island: NDArray[np.bool] | None = None
         self._i = 0
         self._last_drawn = None
+
+    @property
+    def total_block_to_place(self) -> int:
+        return self._total_blocks_to_place
+
+    @property
+    def num_blocks_placed(self) -> int:
+        return self._num_blocks_placed
 
     def draw(self) -> None:
         rd = random.Random()
@@ -101,14 +111,14 @@ class TetrominoSpaceFiller:
 
         self._last_drawn = self.space.copy()
 
-    def fill(self) -> None:
+    def fill(self, start_index: tuple[int, int] = (0, 0)) -> None:
         with ensure_sufficient_recursion_depth(self._total_blocks_to_place + self.STACK_FRAMES_SAFETY_MARGIN):
-            self._fill()
+            self._fill(empty_cell_index_to_fill=start_index)
         self.draw()
 
     # TODO consider inlining the 5 functions into one; might make a notable performance difference
     def _fill(
-        self, space_view: NDArray[np.int16] | None = None, empty_cell_index_to_fill: tuple[int, int] = (0, 0)
+        self, space_view: NDArray[np.int32] | None = None, empty_cell_index_to_fill: tuple[int, int] = (0, 0)
     ) -> None:
         space = space_view if space_view is not None else self.space
 
@@ -150,16 +160,16 @@ class TetrominoSpaceFiller:
         # self._dead_ends.add(self.space.astype(bool).tobytes())
 
     def _generate_placements(
-        self, space: NDArray[np.int16], cell_to_be_filled_idx: tuple[int, int]
+        self, space: NDArray[np.int32], cell_to_be_filled_idx: tuple[int, int]
     ) -> Iterator[tuple[int, int]]:
         for tetromino_idx in range(len(self.TETROMINOS)):
-            tetromino = self.TETROMINOS[(tetromino_idx + self._blocks_placed) % len(self.TETROMINOS)]
+            tetromino = self.TETROMINOS[(tetromino_idx + self._num_blocks_placed) % len(self.TETROMINOS)]
             quick_return = yield from self._place_tetromino(space, tetromino, cell_to_be_filled_idx)
             if quick_return:
                 return
 
     def _place_tetromino(
-        self, space: NDArray[np.int16], tetromino: NDArray[np.bool], cell_to_be_filled_idx: tuple[int, int]
+        self, space: NDArray[np.int32], tetromino: NDArray[np.bool], cell_to_be_filled_idx: tuple[int, int]
     ) -> Generator[tuple[int, int], None, bool]:
         # for efficiency: make sure only distinct versions of the tetromino are used (avoid duplicates because of
         # symmetry (rotational or axial))
@@ -167,7 +177,7 @@ class TetrominoSpaceFiller:
         hashes: set[bytes] = set()
         transpose_rotations = list(product((False, True), range(4)))
         for i in range(len(transpose_rotations)):
-            transpose, rotations = transpose_rotations[(i + self._blocks_placed) % len(transpose_rotations)]
+            transpose, rotations = transpose_rotations[(i + self._num_blocks_placed) % len(transpose_rotations)]
             rotated_tetromino = np.rot90(tetromino, k=rotations).T if transpose else np.rot90(tetromino, k=rotations)
             # NOTE: tobytes doesn't contain shape information, just the raw flat list of bytes
             # -> Add shape info manually
@@ -189,7 +199,7 @@ class TetrominoSpaceFiller:
     #     yield from self._place_rotated_tetromino_on_view(space_view, tetromino)
 
     def _place_rotated_tetromino_on_view(
-        self, space: NDArray[np.int16], tetromino: NDArray[np.bool], cell_to_be_filled_idx: tuple[int, int]
+        self, space: NDArray[np.int32], tetromino: NDArray[np.bool], cell_to_be_filled_idx: tuple[int, int]
     ) -> Generator[tuple[int, int], None, bool]:
         for tetromino_cell_idx in np.argwhere(tetromino):
             tetromino_placement_idx = cell_to_be_filled_idx - tetromino_cell_idx
@@ -208,8 +218,8 @@ class TetrominoSpaceFiller:
             if np.any(np.logical_and(local_space_view, tetromino)):
                 continue
 
-            self._blocks_placed += 1
-            local_space_view[tetromino] = self._blocks_placed
+            self._num_blocks_placed += 1
+            local_space_view[tetromino] = self._num_blocks_placed
 
             filled = False
             if self.space_fillable():
@@ -223,7 +233,7 @@ class TetrominoSpaceFiller:
                 )
                 self._i += 1
 
-            self._blocks_placed -= 1
+            self._num_blocks_placed -= 1
             local_space_view[tetromino] = 0
             if filled and self._i % 10 == 0:
                 self.draw()
@@ -237,13 +247,11 @@ class TetrominoSpaceFiller:
                 return True
         return False
 
-    def _is_close(
-        self, tetromino: NDArray[np.bool], y: int, x: int, cell_index: tuple[int, int], distance_threshold: int = 3
-    ) -> bool:
+    def _is_close(self, tetromino: NDArray[np.bool], y: int, x: int, cell_index: tuple[int, int]) -> bool:
         tetromino_idxs = np.argwhere(tetromino) + (y, x)
         tetromino_to_cell_idx_distances = np.sum(np.abs(tetromino_idxs - cell_index), axis=1)
         min_distance = np.min(tetromino_to_cell_idx_distances)
-        return min_distance <= distance_threshold
+        return min_distance <= self.CLOSE_DISTANCE_THRESHOLD
 
     @staticmethod
     def _is_adjacent(tetromino: NDArray[np.bool], y: int, x: int, cell_index: tuple[int, int]) -> bool:
@@ -275,8 +283,14 @@ class TetrominoSpaceFiller:
 
     @staticmethod
     def _get_neighboring_empty_cell_with_most_filled_neighbors_idx(
-        space: NDArray[np.int16], tetromino: NDArray[np.bool], y: int, x: int
+        space: NDArray[np.int32], tetromino: NDArray[np.bool], y: int, x: int
     ) -> tuple[int, int] | None:
+        # TODO remove the tendency to select the top-left-most neighbor, in case there are multiple with the same number
+        # of filled neighbors.
+        # Instead, rather something like "the closest to the cell which was requested to be filled" (the requested cell
+        # would need to become another input argument)
+        # Also, perhaps this function if ripe for a little refactor anyways; sliding window doesn't seem like the best
+        # way to go about this.
         space_around_tetromino = space[
             max(y - 1, 0) : y + tetromino.shape[0] + 1, max(x - 1, 0) : x + tetromino.shape[1] + 1
         ]
@@ -313,7 +327,7 @@ class TetrominoSpaceFiller:
         return max_filled_neighbors_idx
 
     @staticmethod
-    def _count_filled_neighbors(space: NDArray[np.int16], x: int, y: int) -> int:
+    def _count_filled_neighbors(space: NDArray[np.int32], x: int, y: int) -> int:
         return sum(
             (
                 not 0 <= neighbor_y < space.shape[0]
