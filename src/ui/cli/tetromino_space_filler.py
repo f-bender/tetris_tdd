@@ -1,7 +1,7 @@
 import contextlib
 import random
 import sys
-from collections.abc import Iterator
+from collections.abc import Generator, Iterator
 from itertools import product
 from typing import NamedTuple
 
@@ -134,11 +134,13 @@ class TetrominoSpaceFiller:
     ) -> Iterator[tuple[int, int]]:
         for tetromino_idx in range(len(self.TETROMINOS)):
             tetromino = self.TETROMINOS[(tetromino_idx + self._blocks_placed) % len(self.TETROMINOS)]
-            yield from self._place_tetromino(space, tetromino, cell_to_be_filled_idx)
+            quick_return = yield from self._place_tetromino(space, tetromino, cell_to_be_filled_idx)
+            if quick_return:
+                return
 
     def _place_tetromino(
         self, space: NDArray[np.int16], tetromino: NDArray[np.bool], cell_to_be_filled_idx: tuple[int, int]
-    ) -> Iterator[tuple[int, int]]:
+    ) -> Generator[tuple[int, int], None, bool]:
         # for efficiency: make sure only distinct versions of the tetromino are used (avoid duplicates because of
         # symmetry (rotational or axial))
         # TODO: pre-generate all rotations and translations (I guess at import time even)
@@ -152,8 +154,13 @@ class TetrominoSpaceFiller:
             tetromino_hash = rotated_tetromino.tobytes() + bytes(rotated_tetromino.shape[0])
             if tetromino_hash in hashes:
                 continue
-            yield from self._place_rotated_tetromino_on_view(space, rotated_tetromino, cell_to_be_filled_idx)
+            quick_return = yield from self._place_rotated_tetromino_on_view(
+                space, rotated_tetromino, cell_to_be_filled_idx
+            )
+            if quick_return:
+                return True
             hashes.add(tetromino_hash)
+        return False
 
     # def _place_rotated_tetromino(self, tetromino: NDArray[np.bool]) -> Iterator[None]:
     #     space_view = self.space_rotated_transposed_views[
@@ -163,7 +170,7 @@ class TetrominoSpaceFiller:
 
     def _place_rotated_tetromino_on_view(
         self, space: NDArray[np.int16], tetromino: NDArray[np.bool], cell_to_be_filled_idx: tuple[int, int]
-    ) -> Iterator[tuple[int, int]]:
+    ) -> Generator[tuple[int, int], None, bool]:
         for tetromino_cell_idx in np.argwhere(tetromino):
             tetromino_placement_idx = cell_to_be_filled_idx - tetromino_cell_idx
 
@@ -199,16 +206,22 @@ class TetrominoSpaceFiller:
             if filled and self._blocks_placed % 100 == 0:
                 self.draw()
 
-            #! TODO:
-            #! run some automated randomized tests that check whether the addition of these 2 lines ever breaks
-            #! the algorithm, or if it ever creates a different result (as opposed to without these 2 lines)
-            if self._unfillable_cell and not self._is_adjacent(tetromino, y, x, self._unfillable_cell):
-                # We assume that if the block we have just removed during backtracking is not adjacent to the unfillable
+            if self._unfillable_cell and not self._is_close(tetromino, y, x, self._unfillable_cell):
+                # We assume that if the block we have just removed during backtracking is not close to the unfillable
                 # cell, then this change has likely not made the unfillable block fillable again, thus we don't even
                 # try.
                 # (Note that not returning would lead to yielding, which would lead to calling _fill, which would
                 # lead to trying to fill the unfillable cell)
-                return
+                return True
+        return False
+
+    def _is_close(
+        self, tetromino: NDArray[np.bool], y: int, x: int, cell_index: tuple[int, int], distance_threshold: int = 4
+    ) -> bool:
+        tetromino_idxs = np.argwhere(tetromino) + (y, x)
+        tetromino_to_cell_idx_distances = np.sum(np.abs(tetromino_idxs - cell_index), axis=1)
+        min_distance = np.min(tetromino_to_cell_idx_distances)
+        return min_distance <= distance_threshold
 
     @staticmethod
     def _is_adjacent(tetromino: NDArray[np.bool], y: int, x: int, cell_index: tuple[int, int]) -> bool:
