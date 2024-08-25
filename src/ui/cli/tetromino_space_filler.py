@@ -238,7 +238,7 @@ class TetrominoSpaceFiller:
         return False
 
     def _is_close(
-        self, tetromino: NDArray[np.bool], y: int, x: int, cell_index: tuple[int, int], distance_threshold: int = 4
+        self, tetromino: NDArray[np.bool], y: int, x: int, cell_index: tuple[int, int], distance_threshold: int = 3
     ) -> bool:
         tetromino_idxs = np.argwhere(tetromino) + (y, x)
         tetromino_to_cell_idx_distances = np.sum(np.abs(tetromino_idxs - cell_index), axis=1)
