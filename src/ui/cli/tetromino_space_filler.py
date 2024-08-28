@@ -257,34 +257,6 @@ class TetrominoSpaceFiller:
         min_distance = np.min(tetromino_to_cell_idx_distances)
         return min_distance <= self.CLOSE_DISTANCE_THRESHOLD
 
-    @staticmethod
-    def _is_adjacent(tetromino: NDArray[np.bool], y: int, x: int, cell_index: tuple[int, int]) -> bool:
-        cell_y, cell_x = cell_index
-
-        if not TetrominoSpaceFiller._in_or_adjacent_to_bounding_box(tetromino, y, x, cell_y, cell_x):
-            return False
-
-        for cell_neighbor_y, cell_neighbor_x in (
-            (cell_y - 1, cell_x),
-            (cell_y + 1, cell_x),
-            (cell_y, cell_x - 1),
-            (cell_y, cell_x + 1),
-        ):
-            local_cell_neighbor_y = cell_neighbor_y - y
-            local_cell_neighbor_x = cell_neighbor_x - x
-            if (
-                0 <= local_cell_neighbor_y < tetromino.shape[0]
-                and 0 <= local_cell_neighbor_x < tetromino.shape[1]
-                and tetromino[local_cell_neighbor_y, local_cell_neighbor_x]
-            ):
-                return True
-
-        return False
-
-    @staticmethod
-    def _in_or_adjacent_to_bounding_box(tetromino: NDArray[np.bool], y: int, x: int, cell_y: int, cell_x: int) -> bool:
-        return y - 1 <= cell_y <= y + tetromino.shape[0] and x - 1 <= cell_x <= x + tetromino.shape[1]
-
     def _get_neighboring_empty_cell_with_least_empty_neighbors_idx(
         self, positioned_tetromino: PositionedTetromino
     ) -> tuple[int, int] | None:
