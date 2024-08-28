@@ -137,6 +137,9 @@ class TetrominoSpaceFiller:
                 allowed_area=self.space == 0, position=cell_to_fill_position
             )
 
+        # whether we used it or not, unset self._smallest_island as it will be invalid after the next placement
+        self._smallest_island = None
+
         for next_cell_to_fill_position in self._generate_placements(cell_to_fill_position):
             self._fill(cell_to_fill_position=next_cell_to_fill_position)
             if self._finished:
@@ -184,15 +187,15 @@ class TetrominoSpaceFiller:
         return False
 
     def _place_rotated_tetromino_on_view(
-        self, tetromino: NDArray[np.bool], cell_to_be_filled_idx: tuple[int, int]
+        self, tetromino: NDArray[np.bool], cell_to_fill_position: tuple[int, int]
     ) -> Generator[tuple[int, int], None, bool]:
-        for tetromino_cell_idx in np.argwhere(tetromino):
-            tetromino_placement_idx = cell_to_be_filled_idx - tetromino_cell_idx
+        for cell_position_in_tetromino in np.argwhere(tetromino):
+            tetromino_position = cell_to_fill_position - cell_position_in_tetromino
 
-            y, x = tetromino_placement_idx
-            height, width = tetromino.shape
-
-            local_space_view = self.space[y : y + height, x : x + width]
+            local_space_view = self.space[
+                tetromino_position[0] : tetromino_position[0] + tetromino.shape[0],
+                tetromino_position[1] : tetromino_position[1] + tetromino.shape[1],
+            ]
             # In case part of the tetromino placement is partly out of bounds, the slicing syntax above still works, but
             # the shape of the obtained view is not as expected (height, width).
             # We use this as an efficient way of checking whether the placement is partly out of bounds:
@@ -207,17 +210,38 @@ class TetrominoSpaceFiller:
             local_space_view[tetromino] = self._num_blocks_placed
 
             filled = False
-            if self.space_fillable():
+            space_around_tetromino = self.space[
+                max(tetromino_position[0] - 1, 0) : tetromino_position[0] + tetromino.shape[0] + 1,
+                max(tetromino_position[1] - 1, 0) : tetromino_position[1] + tetromino.shape[1] + 1,
+            ]
+            # For efficiency reasons, we first check only the area directly around the tetromino.
+            # If the empty space in that area is fully connected, then the tetromino placement has not created a new
+            # island which means that the space_fillable check can be skipped. (This is usually the case.)
+            # Only when the current placement creates new islands of empty space do we have to check that these islands
+            # are all still fillable (have a size divisible by 4).
+            if not self._empty_space_has_multiple_islands(space_around_tetromino) or self.space_fillable():
                 filled = True
                 self._i += 1
                 if self._i % 10 == 0:
                     self.draw()
-                yield self._get_neighboring_empty_cell_with_least_empty_neighbors_position(
-                    PositionedTetromino((y, x), tetromino)
-                ) or (
-                    y + tetromino.shape[0] // 2,
-                    x + tetromino.shape[1] // 2,
+                next_cell_to_fill_position = self._get_neighboring_empty_cell_with_least_empty_neighbors_position(
+                    PositionedTetromino(tetromino_position, tetromino)
                 )
+                if next_cell_to_fill_position is None:
+                    # no neighbors to fill next: yield the center of the current tetromino and let _fill find the
+                    # closest empty cell to it
+                    next_cell_to_fill_position = (
+                        tetromino_position[0] + tetromino.shape[0] // 2,
+                        tetromino_position[1] + tetromino.shape[1] // 2,
+                    )
+                    # in this case we should also make sure that self._smallest_island is set because the next cell to
+                    # be filled should be inside the now smallest island (in case there are multiple islands)
+                    if self._smallest_island is None:
+                        # note that space_fillable sets the value of _smallest_island
+                        self.space_fillable()
+
+                yield next_cell_to_fill_position
+
                 self._i += 1
 
             self._num_blocks_placed -= 1
@@ -225,7 +249,9 @@ class TetrominoSpaceFiller:
             if filled and self._i % 10 == 0:
                 self.draw()
 
-            if self._unfillable_cell and not self._is_close(tetromino, y, x, self._unfillable_cell):
+            if self._unfillable_cell and not self._is_close(
+                PositionedTetromino(tetromino_position, tetromino), self._unfillable_cell
+            ):
                 # We assume that if the block we have just removed during backtracking is not close to the unfillable
                 # cell, then this change has likely not made the unfillable block fillable again, thus we don't even
                 # try.
@@ -234,10 +260,10 @@ class TetrominoSpaceFiller:
                 return True
         return False
 
-    def _is_close(self, tetromino: NDArray[np.bool], y: int, x: int, cell_position: tuple[int, int]) -> bool:
-        tetromino_idxs = np.argwhere(tetromino) + (y, x)
-        tetromino_to_cell_idx_distances = np.sum(np.abs(tetromino_idxs - cell_position), axis=1)
-        min_distance = np.min(tetromino_to_cell_idx_distances)
+    def _is_close(self, positioned_tetromino: PositionedTetromino, cell_position: tuple[int, int]) -> bool:
+        tetromino_cell_positions = np.argwhere(positioned_tetromino.tetromino) + positioned_tetromino.position
+        tetromino_to_cell_distances = np.sum(np.abs(tetromino_cell_positions - cell_position), axis=1)
+        min_distance = np.min(tetromino_to_cell_distances)
         return min_distance <= self.CLOSE_DISTANCE_THRESHOLD
 
     def _get_neighboring_empty_cell_with_least_empty_neighbors_position(
@@ -301,6 +327,8 @@ class TetrominoSpaceFiller:
         return tuple(allowed_positions[np.argmin(distances_to_position)])
 
     def space_fillable(self, to_be_placed_tetromino: PositionedTetromino | None = None) -> bool:
+        # TODO document that this determines the smallest island as well as checking if the remaining space is fillable
+        # (ideally in the method name, but at least in a docstring)
         island_map = (self.space == 0).astype(np.uint8)
         space_with_labeled_islands, num_islands = measure.label(island_map, connectivity=1, return_num=True)
 
@@ -323,3 +351,8 @@ class TetrominoSpaceFiller:
                 self._smallest_island = island
 
         return True
+
+    @staticmethod
+    def _empty_space_has_multiple_islands(space: NDArray[np.int32]) -> bool:
+        island_map = (space == 0).astype(np.uint8)
+        return measure.label(island_map, connectivity=1, return_num=True)[1] > 1
