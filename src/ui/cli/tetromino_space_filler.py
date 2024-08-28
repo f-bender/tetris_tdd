@@ -174,6 +174,8 @@ class TetrominoSpaceFiller:
         # for efficiency: make sure only distinct versions of the tetromino are used (avoid duplicates because of
         # symmetry (rotational or axial))
         # TODO: pre-generate all rotations and translations (I guess at import time even)
+        # TODO: i.e. have one big list of all rotations of all tetrominos that we then iterate over, trying to fill the
+        # cell
         hashes: set[bytes] = set()
         transpose_rotations = list(product((False, True), range(4)))
         for i in range(len(transpose_rotations)):
@@ -227,7 +229,9 @@ class TetrominoSpaceFiller:
                 self._i += 1
                 if self._i % 10 == 0:
                     self.draw()
-                yield self._get_neighboring_empty_cell_with_most_filled_neighbors_idx(space, tetromino, y, x) or (
+                yield self._get_neighboring_empty_cell_with_least_empty_neighbors_idx(
+                    PositionedTetromino((y, x), tetromino)
+                ) or (
                     y + tetromino.shape[0] // 2,
                     x + tetromino.shape[1] // 2,
                 )
@@ -281,61 +285,57 @@ class TetrominoSpaceFiller:
     def _in_or_adjacent_to_bounding_box(tetromino: NDArray[np.bool], y: int, x: int, cell_y: int, cell_x: int) -> bool:
         return y - 1 <= cell_y <= y + tetromino.shape[0] and x - 1 <= cell_x <= x + tetromino.shape[1]
 
-    @staticmethod
-    def _get_neighboring_empty_cell_with_most_filled_neighbors_idx(
-        space: NDArray[np.int32], tetromino: NDArray[np.bool], y: int, x: int
+    def _get_neighboring_empty_cell_with_least_empty_neighbors_idx(
+        self, positioned_tetromino: PositionedTetromino
     ) -> tuple[int, int] | None:
-        # TODO remove the tendency to select the top-left-most neighbor, in case there are multiple with the same number
-        # of filled neighbors.
-        # Instead, rather something like "the closest to the cell which was requested to be filled" (the requested cell
-        # would need to become another input argument)
-        # Also, perhaps this function if ripe for a little refactor anyways; sliding window doesn't seem like the best
-        # way to go about this.
-        space_around_tetromino = space[
-            max(y - 1, 0) : y + tetromino.shape[0] + 1, max(x - 1, 0) : x + tetromino.shape[1] + 1
-        ]
-        max_filled_neighbors = 0
-        max_filled_neighbors_idx: tuple[int, int] | None = None
+        # TODO create only once and reuse (e.g. "Selector" class)
+        tetromino_cell_idxs__neighbor_offsets = list(product(range(4), ((-1, 0), (1, 0), (0, -1), (0, 1))))
 
-        windows = np.lib.stride_tricks.sliding_window_view(space_around_tetromino, tetromino.shape)
-        for (offset_y, offset_x, window_y, window_x), value in np.ndenumerate(windows):
-            if value != 0 or not tetromino[window_y, window_x]:
-                continue
-            # offset is the index of the sliding window, counting from the top left of the space_around_tetromino
-            # I am interested in the offset from the *center* window, which is a difference of 1:
-            if y > 0:
-                offset_y -= 1
-            if x > 0:
-                offset_x -= 1
-            if bool(offset_y) == bool(offset_x):
-                # discard diagonal movement or not movement at all
+        min_empty_neighbors = 4
+        min_empty_neighbors_position: tuple[int, int] | None = None
+
+        tetromino_cell_positions = np.argwhere(positioned_tetromino.tetromino) + positioned_tetromino.position
+        assert len(tetromino_cell_positions) == 4
+
+        for i in range(len(tetromino_cell_idxs__neighbor_offsets)):
+            tetromino_cell_idx, neighbor_offset = tetromino_cell_idxs__neighbor_offsets[
+                (i + self._num_blocks_placed) % len(tetromino_cell_idxs__neighbor_offsets)
+            ]
+            neighbor_position = tetromino_cell_positions[tetromino_cell_idx] + neighbor_offset
+
+            if (
+                not 0 <= neighbor_position[0] < self.space.shape[0]
+                or not 0 <= neighbor_position[1] < self.space.shape[1]
+                or self.space[*neighbor_position] != 0
+            ):
                 continue
 
-            y_in_space = y + offset_y + window_y
-            x_in_space = x + offset_x + window_x
+            empty_neighbors = self._count_empty_neighbors(neighbor_position)
+            if empty_neighbors == 1:
+                return tuple(neighbor_position)
 
-            filled_neighbors = TetrominoSpaceFiller._count_filled_neighbors(space, x_in_space, y_in_space)
+            if empty_neighbors < min_empty_neighbors:
+                min_empty_neighbors = empty_neighbors
+                min_empty_neighbors_position = tuple(neighbor_position)
 
-            if filled_neighbors == 3:
-                # 3 is the maximum possible -> immediately return
-                return y_in_space, x_in_space
+        return min_empty_neighbors_position
 
-            if filled_neighbors > max_filled_neighbors:
-                max_filled_neighbors = filled_neighbors
-                max_filled_neighbors_idx = y_in_space, x_in_space
-
-        return max_filled_neighbors_idx
-
-    @staticmethod
-    def _count_filled_neighbors(space: NDArray[np.int32], x: int, y: int) -> int:
+    def _count_empty_neighbors(self, position: tuple[int, int]) -> int:
+        # fmt: off
         return sum(
             (
-                not 0 <= neighbor_y < space.shape[0]
-                or not 0 <= neighbor_x < space.shape[1]
-                or space[neighbor_y, neighbor_x] != 0
+                0 <= neighbor_y < self.space.shape[0] and
+                0 <= neighbor_x < self.space.shape[1] and
+                self.space[neighbor_y, neighbor_x] == 0
             )
-            for neighbor_y, neighbor_x in ((y - 1, x), (y + 1, x), (y, x - 1), (y, x + 1))
+            for neighbor_y, neighbor_x in (
+                (position[0] - 1, position[1]    ),
+                (position[0] + 1, position[1]    ),
+                (position[0]    , position[1] - 1),
+                (position[0]    , position[1] + 1),
+            )
         )
+        # fmt: on
 
     def _first_empty_cell_index(self) -> tuple[int, int]:
         for idx, value in np.ndenumerate(self.space):
