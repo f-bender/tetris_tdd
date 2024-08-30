@@ -46,13 +46,30 @@ class TetrominoSpaceFiller:
     STACK_FRAMES_SAFETY_MARGIN = 50
     CLOSE_DISTANCE_THRESHOLD = 4
 
-    def __init__(self, space: NDArray[np.int32], use_rng: bool = True, rng_seed: int | None = None) -> None:
+    def __init__(
+        self,
+        space: NDArray[np.int32],
+        use_rng: bool = True,
+        rng_seed: int | None = None,
+        top_left_tendency: bool = False,
+    ) -> None:
         """Initialize the space filler.
 
         Args:
             space: The space to be filled. Zeros will be filled in by tetrominos. -1s are considered holes and will be
                 left as is.
+            use_rng: Whether to use randomness in the selection of tetromino, selection of tetromino rotation/transpose,
+                and selection of neighboring spot to fill next.
+            rng_seed: Optional seed to use for all RNG.
+            top_left_tendency: Whether to have a slight bias towards selecting spots top left of the last placed
+                tetromino as the next spot to be filled. This causes a tendency for the algorithm to gravitate towards
+                the top left of the space. This makes the filling up more predictable, but also reduces the likelihood
+                of large backtracks becoming necessary because the "surface area" of tetrominos tends to be smaller.
+                If True, selection of neighboring spot to fill next will not be random, even if use_rng is True.
         """
+        if not use_rng and rng_seed is not None:
+            raise ValueError("rng_seed should only be set when use_rng is True")
+
         if not set(np.unique(space)).issubset({-1, 0}):
             raise ValueError("Space must consist of -1s and 0s only.")
 
@@ -85,9 +102,11 @@ class TetrominoSpaceFiller:
         self._nested_tetromino_iterable = iterable_type(
             [iterable_type(self._get_unique_rotations_transposes(tetromino)) for tetromino in self.TETROMINOS]
         )
-        self._tetromino_idx_neighbor_offset_iterable = iterable_type(
-            list(product(range(4), ((-1, 0), (1, 0), (0, -1), (0, 1))))
+        self._tetromino_idx_neighbor_offset_iterable: Iterable[tuple[int, tuple[int, int]]] = list(
+            product(range(4), ((-1, 0), (0, -1), (1, 0), (0, 1)))
         )
+        if not top_left_tendency:
+            self._tetromino_idx_neighbor_offset_iterable = iterable_type(self._tetromino_idx_neighbor_offset_iterable)
 
         self._i = 0
         self._last_drawn = None
