@@ -1,7 +1,7 @@
 import contextlib
 import random
 import sys
-from collections.abc import Generator, Iterator
+from collections.abc import Generator, Iterable, Iterator, Sequence
 from itertools import product
 from typing import NamedTuple
 
@@ -13,6 +13,7 @@ from skimage import measure
 from ansi_extensions import color as colorx
 from ansi_extensions import cursor as cursorx
 from game_logic.components.block import Block, BlockType
+from ui.cli.offset_iterables import CyclingOffsetIterable, RandomOffsetIterable
 
 
 @contextlib.contextmanager
@@ -45,7 +46,7 @@ class TetrominoSpaceFiller:
     STACK_FRAMES_SAFETY_MARGIN = 50
     CLOSE_DISTANCE_THRESHOLD = 4
 
-    def __init__(self, space: NDArray[np.int32]) -> None:
+    def __init__(self, space: NDArray[np.int32], use_rng: bool = True, rng_seed: int | None = None) -> None:
         """Initialize the space filler.
 
         Args:
@@ -64,11 +65,48 @@ class TetrominoSpaceFiller:
         self._total_blocks_to_place = cells_to_fill // 4
         self._num_blocks_placed = 0
         self._finished = False
-        # self._dead_ends: set[bytes] = set()
         self._unfillable_cell: tuple[int, int] | None = None
         self._smallest_island: NDArray[np.bool] | None = None
+
+        if use_rng:
+            main_rng = random.Random(rng_seed)
+
+            self._default_start_position = (
+                main_rng.randrange(self.space.shape[0]),
+                main_rng.randrange(self.space.shape[1]),
+            )
+
+            def iterable_type[T](items: Sequence[T]) -> Iterable[T]:
+                return RandomOffsetIterable(items=items, seed=main_rng.randrange(2**32))
+        else:
+            iterable_type = CyclingOffsetIterable
+            self._default_start_position = (0, 0)
+
+        self._nested_tetromino_iterable = iterable_type(
+            [iterable_type(self._get_unique_rotations_transposes(tetromino)) for tetromino in self.TETROMINOS]
+        )
+        self._tetromino_idx_neighbor_offset_iterable = iterable_type(
+            list(product(range(4), ((-1, 0), (1, 0), (0, -1), (0, 1))))
+        )
+
         self._i = 0
         self._last_drawn = None
+
+    @staticmethod
+    def _get_unique_rotations_transposes(tetromino: NDArray[np.bool]) -> list[NDArray[np.bool]]:
+        """Return a list of all unique rotated or transposed views (not copies!) of the tetromino."""
+        unique_tetromino_views: list[NDArray[np.bool]] = []
+
+        for rotations in range(4):
+            for transpose in (False, True):
+                tetromino_view = np.rot90(tetromino, k=rotations)
+                if transpose:
+                    tetromino_view = tetromino_view.T
+
+                if not any(np.array_equal(tetromino_view, view) for view in unique_tetromino_views):
+                    unique_tetromino_views.append(tetromino_view)
+
+        return unique_tetromino_views
 
     @property
     def total_block_to_place(self) -> int:
@@ -111,9 +149,9 @@ class TetrominoSpaceFiller:
 
         self._last_drawn = self.space.copy()
 
-    def fill(self, start_position: tuple[int, int] = (0, 0)) -> None:
+    def fill(self, start_position: tuple[int, int] | None = None) -> None:
         with ensure_sufficient_recursion_depth(self._total_blocks_to_place + self.STACK_FRAMES_SAFETY_MARGIN):
-            self._fill(cell_to_fill_position=start_position)
+            self._fill(cell_to_fill_position=start_position or self._default_start_position)
         self.draw()
 
     # TODO consider inlining the 5 functions into one; might make a notable performance difference
@@ -156,34 +194,18 @@ class TetrominoSpaceFiller:
             self._unfillable_cell = cell_to_fill_position
 
     def _generate_placements(self, cell_to_fill_position: tuple[int, int]) -> Iterator[tuple[int, int]]:
-        for tetromino_idx in range(len(self.TETROMINOS)):
-            tetromino = self.TETROMINOS[(tetromino_idx + self._num_blocks_placed) % len(self.TETROMINOS)]
-            quick_return = yield from self._place_tetromino(tetromino, cell_to_fill_position)
+        for tetromino_rotations_iterable in self._nested_tetromino_iterable:
+            quick_return = yield from self._place_tetromino(tetromino_rotations_iterable, cell_to_fill_position)
             if quick_return:
                 return
 
     def _place_tetromino(
-        self, tetromino: NDArray[np.bool], cell_to_fill_position: tuple[int, int]
+        self, tetromino_rotations_iterable: Iterable[NDArray[np.bool]], cell_to_fill_position: tuple[int, int]
     ) -> Generator[tuple[int, int], None, bool]:
-        # for efficiency: make sure only distinct versions of the tetromino are used (avoid duplicates because of
-        # symmetry (rotational or axial))
-        # TODO: pre-generate all rotations and translations (I guess at import time even)
-        # TODO: i.e. have one big list of all rotations of all tetrominos that we then iterate over, trying to fill the
-        # cell
-        hashes: set[bytes] = set()
-        transpose_rotations = list(product((False, True), range(4)))
-        for i in range(len(transpose_rotations)):
-            transpose, rotations = transpose_rotations[(i + self._num_blocks_placed) % len(transpose_rotations)]
-            rotated_tetromino = np.rot90(tetromino, k=rotations).T if transpose else np.rot90(tetromino, k=rotations)
-            # NOTE: tobytes doesn't contain shape information, just the raw flat list of bytes
-            # -> Add shape info manually
-            tetromino_hash = rotated_tetromino.tobytes() + bytes(rotated_tetromino.shape[0])
-            if tetromino_hash in hashes:
-                continue
-            quick_return = yield from self._place_rotated_tetromino_on_view(rotated_tetromino, cell_to_fill_position)
+        for tetromino in tetromino_rotations_iterable:
+            quick_return = yield from self._place_rotated_tetromino_on_view(tetromino, cell_to_fill_position)
             if quick_return:
                 return True
-            hashes.add(tetromino_hash)
         return False
 
     def _place_rotated_tetromino_on_view(
@@ -269,19 +291,13 @@ class TetrominoSpaceFiller:
     def _get_neighboring_empty_cell_with_least_empty_neighbors_position(
         self, positioned_tetromino: PositionedTetromino
     ) -> tuple[int, int] | None:
-        # TODO create only once and reuse (e.g. "Selector" class)
-        tetromino_cell_idxs__neighbor_offsets = list(product(range(4), ((-1, 0), (1, 0), (0, -1), (0, 1))))
-
         min_empty_neighbors = 4
         min_empty_neighbors_position: tuple[int, int] | None = None
 
         tetromino_cell_positions = np.argwhere(positioned_tetromino.tetromino) + positioned_tetromino.position
         assert len(tetromino_cell_positions) == 4
 
-        for i in range(len(tetromino_cell_idxs__neighbor_offsets)):
-            tetromino_cell_idx, neighbor_offset = tetromino_cell_idxs__neighbor_offsets[
-                (i + self._num_blocks_placed) % len(tetromino_cell_idxs__neighbor_offsets)
-            ]
+        for tetromino_cell_idx, neighbor_offset in self._tetromino_idx_neighbor_offset_iterable:
             neighbor_position = tetromino_cell_positions[tetromino_cell_idx] + neighbor_offset
 
             if (
