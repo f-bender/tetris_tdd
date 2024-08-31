@@ -1,3 +1,5 @@
+import contextlib
+
 import numpy as np
 import pytest
 from numpy.typing import NDArray
@@ -6,7 +8,7 @@ from ui.cli.tetromino_space_filler import TetrominoSpaceFiller
 
 
 @pytest.mark.parametrize(
-    "space, check_around, expected",
+    ("space", "expected"),
     [
         (
             np.array(
@@ -14,20 +16,18 @@ from ui.cli.tetromino_space_filler import TetrominoSpaceFiller
                     [0, 0, 0, 0],
                     [0, 0, 0, 0],
                 ],
-                dtype=np.int16,
+                dtype=np.int32,
             ),
-            None,
             True,
         ),
         (
             np.array(
                 [
-                    [1, 1, 0, 0],
-                    [1, 1, 0, 0],
+                    [-1, -1, 0, 0],
+                    [-1, -1, 0, 0],
                 ],
-                dtype=np.int16,
+                dtype=np.int32,
             ),
-            None,
             True,
         ),
         (
@@ -37,21 +37,19 @@ from ui.cli.tetromino_space_filler import TetrominoSpaceFiller
                     [0, -1, -1, 0],
                     [0, 0, -1, 0],
                 ],
-                dtype=np.int16,
+                dtype=np.int32,
             ),
-            None,
             True,
         ),
         (
             # badly placed block splits space into non-divisible-by-4 islands
             np.array(
                 [
-                    [0, 1, 0, 0],
-                    [1, 1, 1, 0],
+                    [0, -1, 0, 0],
+                    [-1, -1, -1, 0],
                 ],
-                dtype=np.int16,
+                dtype=np.int32,
             ),
-            None,
             False,
         ),
         (
@@ -61,9 +59,8 @@ from ui.cli.tetromino_space_filler import TetrominoSpaceFiller
                     [0, 0, 0],
                     [0, 0, 0],
                 ],
-                dtype=np.int16,
+                dtype=np.int32,
             ),
-            None,
             False,
         ),
         (
@@ -75,12 +72,18 @@ from ui.cli.tetromino_space_filler import TetrominoSpaceFiller
                     [-1, -1, 0],
                     [0, 0, 0],
                 ],
-                dtype=np.int16,
+                dtype=np.int32,
             ),
-            None,
             False,
         ),
     ],
 )
-def test_space_fillable(space: NDArray[np.int16], check_around: tuple[slice, slice] | None, expected: bool) -> None:
-    assert TetrominoSpaceFiller.space_fillable(space_view=space, check_around=check_around) is expected
+def test_space_fillable(space: NDArray[np.int32], expected: bool) -> None:
+    with (
+        pytest.raises(
+            ValueError, match="Space cannot be filled! Contains at least one island with size not divisible by 4!"
+        )
+        if expected is False
+        else contextlib.nullcontext()
+    ):
+        TetrominoSpaceFiller(space)
