@@ -3,7 +3,6 @@ import random
 import sys
 from collections.abc import Iterable, Iterator, Sequence
 from itertools import product
-from typing import NamedTuple
 
 import numpy as np
 from ansi import color, cursor
@@ -24,11 +23,6 @@ def ensure_sufficient_recursion_depth(depth: int) -> Iterator[None]:
         yield
     finally:
         sys.setrecursionlimit(prev_depth)
-
-
-class PositionedTetromino(NamedTuple):
-    position: tuple[int, int]
-    tetromino: NDArray[np.bool]
 
 
 class TetrominoSpaceFiller:
@@ -106,7 +100,7 @@ class TetrominoSpaceFiller:
             self._tetromino_idx_neighbor_offset_iterable = iterable_type(self._tetromino_idx_neighbor_offset_iterable)
 
         self._smallest_island: NDArray[np.bool] | None = None
-        self._unfillable_cell: tuple[int, int] | None = None
+        self._unfillable_cell_position: tuple[int, int] | None = None
         self._finished = False
 
         #! to be removed
@@ -176,16 +170,15 @@ class TetrominoSpaceFiller:
             self._fill(cell_to_fill_position=start_position or self._default_start_position)
         self.draw()
 
-    # TODO consider inlining the 5 functions into one; might make a notable performance difference
     def _fill(self, cell_to_fill_position: tuple[int, int] = (0, 0)) -> None:
         if np.all(self.space):
             self._finished = True
             return
 
         # Prio 1: Try to fill the unfillable cell
-        if self._unfillable_cell:
-            cell_to_fill_position = self._unfillable_cell
-            self._unfillable_cell = None
+        if self._unfillable_cell_position:
+            cell_to_fill_position = self._unfillable_cell_position
+            self._unfillable_cell_position = None
         # Prio 2: Fill the smallest island (in case the requested position is not inside it, change it)
         elif self._smallest_island is not None and not self._smallest_island[cell_to_fill_position]:
             cell_to_fill_position = self._closest_position_in_area(
@@ -211,10 +204,10 @@ class TetrominoSpaceFiller:
         # stack
 
         # in case we are not already in the process of fast backtracking to a cell we were unable to fill
-        if not self._unfillable_cell:
+        if not self._unfillable_cell_position:
             # remember this cell as the cell that could not be filled, then fast backtrack until a cell close to it is
             # removed, hopefully removing the issue that made it unfillable
-            self._unfillable_cell = cell_to_fill_position
+            self._unfillable_cell_position = cell_to_fill_position
 
     def _generate_tetromino_placements(self, cell_to_fill_position: tuple[int, int]) -> Iterator[tuple[int, int]]:
         for tetromino_rotations_iterable in self._nested_tetromino_iterable:
@@ -266,7 +259,7 @@ class TetrominoSpaceFiller:
                         self.draw()
 
                     next_cell_to_fill_position = self._get_neighboring_empty_cell_with_least_empty_neighbors_position(
-                        PositionedTetromino(tetromino_position, tetromino)
+                        tetromino_position, tetromino
                     )
                     if next_cell_to_fill_position is None:
                         # no neighbors to fill next: yield the cell that was just filled and let _fill find the closest
@@ -288,8 +281,8 @@ class TetrominoSpaceFiller:
                     if self._i % 10 == 0:
                         self.draw()
 
-                    if self._unfillable_cell and not self._is_close(
-                        PositionedTetromino(tetromino_position, tetromino), self._unfillable_cell
+                    if self._unfillable_cell_position and not self._is_close(
+                        tetromino_position, tetromino, self._unfillable_cell_position
                     ):
                         # We assume that if the block we have just removed during backtracking is not close to the
                         # unfillable cell, then this change has likely not made the unfillable block fillable again,
@@ -298,19 +291,21 @@ class TetrominoSpaceFiller:
                         # which would lead to calling _fill, which would lead to trying to fill the unfillable cell)
                         return
 
-    def _is_close(self, positioned_tetromino: PositionedTetromino, cell_position: tuple[int, int]) -> bool:
-        tetromino_cell_positions = np.argwhere(positioned_tetromino.tetromino) + positioned_tetromino.position
+    def _is_close(
+        self, tetromino_position: tuple[int, int], tetromino: NDArray[np.bool], cell_position: tuple[int, int]
+    ) -> bool:
+        tetromino_cell_positions = np.argwhere(tetromino) + tetromino_position
         tetromino_to_cell_distances = np.sum(np.abs(tetromino_cell_positions - cell_position), axis=1)
         min_distance = np.min(tetromino_to_cell_distances)
         return min_distance <= self.CLOSE_DISTANCE_THRESHOLD
 
     def _get_neighboring_empty_cell_with_least_empty_neighbors_position(
-        self, positioned_tetromino: PositionedTetromino
+        self, tetromino_position: tuple[int, int], tetromino: NDArray[np.bool]
     ) -> tuple[int, int] | None:
         min_empty_neighbors = 4
         min_empty_neighbors_position: tuple[int, int] | None = None
 
-        tetromino_cell_positions = np.argwhere(positioned_tetromino.tetromino) + positioned_tetromino.position
+        tetromino_cell_positions = np.argwhere(tetromino) + tetromino_position
         assert len(tetromino_cell_positions) == 4
 
         for tetromino_cell_idx, neighbor_offset in self._tetromino_idx_neighbor_offset_iterable:
