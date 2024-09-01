@@ -76,7 +76,7 @@ class TetrominoSpaceFiller:
         self.space = space
         cells_to_fill = np.sum(~self.space.astype(bool))
 
-        if cells_to_fill % 4 != 0 or not self.check_islands_are_fillable_and_set_smallest_island():
+        if cells_to_fill % 4 != 0 or not self._check_islands_are_fillable_and_set_smallest_island():
             raise ValueError("Space cannot be filled! Contains at least one island with size not divisible by 4!")
 
         self._total_blocks_to_place = cells_to_fill // 4
@@ -252,7 +252,7 @@ class TetrominoSpaceFiller:
                     # islands are all still fillable (have a size divisible by 4).
                     if (
                         self._empty_space_has_multiple_islands(space_view_around_tetromino)
-                        and not self.check_islands_are_fillable_and_set_smallest_island()
+                        and not self._check_islands_are_fillable_and_set_smallest_island()
                     ):
                         # proposed tetromino placement would create at least one island of empty space with a size not
                         # divisible by 4, thus not being fillable by tetrominos
@@ -276,7 +276,7 @@ class TetrominoSpaceFiller:
                         # to be filled should be inside the now smallest island (in case there are multiple islands)
                         if self._smallest_island is None:
                             # note that space_fillable sets the value of _smallest_island
-                            self.check_islands_are_fillable_and_set_smallest_island()
+                            self._check_islands_are_fillable_and_set_smallest_island()
 
                     yield next_cell_to_fill_position
 
@@ -358,7 +358,7 @@ class TetrominoSpaceFiller:
         )
         return tuple(allowed_positions[np.argmin(distances_to_position)])
 
-    def check_islands_are_fillable_and_set_smallest_island(self) -> bool:
+    def _check_islands_are_fillable_and_set_smallest_island(self) -> bool:
         """
         Check if the current state of the space has multiple islands of empty space, and if so, whether all islands
         are all still fillable (have a size divisible by 4).
