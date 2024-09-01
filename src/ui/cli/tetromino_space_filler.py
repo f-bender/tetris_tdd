@@ -172,6 +172,14 @@ class TetrominoSpaceFiller:
             # removed, hopefully removing the issue that made it unfillable
             self._unfillable_cell_position = cell_to_fill_position
 
+    @staticmethod
+    def _closest_position_in_area(allowed_area: NDArray[np.bool], position: tuple[int, int]) -> tuple[int, int]:
+        allowed_positions = np.argwhere(allowed_area)
+        distances_to_position = np.abs(allowed_positions[:, 0] - position[0]) + np.abs(
+            allowed_positions[:, 1] - position[1]
+        )
+        return tuple(allowed_positions[np.argmin(distances_to_position)])
+
     def _generate_tetromino_placements(self, cell_to_fill_position: tuple[int, int]) -> Iterator[tuple[int, int]]:
         for tetromino_rotations_iterable in self._nested_tetromino_iterable:
             for tetromino in tetromino_rotations_iterable:
@@ -223,7 +231,7 @@ class TetrominoSpaceFiller:
                         self._space_updated_callback()
 
                     next_cell_to_fill_position = self._get_neighboring_empty_cell_with_least_empty_neighbors_position(
-                        tetromino_position, tetromino
+                        tetromino=tetromino, tetromino_position=tetromino_position
                     )
                     if next_cell_to_fill_position is None:
                         # no neighbors to fill next: yield the cell that was just filled and let _fill find the closest
@@ -247,7 +255,9 @@ class TetrominoSpaceFiller:
                         self._space_updated_callback()
 
                     if self._unfillable_cell_position and not self._is_close(
-                        tetromino_position, tetromino, self._unfillable_cell_position
+                        tetromino=tetromino,
+                        tetromino_position=tetromino_position,
+                        cell_position=self._unfillable_cell_position,
                     ):
                         # We assume that if the block we have just removed during backtracking is not close to the
                         # unfillable cell, then this change has likely not made the unfillable block fillable again,
@@ -256,16 +266,46 @@ class TetrominoSpaceFiller:
                         # which would lead to calling _fill, which would lead to trying to fill the unfillable cell)
                         return
 
-    def _is_close(
-        self, tetromino_position: tuple[int, int], tetromino: NDArray[np.bool], cell_position: tuple[int, int]
-    ) -> bool:
-        tetromino_cell_positions = np.argwhere(tetromino) + tetromino_position
-        tetromino_to_cell_distances = np.sum(np.abs(tetromino_cell_positions - cell_position), axis=1)
-        min_distance = np.min(tetromino_to_cell_distances)
-        return min_distance <= self.CLOSE_DISTANCE_THRESHOLD
+    @staticmethod
+    def _empty_space_has_multiple_islands(space: NDArray[np.int32]) -> bool:
+        island_map = (space == 0).astype(np.uint8)
+        return measure.label(island_map, connectivity=1, return_num=True)[1] > 1
+
+    def _check_islands_are_fillable_and_set_smallest_island(self) -> bool:
+        """
+        Check if the current state of the space has multiple islands of empty space, and if so, whether all islands
+        are all still fillable (have a size divisible by 4).
+
+        If so, set self._smallest_island to the smallest island (boolean array being True at the cells belonging to the
+        smallest island).
+
+        Return whether all islands are fillable.
+        """
+        island_map = (self.space == 0).astype(np.uint8)
+        space_with_labeled_islands, num_islands = measure.label(island_map, connectivity=1, return_num=True)
+
+        if num_islands <= 1:
+            self._smallest_island = None
+            return True
+
+        smallest_island_size = self.space.shape[0] * self.space.shape[1]
+
+        for i in range(1, num_islands + 1):
+            island = space_with_labeled_islands == i
+            island_size = np.sum(island)
+
+            if island_size % 4 != 0:
+                self._smallest_island = None
+                return False
+
+            if island_size < smallest_island_size:
+                smallest_island_size = island_size
+                self._smallest_island = island
+
+        return True
 
     def _get_neighboring_empty_cell_with_least_empty_neighbors_position(
-        self, tetromino_position: tuple[int, int], tetromino: NDArray[np.bool]
+        self, tetromino: NDArray[np.bool], tetromino_position: tuple[int, int]
     ) -> tuple[int, int] | None:
         min_empty_neighbors = 4
         min_empty_neighbors_position: tuple[int, int] | None = None
@@ -310,48 +350,10 @@ class TetrominoSpaceFiller:
         )
         # fmt: on
 
-    @staticmethod
-    def _closest_position_in_area(allowed_area: NDArray[np.bool], position: tuple[int, int]) -> tuple[int, int]:
-        allowed_positions = np.argwhere(allowed_area)
-        distances_to_position = np.abs(allowed_positions[:, 0] - position[0]) + np.abs(
-            allowed_positions[:, 1] - position[1]
-        )
-        return tuple(allowed_positions[np.argmin(distances_to_position)])
-
-    def _check_islands_are_fillable_and_set_smallest_island(self) -> bool:
-        """
-        Check if the current state of the space has multiple islands of empty space, and if so, whether all islands
-        are all still fillable (have a size divisible by 4).
-
-        If so, set self._smallest_island to the smallest island (boolean array being True at the cells belonging to the
-        smallest island).
-
-        Return whether all islands are fillable.
-        """
-        island_map = (self.space == 0).astype(np.uint8)
-        space_with_labeled_islands, num_islands = measure.label(island_map, connectivity=1, return_num=True)
-
-        if num_islands <= 1:
-            self._smallest_island = None
-            return True
-
-        smallest_island_size = self.space.shape[0] * self.space.shape[1]
-
-        for i in range(1, num_islands + 1):
-            island = space_with_labeled_islands == i
-            island_size = np.sum(island)
-
-            if island_size % 4 != 0:
-                self._smallest_island = None
-                return False
-
-            if island_size < smallest_island_size:
-                smallest_island_size = island_size
-                self._smallest_island = island
-
-        return True
-
-    @staticmethod
-    def _empty_space_has_multiple_islands(space: NDArray[np.int32]) -> bool:
-        island_map = (space == 0).astype(np.uint8)
-        return measure.label(island_map, connectivity=1, return_num=True)[1] > 1
+    def _is_close(
+        self, tetromino: NDArray[np.bool], tetromino_position: tuple[int, int], cell_position: tuple[int, int]
+    ) -> bool:
+        tetromino_cell_positions = np.argwhere(tetromino) + tetromino_position
+        tetromino_to_cell_distances = np.sum(np.abs(tetromino_cell_positions - cell_position), axis=1)
+        min_distance = np.min(tetromino_to_cell_distances)
+        return min_distance <= self.CLOSE_DISTANCE_THRESHOLD
