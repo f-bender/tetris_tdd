@@ -1,4 +1,5 @@
 import contextlib
+import inspect
 import random
 import sys
 from collections.abc import Callable, Iterable, Iterator, Sequence
@@ -10,16 +11,6 @@ from skimage import measure
 
 from game_logic.components.block import Block, BlockType
 from ui.cli.offset_iterables import CyclingOffsetIterable, RandomOffsetIterable
-
-
-@contextlib.contextmanager
-def ensure_sufficient_recursion_depth(depth: int) -> Iterator[None]:
-    prev_depth = sys.getrecursionlimit()
-    sys.setrecursionlimit(max(depth, prev_depth))
-    try:
-        yield
-    finally:
-        sys.setrecursionlimit(prev_depth)
 
 
 class TetrominoSpaceFiller:
@@ -34,7 +25,7 @@ class TetrominoSpaceFiller:
             BlockType.S,
         )
     )
-    STACK_FRAMES_SAFETY_MARGIN = 50
+    STACK_FRAMES_SAFETY_MARGIN = 10
     CLOSE_DISTANCE_THRESHOLD = 4
 
     def __init__(
@@ -48,8 +39,8 @@ class TetrominoSpaceFiller:
         """Initialize the space filler.
 
         Args:
-            space: The space to be filled. Zeros will be filled in by tetrominos. -1s are considered holes and will be
-                left as is.
+            space: The space to be filled (inplace). Zeros will be filled in by tetrominos. -1s are considered holes and
+                will be left as is.
             use_rng: Whether to use randomness in the selection of tetromino, selection of tetromino rotation/transpose,
                 and selection of neighboring spot to fill next.
             rng_seed: Optional seed to use for all RNG.
@@ -129,32 +120,24 @@ class TetrominoSpaceFiller:
     def num_blocks_placed(self) -> int:
         return self._num_blocks_placed
 
+    @contextlib.contextmanager
+    def _ensure_sufficient_recursion_depth(self) -> Iterator[None]:
+        required_depth = len(inspect.stack()) + self._total_blocks_to_place + self.STACK_FRAMES_SAFETY_MARGIN
+
+        prev_depth = sys.getrecursionlimit()
+        sys.setrecursionlimit(max(required_depth, prev_depth))
+        try:
+            yield
+        finally:
+            sys.setrecursionlimit(prev_depth)
+
     def fill(self, start_position: tuple[int, int] | None = None) -> None:
-        with ensure_sufficient_recursion_depth(self._total_blocks_to_place + self.STACK_FRAMES_SAFETY_MARGIN):
+        """Fill up the space with tetrominos, each identified by a unique number, inplace."""
+        with self._ensure_sufficient_recursion_depth():
             self._fill(cell_to_fill_position=start_position or self._default_start_position)
 
-    def _fill(self, cell_to_fill_position: tuple[int, int] = (0, 0)) -> None:
-        if np.all(self.space):
-            self._finished = True
-            return
-
-        # Prio 1: Try to fill the unfillable cell
-        if self._unfillable_cell_position:
-            cell_to_fill_position = self._unfillable_cell_position
-            self._unfillable_cell_position = None
-        # Prio 2: Fill the smallest island (in case the requested position is not inside it, change it)
-        elif self._smallest_island is not None and not self._smallest_island[cell_to_fill_position]:
-            cell_to_fill_position = self._closest_position_in_area(
-                allowed_area=self._smallest_island, position=cell_to_fill_position
-            )
-        # Prio 3: Select an empty cell as close as possible to the requested cell (the cell itself in case it's empty)
-        elif self.space[cell_to_fill_position] != 0:
-            cell_to_fill_position = self._closest_position_in_area(
-                allowed_area=self.space == 0, position=cell_to_fill_position
-            )
-
-        # whether we used it or not, unset self._smallest_island as it will be invalid after the next placement
-        self._smallest_island = None
+    def _fill(self, cell_to_fill_position: tuple[int, int]) -> None:
+        cell_to_fill_position = self._updated_cell_to_fill_position(cell_to_fill_position)
 
         for next_cell_to_fill_position in self._generate_tetromino_placements(cell_to_fill_position):
             self._fill(cell_to_fill_position=next_cell_to_fill_position)
@@ -171,6 +154,55 @@ class TetrominoSpaceFiller:
             # remember this cell as the cell that could not be filled, then fast backtrack until a cell close to it is
             # removed, hopefully removing the issue that made it unfillable
             self._unfillable_cell_position = cell_to_fill_position
+
+    def ifill(self, start_position: tuple[int, int] | None = None) -> Iterator[None]:
+        """Iterator version of fill(). After every update of the space, control is yielded to the caller."""
+        with self._ensure_sufficient_recursion_depth():
+            yield from self._ifill(cell_to_fill_position=start_position or self._default_start_position)
+
+    def _ifill(self, cell_to_fill_position: tuple[int, int]) -> Iterator[None]:
+        cell_to_fill_position = self._updated_cell_to_fill_position(cell_to_fill_position)
+
+        for next_cell_to_fill_position in self._generate_tetromino_placements(cell_to_fill_position):
+            # We have just placed a tetromino in the space.
+            # Allow the caller of this iterator to act based on the current state of the space before handing back
+            # control to us through the next call of "next()".
+            yield
+
+            yield from self._ifill(cell_to_fill_position=next_cell_to_fill_position)
+            if self._finished:
+                return
+
+            # We (probably) have just removed a tetromino from the space because we are backtracking.
+            # Allow the caller of this iterator to act based on the current state of the space before handing back
+            # control to us through the next call of "next()".
+            yield
+
+        if not self._unfillable_cell_position:
+            self._unfillable_cell_position = cell_to_fill_position
+
+    def _updated_cell_to_fill_position(self, cell_to_fill_position: tuple[int, int]) -> tuple[int, int]:
+        # Prio 1: Try to fill the unfillable cell if there is one
+        if self._unfillable_cell_position:
+            cell_to_fill_position = self._unfillable_cell_position
+            self._unfillable_cell_position = None
+
+        # Prio 2: Fill the smallest island (in case the requested position is not inside it, change it)
+        elif self._smallest_island is not None and not self._smallest_island[cell_to_fill_position]:
+            cell_to_fill_position = self._closest_position_in_area(
+                allowed_area=self._smallest_island, position=cell_to_fill_position
+            )
+
+        # Prio 3: Select an empty cell as close as possible to the requested cell (the cell itself in case it's empty)
+        elif self.space[cell_to_fill_position] != 0:
+            cell_to_fill_position = self._closest_position_in_area(
+                allowed_area=self.space == 0, position=cell_to_fill_position
+            )
+
+        # whether we used it or not, unset self._smallest_island as it will be invalid after the next placement
+        self._smallest_island = None
+
+        return cell_to_fill_position
 
     @staticmethod
     def _closest_position_in_area(allowed_area: NDArray[np.bool], position: tuple[int, int]) -> tuple[int, int]:
@@ -229,6 +261,11 @@ class TetrominoSpaceFiller:
                     # (if provided).
                     if self._space_updated_callback is not None:
                         self._space_updated_callback()
+
+                    if np.all(self.space):
+                        # we are done and trigger the immediate unwinding of the stack without backtracking
+                        self._finished = True
+                        return
 
                     next_cell_to_fill_position = self._get_neighboring_empty_cell_with_least_empty_neighbors_position(
                         tetromino=tetromino, tetromino_position=tetromino_position
