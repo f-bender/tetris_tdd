@@ -1,16 +1,13 @@
 import contextlib
 import random
 import sys
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from itertools import product
 
 import numpy as np
-from ansi import color, cursor
 from numpy.typing import NDArray
 from skimage import measure
 
-from ansi_extensions import color as colorx
-from ansi_extensions import cursor as cursorx
 from game_logic.components.block import Block, BlockType
 from ui.cli.offset_iterables import CyclingOffsetIterable, RandomOffsetIterable
 
@@ -46,6 +43,7 @@ class TetrominoSpaceFiller:
         use_rng: bool = True,
         rng_seed: int | None = None,
         top_left_tendency: bool = False,
+        space_updated_callback: Callable[[], None] | None = None,
     ) -> None:
         """Initialize the space filler.
 
@@ -60,6 +58,9 @@ class TetrominoSpaceFiller:
                 the top left of the space. This makes the filling up more predictable, but also reduces the likelihood
                 of large backtracks becoming necessary because the "surface area" of tetrominos tends to be smaller.
                 If True, selection of neighboring spot to fill next will not be random, even if use_rng is True.
+            space_updated_callback: Callback function which is called each time after the space has been updated (a
+                tetromino has been placed or removed). This effectively temporarily hands control back to the user of
+                this class, letting it act one the latest space update (e.g. for drawing).
         """
         if not use_rng and rng_seed is not None:
             raise ValueError("rng_seed should only be set when use_rng is True")
@@ -75,6 +76,7 @@ class TetrominoSpaceFiller:
 
         self._total_blocks_to_place = cells_to_fill // 4
         self._num_blocks_placed = 0
+        self._space_updated_callback = space_updated_callback
 
         if use_rng:
             main_rng = random.Random(rng_seed)
@@ -103,10 +105,6 @@ class TetrominoSpaceFiller:
         self._unfillable_cell_position: tuple[int, int] | None = None
         self._finished = False
 
-        #! to be removed
-        self._i = 0
-        self._last_drawn = None
-
     @staticmethod
     def _get_unique_rotations_transposes(tetromino: NDArray[np.bool]) -> list[NDArray[np.bool]]:
         """Return a list of all unique rotated or transposed views (not copies!) of the tetromino."""
@@ -131,44 +129,9 @@ class TetrominoSpaceFiller:
     def num_blocks_placed(self) -> int:
         return self._num_blocks_placed
 
-    #! to be removed
-    def draw(self) -> None:
-        rd = random.Random()
-        if self._last_drawn is None:
-            print(cursor.goto(1, 1), end="")
-            for row in self.space:
-                print(
-                    "".join(
-                        rd.seed(int(val))  # type: ignore[func-returns-value]
-                        or colorx.bg.rgb_truecolor(rd.randrange(50, 150), rd.randrange(50, 150), rd.randrange(50, 150))
-                        + "  "
-                        + color.fx.reset
-                        if val > 0
-                        else "  "
-                        for val in row
-                    )
-                )
-        else:
-            for y, x in np.argwhere(self.space != self._last_drawn):
-                print(cursor.goto(y + 1, x * 2 + 1), end="")
-                print(
-                    rd.seed(int(val))
-                    or colorx.bg.rgb_truecolor(rd.randrange(50, 150), rd.randrange(50, 150), rd.randrange(50, 150))
-                    + "  "
-                    + color.fx.reset
-                    if (val := self.space[y, x]) > 0
-                    else "  ",
-                    end="",
-                    flush=True,
-                )
-                print(cursor.goto(self.space.shape[0] + 1) + cursorx.erase_to_end(""), end="")
-
-        self._last_drawn = self.space.copy()
-
     def fill(self, start_position: tuple[int, int] | None = None) -> None:
         with ensure_sufficient_recursion_depth(self._total_blocks_to_place + self.STACK_FRAMES_SAFETY_MARGIN):
             self._fill(cell_to_fill_position=start_position or self._default_start_position)
-        self.draw()
 
     def _fill(self, cell_to_fill_position: tuple[int, int] = (0, 0)) -> None:
         if np.all(self.space):
@@ -253,10 +216,11 @@ class TetrominoSpaceFiller:
                         space_view_to_put_tetromino[tetromino] = 0
                         continue
 
-                    #! to be removed
-                    self._i += 1
-                    if self._i % 10 == 0:
-                        self.draw()
+                    # We have just placed a tetromino in the space.
+                    # Allow the user to act based on the current state of the space by calling their callback
+                    # (if provided).
+                    if self._space_updated_callback is not None:
+                        self._space_updated_callback()
 
                     next_cell_to_fill_position = self._get_neighboring_empty_cell_with_least_empty_neighbors_position(
                         tetromino_position, tetromino
@@ -276,10 +240,11 @@ class TetrominoSpaceFiller:
                     self._num_blocks_placed -= 1
                     space_view_to_put_tetromino[tetromino] = 0
 
-                    #! to be removed
-                    self._i += 1
-                    if self._i % 10 == 0:
-                        self.draw()
+                    # We  have just removed a tetromino from the space because we are backtracking.
+                    # Allow the user to act based on the current state of the space by calling their callback
+                    # (if provided).
+                    if self._space_updated_callback is not None:
+                        self._space_updated_callback()
 
                     if self._unfillable_cell_position and not self._is_close(
                         tetromino_position, tetromino, self._unfillable_cell_position
