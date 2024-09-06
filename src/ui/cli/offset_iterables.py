@@ -1,4 +1,4 @@
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Collection, Iterator, Sequence
 from random import Random
 
 
@@ -31,7 +31,7 @@ class RandomOffsetIterable[T]:
 
 
 class RandomOrderIterable[T]:
-    def __init__(self, items: Iterable[T], seed: int | None = None) -> None:
+    def __init__(self, items: Collection[T], seed: int | None = None) -> None:
         self._items = items
         self._rng = Random(seed)
 
