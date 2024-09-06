@@ -35,6 +35,7 @@ class TetrominoSpaceFiller:
         "Space could not be filled! "
         "It likely contains some empty cells in a configuration that are impossible to fill with tetrominos."
     )
+    TETROMINO_SIZE = 4
 
     def __init__(
         self,
@@ -70,10 +71,14 @@ class TetrominoSpaceFiller:
         self.space = space
         cells_to_fill = np.sum(~self.space.astype(bool))
 
-        if cells_to_fill % 4 != 0 or not self._check_islands_are_fillable_and_set_smallest_island():
-            raise ValueError("Space cannot be filled! Contains at least one island with size not divisible by 4!")
+        if cells_to_fill % self.TETROMINO_SIZE != 0 or not self._check_islands_are_fillable_and_set_smallest_island():
+            msg = (
+                "Space cannot be filled! "
+                f"Contains at least one island with size not divisible by {self.TETROMINO_SIZE}!"
+            )
+            raise ValueError(msg)
 
-        self._total_blocks_to_place = cells_to_fill // 4
+        self._total_blocks_to_place = cells_to_fill // self.TETROMINO_SIZE
         self._num_blocks_placed = 0
         self._space_updated_callback = space_updated_callback
 
@@ -95,9 +100,13 @@ class TetrominoSpaceFiller:
             [iterable_type(self._get_unique_rotations_transposes(tetromino)) for tetromino in self.TETROMINOS]
         )
         self._tetromino_idx_neighbor_offset_iterable: Iterable[tuple[int, tuple[int, int]]] = list(
-            product(range(4), ((-1, 0), (0, -1), (1, 0), (0, 1)))
+            product(range(self.TETROMINO_SIZE), ((-1, 0), (0, -1), (1, 0), (0, 1)))
         )
+        # if we iterate over self._tetromino_idx_neighbor_offset_iterable as is, top and left neighbors will always be
+        # checked first, and if they have 3 neighbors, they are early returned without ever checking more neighbors,
+        # thus establishing a tendency for the "movement" of the filling algorithm towards the top left
         if not top_left_tendency:
+            # if this is not desired, use the offset iterable type to use different offsets into the list when iterating
             self._tetromino_idx_neighbor_offset_iterable = iterable_type(self._tetromino_idx_neighbor_offset_iterable)
 
         self._smallest_island: NDArray[np.bool] | None = None
@@ -259,13 +268,14 @@ class TetrominoSpaceFiller:
                     # a new island which means that the islands_are_fillable check can be skipped. (This is usually the
                     # case.)
                     # Only when the current placement creates new islands of empty space do we have to check that these
-                    # islands are all still fillable (have a size divisible by 4).
+                    # islands are all still fillable (have a size divisible by TETROMINO_SIZE (4)).
                     if (
                         self._empty_space_has_multiple_islands(space_view_around_tetromino)
                         and not self._check_islands_are_fillable_and_set_smallest_island()
                     ):
-                        # proposed tetromino placement would create at least one island of empty space with a size not
-                        # divisible by 4, thus not being fillable by tetrominos
+                        # Proposed tetromino placement would create at least one island of empty space with a size not
+                        # divisible by TETROMINO_SIZE (4), thus not being fillable by tetrominos
+                        # So we cancel the placement and skip to the next loop iteration
                         self._num_blocks_placed -= 1
                         space_view_to_put_tetromino[tetromino] = 0
                         continue
@@ -325,7 +335,7 @@ class TetrominoSpaceFiller:
     def _check_islands_are_fillable_and_set_smallest_island(self) -> bool:
         """
         Check if the current state of the space has multiple islands of empty space, and if so, whether all islands
-        are all still fillable (have a size divisible by 4).
+        are all still fillable (have a size divisible by TETROMINO_SIZE (4)).
 
         If so, set self._smallest_island to the smallest island (boolean array being True at the cells belonging to the
         smallest island).
@@ -345,7 +355,7 @@ class TetrominoSpaceFiller:
             island = space_with_labeled_islands == i
             island_size = np.sum(island)
 
-            if island_size % 4 != 0:
+            if island_size % self.TETROMINO_SIZE != 0:
                 self._smallest_island = None
                 return False
 
@@ -362,7 +372,7 @@ class TetrominoSpaceFiller:
         min_empty_neighbors_position: tuple[int, int] | None = None
 
         tetromino_cell_positions = np.argwhere(tetromino) + tetromino_position
-        assert len(tetromino_cell_positions) == 4
+        assert len(tetromino_cell_positions) == self.TETROMINO_SIZE
 
         for tetromino_cell_idx, neighbor_offset in self._tetromino_idx_neighbor_offset_iterable:
             neighbor_position = tetromino_cell_positions[tetromino_cell_idx] + neighbor_offset
