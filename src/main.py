@@ -16,8 +16,8 @@ from rules.move_rotate_rules import MoveRule, RotateRule
 from rules.parry_rule import ParryRule
 from rules.spawn_drop_merge_rule import SpawnDropMergeRule
 from rules.track_score_rule import TrackScoreRule
+from tetromino_space_filler.tetromino_space_filler import TetrominoSpaceFiller
 from ui.cli import CLI
-from ui.cli.tetromino_space_filler import TetrominoSpaceFiller
 
 
 def main() -> None:

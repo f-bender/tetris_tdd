@@ -10,7 +10,7 @@ from numpy.typing import NDArray
 from skimage import measure
 
 from game_logic.components.block import Block, BlockType
-from ui.cli.offset_iterables import CyclingOffsetIterable, RandomOffsetIterable
+from tetromino_space_filler.offset_iterables import CyclingOffsetIterable, RandomOffsetIterable
 
 
 class NotFillable(Exception):
