@@ -5,7 +5,7 @@ from tetris.game_logic.action_counter import ActionCounter
 from tetris.game_logic.components.block import Block
 from tetris.game_logic.components.board import Board
 from tetris.game_logic.components.exceptions import CannotDropBlockError, CannotSpawnBlockError
-from tetris.game_logic.game import GameOver
+from tetris.game_logic.game import GameOverError
 from tetris.game_logic.interfaces.callback import Callback
 from tetris.game_logic.interfaces.callback_collection import CallbackCollection
 from tetris.game_logic.interfaces.controller import Action
@@ -26,7 +26,7 @@ class SpawnStrategyImpl:
         try:
             board.spawn(self._select_block_fn())
         except CannotSpawnBlockError as e:
-            raise GameOver from e
+            raise GameOverError from e
 
 
 class DropStrategy(Protocol):
@@ -52,11 +52,12 @@ class MergeMessage(NamedTuple):
 
 
 class SpawnDropMergeRule(Callback):
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         normal_interval: int = 25,
         quick_interval_factor: float = 8,
         spawn_delay: int | None = None,
+        *,
         spawn_strategy: SpawnStrategy | None = None,
         drop_strategy: DropStrategy | None = None,
         merge_strategy: MergeStrategy | None = None,
@@ -64,11 +65,14 @@ class SpawnDropMergeRule(Callback):
         """Initialize the DropRule.
 
         Args:
-            drop_interval_frames: Number of frames between drops while the quick-drop-action is *not* held. The default
+            normal_interval: Number of frames between drops while the quick-drop-action is *not* held. The default
                 value of 25 is fine-tuned for 60 FPS gameplay.
-            quick_drop_factor: `drop_interval_frames` is divided by this factor to obtain the number of frames between
+            quick_interval_factor: `normal_interval` is divided by this factor to obtain the number of frames between
                 drops while the quick-drop-action *is* held.
             spawn_delay: Number of frames after a block is merged, before the next block is spawned.
+            spawn_strategy: Strategy for spawning a new block.
+            drop_strategy: Strategy for dropping the active block.
+            merge_strategy: Strategy for merging the active block into the board.
         """
         self._quick_interval_factor = quick_interval_factor
         self.set_interval(normal_interval)
@@ -122,7 +126,8 @@ class SpawnDropMergeRule(Callback):
         """Returns bool whether a merge has happened."""
         try:
             self._drop_strategy.apply(board)
-            return False
         except CannotDropBlockError:
             self._merge_strategy.apply(board)
             return True
+        else:
+            return False

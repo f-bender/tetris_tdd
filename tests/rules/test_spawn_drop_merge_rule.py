@@ -50,6 +50,7 @@ def test_drop_triggered_on_correct_frames() -> None:
 
 def assert_whether_drop_triggered_after(
     drop_rule: SpawnDropMergeRule,
+    *,
     frame_counter: int,
     quick_drop_held_since: int,
     should_trigger: bool,

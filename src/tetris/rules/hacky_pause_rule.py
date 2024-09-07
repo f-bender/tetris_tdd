@@ -13,10 +13,10 @@ class PauseRule:
 
     def apply(
         self,
-        frame_counter: int,
+        _frame_counter: int,
         action_counter: ActionCounter,
-        board: Board,
-        callback_collection: CallbackCollection,
+        _board: Board,
+        _callback_collection: CallbackCollection,
     ) -> None:
         if self._pause_action_pressed(action_counter):
             while True:

@@ -6,9 +6,9 @@ from tetris.game_logic.interfaces.rule_sequence import RuleSequence
 def test_rule_sequence_calls_apply_in_order() -> None:
     # given a rule sequence with three rules
     calls: list[str] = []
-    mock_rule_1 = Mock(apply=Mock(side_effect=lambda *args, **kwargs: calls.append("rule_1")))
-    mock_rule_2 = Mock(apply=Mock(side_effect=lambda *args, **kwargs: calls.append("rule_2")))
-    mock_rule_3 = Mock(apply=Mock(side_effect=lambda *args, **kwargs: calls.append("rule_3")))
+    mock_rule_1 = Mock(apply=Mock(side_effect=lambda *_args, **_kwargs: calls.append("rule_1")))
+    mock_rule_2 = Mock(apply=Mock(side_effect=lambda *_args, **_kwargs: calls.append("rule_2")))
+    mock_rule_3 = Mock(apply=Mock(side_effect=lambda *_args, **_kwargs: calls.append("rule_3")))
     mock_action_counter = Mock()
     mock_board = Mock()
     rule_sequence = RuleSequence([mock_rule_1, mock_rule_2, mock_rule_3])

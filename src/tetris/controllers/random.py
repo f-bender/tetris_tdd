@@ -10,6 +10,7 @@ class RandomController(Controller):
     def __init__(
         self,
         p_do_nothing: float = 0,
+        *,
         max_buttons_at_once: int | None = None,
         only_valid_combinations: bool = False,
     ) -> None:
@@ -17,17 +18,19 @@ class RandomController(Controller):
         self._only_valid_combinations = only_valid_combinations
 
         if max_buttons_at_once is not None and max_buttons_at_once > self.NUM_BUTTONS:
-            raise ValueError(f"max_buttons_at_once cannot be greater than the number of buttons ({self.NUM_BUTTONS})")
+            msg = f"max_buttons_at_once cannot be greater than the number of buttons ({self.NUM_BUTTONS})"
+            raise ValueError(msg)
 
         if (
             max_buttons_at_once is not None
             and only_valid_combinations
             and max_buttons_at_once > self.MAX_VALID_COMBINATION_BUTTONS
         ):
-            raise ValueError(
+            msg = (
                 "max_buttons_at_once must cannot be greater than the biggest button combination that is valid "
-                f"({self.MAX_VALID_COMBINATION_BUTTONS}), if only valid combinations are allowed",
+                f"({self.MAX_VALID_COMBINATION_BUTTONS}), if only valid combinations are allowed"
             )
+            raise ValueError(msg)
 
         self._max_buttons_at_once = max_buttons_at_once or self.MAX_VALID_COMBINATION_BUTTONS
 

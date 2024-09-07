@@ -35,4 +35,5 @@ class ColorPalette(NamedTuple):
         try:
             return cls._fields.index(color_name)
         except ValueError as e:
-            raise ValueError(f"Invalid color name: '{color_name}'") from e
+            msg = f"Invalid color name: '{color_name}'"
+            raise ValueError(msg) from e

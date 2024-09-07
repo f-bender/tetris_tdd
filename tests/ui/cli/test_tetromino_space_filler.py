@@ -80,7 +80,7 @@ from tetris.tetromino_space_filler.tetromino_space_filler import TetrominoSpaceF
         ),
     ],
 )
-def test_space_fillable(space: NDArray[np.int32], expected: bool) -> None:
+def test_space_fillable(space: NDArray[np.int32], *, expected: bool) -> None:
     with (
         pytest.raises(
             ValueError,
@@ -96,9 +96,9 @@ def array_hash(array: NDArray[np.bool]) -> int:
     return hash(array.tobytes() + bytes(array.shape))
 
 
-def test_get_unique_rotations_transposes_for_L() -> None:
+def test_get_unique_rotations_transposes_for_L() -> None:  # noqa: N802
     unique_views = TetrominoSpaceFiller._get_unique_rotations_transposes(Block(BlockType.L).actual_cells)
-    assert len(unique_views) == 8
+    assert len(unique_views) == 8  # noqa: PLR2004
     assert {array_hash(view) for view in unique_views} == {
         array_hash(np.array(view, dtype=bool))
         for view in (
@@ -142,15 +142,15 @@ def test_get_unique_rotations_transposes_for_L() -> None:
     }
 
 
-def test_get_unique_rotations_transposes_for_O() -> None:
+def test_get_unique_rotations_transposes_for_O() -> None:  # noqa: N802
     unique_views = TetrominoSpaceFiller._get_unique_rotations_transposes(Block(BlockType.O).actual_cells)
     assert len(unique_views) == 1
     assert {array_hash(view) for view in unique_views} == {array_hash(np.array([[1, 1], [1, 1]], dtype=bool))}
 
 
-def test_get_unique_rotations_transposes_for_I() -> None:
+def test_get_unique_rotations_transposes_for_I() -> None:  # noqa: N802
     unique_views = TetrominoSpaceFiller._get_unique_rotations_transposes(Block(BlockType.I).actual_cells)
-    assert len(unique_views) == 2
+    assert len(unique_views) == 2  # noqa: PLR2004
     assert {array_hash(view) for view in unique_views} == {
         array_hash(np.array([[1, 1, 1, 1]], dtype=bool)),
         array_hash(np.array([[1], [1], [1], [1]], dtype=bool)),
@@ -263,9 +263,9 @@ def test_count_empty_neighbors() -> None:
     )
     filler = TetrominoSpaceFiller(space)
 
-    assert filler._count_empty_neighbors((1, 1)) == 4
-    assert filler._count_empty_neighbors((2, 1)) == 3
-    assert filler._count_empty_neighbors((2, 0)) == 2
+    assert filler._count_empty_neighbors((1, 1)) == 4  # noqa: PLR2004
+    assert filler._count_empty_neighbors((2, 1)) == 3  # noqa: PLR2004
+    assert filler._count_empty_neighbors((2, 0)) == 2  # noqa: PLR2004
     assert filler._count_empty_neighbors((3, 2)) == 1
     assert filler._count_empty_neighbors((4, 1)) == 0
 
@@ -294,6 +294,6 @@ def test_fill() -> None:
     for idx in tetromino_idxs:
         # check that each tetromino is a single connected component of size 4
         island_map = (space == idx).astype(np.uint8)
-        assert np.sum(island_map) == 4
+        assert np.sum(island_map) == TetrominoSpaceFiller.TETROMINO_SIZE
 
         assert measure.label(island_map, connectivity=1, return_num=True)[1] == 1

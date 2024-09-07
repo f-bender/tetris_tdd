@@ -6,109 +6,122 @@ def test_block_creation() -> None:
 
 
 def test_block_representation() -> None:
-    assert str(Block(BlockType.O)) == "\n".join(
-        [
-            "XX",
-            "XX",
-        ],
+    assert (
+        str(Block(BlockType.O))
+        == """
+            XX
+            XX
+        """.replace(" ", "").strip()
     )
-    assert str(Block(BlockType.L)) == "\n".join(
-        [
-            "...",
-            "XXX",
-            "X..",
-        ],
+    assert (
+        str(Block(BlockType.L))
+        == """
+            ...
+            XXX
+            X..
+        """.replace(" ", "").strip()
     )
-    assert str(Block(BlockType.J)) == "\n".join(
-        [
-            "...",
-            "XXX",
-            "..X",
-        ],
+    assert (
+        str(Block(BlockType.J))
+        == """
+            ...
+            XXX
+            ..X
+        """.replace(" ", "").strip()
     )
-    assert str(Block(BlockType.Z)) == "\n".join(
-        [
-            "...",
-            "XX.",
-            ".XX",
-        ],
+    assert (
+        str(Block(BlockType.Z))
+        == """
+            ...
+            XX.
+            .XX
+        """.replace(" ", "").strip()
     )
-    assert str(Block(BlockType.S)) == "\n".join(
-        [
-            "...",
-            ".XX",
-            "XX.",
-        ],
+    assert (
+        str(Block(BlockType.S))
+        == """
+            ...
+            .XX
+            XX.
+        """.replace(" ", "").strip()
     )
-    assert str(Block(BlockType.T)) == "\n".join(
-        [
-            "...",
-            "XXX",
-            ".X.",
-        ],
+    assert (
+        str(Block(BlockType.T))
+        == """
+            ...
+            XXX
+            .X.
+        """.replace(" ", "").strip()
     )
-    assert str(Block(BlockType.I)) == "\n".join(
-        [
-            "....",
-            "....",
-            "XXXX",
-            "....",
-        ],
+    assert (
+        str(Block(BlockType.I))
+        == """
+            ....
+            ....
+            XXXX
+            ....
+        """.replace(" ", "").strip()
     )
 
 
 def test_block_rotation() -> None:
     s = Block(BlockType.S)
     s.rotate_left()
-    assert str(s) == "\n".join(
-        [
-            ".X.",
-            ".XX",
-            "..X",
-        ],
+    assert (
+        str(s)
+        == """
+            .X.
+            .XX
+            ..X
+        """.replace(" ", "").strip()
     )
     s.rotate_left()
-    assert str(s) == "\n".join(
-        [
-            ".XX",
-            "XX.",
-            "...",
-        ],
+    assert (
+        str(s)
+        == """
+            .XX
+            XX.
+            ...
+        """.replace(" ", "").strip()
     )
     s.rotate_left()
-    assert str(s) == "\n".join(
-        [
-            "X..",
-            "XX.",
-            ".X.",
-        ],
+    assert (
+        str(s)
+        == """
+            X..
+            XX.
+            .X.
+        """.replace(" ", "").strip()
     )
 
     i = Block(BlockType.I)
     i.rotate_right()
-    assert str(i) == "\n".join(
-        [
-            ".X..",
-            ".X..",
-            ".X..",
-            ".X..",
-        ],
+    assert (
+        str(i)
+        == """
+            .X..
+            .X..
+            .X..
+            .X..
+        """.replace(" ", "").strip()
     )
     i.rotate_right()
-    assert str(i) == "\n".join(
-        [
-            "....",
-            "XXXX",
-            "....",
-            "....",
-        ],
+    assert (
+        str(i)
+        == """
+            ....
+            XXXX
+            ....
+            ....
+        """.replace(" ", "").strip()
     )
     i.rotate_right()
-    assert str(i) == "\n".join(
-        [
-            "..X.",
-            "..X.",
-            "..X.",
-            "..X.",
-        ],
+    assert (
+        str(i)
+        == """
+            ..X.
+            ..X.
+            ..X.
+            ..X.
+        """.replace(" ", "").strip()
     )

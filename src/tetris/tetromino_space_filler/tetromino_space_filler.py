@@ -9,9 +9,13 @@ import numpy as np
 from numpy.typing import NDArray
 from skimage import measure
 
+from tetris.exceptions import BaseTetrisError
 from tetris.game_logic.components.block import Block, BlockType
-from tetris.game_logic.components.exceptions import NotFillableError
 from tetris.tetromino_space_filler.offset_iterables import CyclingOffsetIterable, RandomOffsetIterable
+
+
+class NotFillableError(BaseTetrisError):
+    pass
 
 
 class TetrominoSpaceFiller:
@@ -61,10 +65,12 @@ class TetrominoSpaceFiller:
                 this class, letting it act one the latest space update (e.g. for drawing).
         """
         if not use_rng and rng_seed is not None:
-            raise ValueError("rng_seed should only be set when use_rng is True")
+            msg = "rng_seed should only be set when use_rng is True"
+            raise ValueError(msg)
 
         if not set(np.unique(space)).issubset({-1, 0}):
-            raise ValueError("Space must consist of -1s and 0s only.")
+            msg = "Space must consist of -1s and 0s only."
+            raise ValueError(msg)
 
         self.space = space
         cells_to_fill = np.sum(~self.space.astype(bool))
@@ -235,7 +241,10 @@ class TetrominoSpaceFiller:
         )
         return tuple(allowed_positions[np.argmin(distances_to_position)])
 
-    def _generate_tetromino_placements(self, cell_to_fill_position: tuple[int, int]) -> Iterator[tuple[int, int]]:
+    def _generate_tetromino_placements(  # noqa: C901
+        self,
+        cell_to_fill_position: tuple[int, int],
+    ) -> Iterator[tuple[int, int]]:
         for tetromino_rotations_iterable in self._nested_tetromino_iterable:
             for tetromino in tetromino_rotations_iterable:
                 for cell_position_in_tetromino in np.argwhere(tetromino):
@@ -334,13 +343,14 @@ class TetrominoSpaceFiller:
         return measure.label(island_map, connectivity=1, return_num=True)[1] > 1
 
     def _check_islands_are_fillable_and_set_smallest_island(self) -> bool:
-        """Check if the current state of the space has multiple islands of empty space, and if so, whether all islands
-        are all still fillable (have a size divisible by TETROMINO_SIZE (4)).
+        """Check that self.space is in a valid state, and set the self._smallest_island attribute.
 
+        Specifically, check if the current state of the space has multiple islands of empty space, and if so, whether
+        all islands are all still fillable (have a size divisible by TETROMINO_SIZE (4)).
         If so, set self._smallest_island to the smallest island (boolean array being True at the cells belonging to the
         smallest island).
 
-        Return whether all islands are fillable.
+        Return a bool whether the space is in a valid state (all islands are fillable).
         """
         island_map = (self.space == 0).astype(np.uint8)
         space_with_labeled_islands, num_islands = measure.label(island_map, connectivity=1, return_num=True)

@@ -24,7 +24,7 @@ class ParryRule(Callback):
         frame_counter: int,
         action_counter: ActionCounter,
         board: Board,
-        callback_collection: CallbackCollection,
+        _callback_collection: CallbackCollection,
     ) -> None:
         if self._already_applied:
             return

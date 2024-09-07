@@ -8,9 +8,10 @@ def test_do_nothing_ever() -> None:
 
 
 def test_max_buttons() -> None:
-    random_controller = RandomController(max_buttons_at_once=2)
+    max_buttons = 2
+    random_controller = RandomController(max_buttons_at_once=max_buttons)
     for _ in range(50):
-        assert sum(random_controller.get_action()) <= 2
+        assert sum(random_controller.get_action()) <= max_buttons
 
 
 def test_no_invalid_combinations() -> None:

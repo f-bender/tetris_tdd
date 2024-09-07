@@ -15,14 +15,16 @@ class BufferedPrint:
 
     def start_buffering(self) -> Self:
         if self.is_active():
-            raise RuntimeError("BufferedPrint is already active")
+            msg = "BufferedPrint is already active"
+            raise RuntimeError(msg)
 
         sys.stdout = self._buffer
         return self
 
     def print_and_reset_buffer(self) -> None:
         if not self.is_active():
-            raise RuntimeError("BufferedPrint is not active")
+            msg = "BufferedPrint is not active"
+            raise RuntimeError(msg)
 
         sys.stdout = sys.__stdout__
         print(self._buffer.getvalue(), end="")
@@ -31,7 +33,8 @@ class BufferedPrint:
 
     def discard_and_reset_buffer(self) -> None:
         if not self.is_active():
-            raise RuntimeError("BufferedPrint is not active")
+            msg = "BufferedPrint is not active"
+            raise RuntimeError(msg)
 
         sys.stdout = sys.__stdout__
         self._buffer.close()

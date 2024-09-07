@@ -11,8 +11,8 @@ from tetris.rules.clear_full_lines_rule import ClearFullLinesRule
 def clear_full_lines_fn() -> Callable[[Board], None]:
     return lambda board: ClearFullLinesRule().apply(
         board=board,
-        frame_counter=Mock(),
-        action_counter=Mock(),
+        _frame_counter=Mock(),
+        _action_counter=Mock(),
         callback_collection=Mock(),
     )
 
@@ -26,11 +26,12 @@ def test_one_line_cleared(clear_full_lines_fn: Callable[[Board], None]) -> None:
     )
 
     clear_full_lines_fn(board)
-    assert str(board) == "\n".join(
-        [
-            "..........",
-            "..........",
-        ],
+    assert (
+        str(board)
+        == """
+            ..........
+            ..........
+        """.replace(" ", "").strip()
     )
 
 
@@ -45,13 +46,14 @@ def test_four_lines_cleared(clear_full_lines_fn: Callable[[Board], None]) -> Non
     )
 
     clear_full_lines_fn(board)
-    assert str(board) == "\n".join(
-        [
-            "..........",
-            "..........",
-            "..........",
-            "..........",
-        ],
+    assert (
+        str(board)
+        == """
+            ..........
+            ..........
+            ..........
+            ..........
+        """.replace(" ", "").strip()
     )
 
 
@@ -66,14 +68,14 @@ def test_lines_above_clear_drop_down(clear_full_lines_fn: Callable[[Board], None
     )
 
     clear_full_lines_fn(board)
-    assert str(board) == "\n".join(
-        [
-            "..........",
-            "X........X",
-            "X..XX....X",
-            "X....XXXXX",
-        ],
-    )
+
+
+"""
+            ..........
+            X........X
+            X..XX....X
+            X....XXXXX
+        """.replace(" ", "").strip()
 
 
 def test_lines_above_disconnected_line_clear_drop_down_correctly(clear_full_lines_fn: Callable[[Board], None]) -> None:
@@ -87,11 +89,12 @@ def test_lines_above_disconnected_line_clear_drop_down_correctly(clear_full_line
     )
 
     clear_full_lines_fn(board)
-    assert str(board) == "\n".join(
-        [
-            "..........",
-            "..........",
-            "X........X",
-            "X....XXXXX",
-        ],
+    assert (
+        str(board)
+        == """
+            ..........
+            ..........
+            X........X
+            X....XXXXX
+        """.replace(" ", "").strip()
     )

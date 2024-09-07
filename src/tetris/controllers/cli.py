@@ -18,10 +18,11 @@ from tetris.game_logic.interfaces.controller import Action, Controller
 if os.name == "nt":
     import msvcrt
 
+    ctrl_c = 3
+
     def get_char() -> str:
         char = msvcrt.getwch()
-        if ord(char) == 3:
-            # Ctrl + C
+        if ord(char) == ctrl_c:
             raise KeyboardInterrupt
         return char
 else:

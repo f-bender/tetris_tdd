@@ -48,13 +48,13 @@ def test_move_triggered_on_correct_frames() -> None:
     # fmt: on
 
 
-def assert_whether_move_triggered_after(move_rule: MoveRule, n_frames: int, should_trigger: bool) -> None:
+def assert_whether_move_triggered_after(move_rule: MoveRule, *, n_frames: int, should_trigger: bool) -> None:
     mock_board = Mock()
     move_rule.apply(
-        frame_counter=42,  # ignored by the move rule
+        _frame_counter=42,  # ignored by the move rule
         action_counter=Mock(held_since=Mock(return_value=n_frames)),
         board=mock_board,
-        callback_collection=Mock(),
+        _callback_collection=Mock(),
     )
     if should_trigger:
         mock_board.try_move_active_block_left.assert_called()

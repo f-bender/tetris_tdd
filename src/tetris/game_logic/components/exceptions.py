@@ -19,7 +19,3 @@ class CannotNudgeError(BaseTetrisError):
 
 class ActiveBlockOverlapError(BaseTetrisError):
     pass
-
-
-class NotFillableError(BaseTetrisError):
-    pass

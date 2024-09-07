@@ -5,7 +5,7 @@ import pytest
 
 from tetris.game_logic.components.block import Block, BlockType
 from tetris.game_logic.components.board import Board
-from tetris.game_logic.game import Game, GameOver
+from tetris.game_logic.game import Game, GameOverError
 from tetris.game_logic.interfaces.controller import Action, Controller
 from tetris.game_logic.interfaces.rule_sequence import RuleSequence
 from tetris.rules.move_rotate_rules import HeldInputPolicy, MoveRule, RotateRule
@@ -33,7 +33,7 @@ def test_advance_frame_increases_fame_counter(dummy_game: Game) -> None:
     assert dummy_game.frame_counter == 1
 
     dummy_game.advance_frame(Action())
-    assert dummy_game.frame_counter == 2
+    assert dummy_game.frame_counter == 2  # noqa: PLR2004
 
 
 def test_game_runs_as_expected() -> None:
@@ -555,7 +555,7 @@ def test_game_runs_as_expected() -> None:
     for idx, (action, expected_board_state) in enumerate(zip(actions, expected_board_states, strict=False), start=1):
         # WHEN advancing the game frame by frame
         game.advance_frame(action)
-        print(f"Actual board after step {idx}:", str(board), sep="\n", end="\n\n")
+        print(f"Actual board after step {idx}:", str(board), sep="\n", end="\n\n")  # noqa: T201
 
         # THEN the board state is as expected on every frame
         assert str(board) == "\n".join(expected_board_state)
@@ -563,7 +563,7 @@ def test_game_runs_as_expected() -> None:
         assert ui_mock.draw.call_count == idx
 
     # THEN the game raises GameOver after the last game-ending board-state
-    with pytest.raises(GameOver):
+    with pytest.raises(GameOverError):
         game.advance_frame(Action())
 
     # THEN the frame counter matches the number of frames/board states

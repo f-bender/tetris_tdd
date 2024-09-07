@@ -8,12 +8,12 @@ from tetris.game_logic.interfaces.rule_sequence import RuleSequence
 from tetris.game_logic.interfaces.ui import UI
 
 
-class GameOver(BaseTetrisError):
+class GameOverError(BaseTetrisError):
     pass
 
 
 class Game:
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         ui: UI,
         board: Board,
@@ -47,7 +47,7 @@ class Game:
             self._clock.tick()
             try:
                 self.advance_frame(self._controller.get_action())
-            except GameOver:
+            except GameOverError:
                 return
 
     def advance_frame(self, action: Action) -> None:

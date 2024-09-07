@@ -12,7 +12,8 @@ class Gravity:
 
     def manipulate(self, board: Board) -> None:
         if board.has_active_block():
-            raise ValueError("Gravity application while there is an active block is not supported!")
+            msg = "Gravity application while there is an active block is not supported!"
+            raise ValueError(msg)
 
         board.set_from_array(self._apply_gravity(board.as_array()))
 

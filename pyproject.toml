@@ -12,7 +12,6 @@ ansi = "^0.3.7"
 keyboard = "^0.13.5"
 scikit-image = "^0.24.0"
 
-
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.2"
 pre-commit = "^3.8.0"
@@ -29,20 +28,33 @@ line-length = 120
 target-version = "py312"
 src = ["src"]
 fix = true
+unsafe-fixes = true
 
 [tool.ruff.lint]
 pydocstyle.convention = "google"
 select = ["ALL"]
 ignore = [
-    "D1",     # missing docstrings     (use own judgement)
-    "COM812", # missing trailing comma (handled by formatter)
-    "S101",   # assert used            (used only for things that should never fail and need no check in production)
+    "D1",     # missing docstrings         (use own judgement)
+    "COM812", # missing trailing comma     (handled by formatter)
+    "S101",   # assert used                (used only for things that should never fail and need no check in production)
+    "S311",   # cryptographically weak RNG (I don't do cryptography in this project - not relevant)
+]
+unfixable = [
+    "T201",   # no automatic removing prints
+    "FLY002", # no automatic changing string literals
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"src/tetris/ui/cli/*" = ["T201"]                       # prints are allowed in CLI UI
-"tests/*" = ["INP001"]                                 # we want no __init__.py files in tests
-"tests/game_logic/test_action_counter.py" = ["FBT003"] # bool positional args
+# allow redundant import aliases to signify explicit export in __init__.py files
+"**/__init__.py" = ["PLC0414"]
+"src/tetris/ui/cli/*" = ["T201"] # prints are allowed in CLI UI
+
+"tests/*" = ["INP001"] # we want no __init__.py files in tests
+# boolean positional args are okay to avoid clutter
+"tests/game_logic/test_action_counter.py" = ["FBT003"]
+# we do want to test and thus need access private methods here
+"tests/ui/cli/test_tetromino_space_filler.py" = ["SLF001"]
+"tests/board_manipulations/test_gravity.py" = ["SLF001"]
 
 [tool.mypy]
 strict = true
