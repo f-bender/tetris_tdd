@@ -1,4 +1,4 @@
-from game_logic.components import Block, BlockType
+from tetris.game_logic.components import Block, BlockType
 
 
 def test_block_creation() -> None:

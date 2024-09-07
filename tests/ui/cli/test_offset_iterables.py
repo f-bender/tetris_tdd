@@ -1,4 +1,8 @@
-from tetromino_space_filler.offset_iterables import CyclingOffsetIterable, RandomOffsetIterable, RandomOrderIterable
+from tetris.tetromino_space_filler.offset_iterables import (
+    CyclingOffsetIterable,
+    RandomOffsetIterable,
+    RandomOrderIterable,
+)
 
 
 def test_cycling_offset_iterable() -> None:

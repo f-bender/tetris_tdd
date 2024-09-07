@@ -3,8 +3,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from game_logic.components.board import Board
-from rules.clear_full_lines_rule import ClearFullLinesRule
+from tetris.game_logic.components.board import Board
+from tetris.rules.clear_full_lines_rule import ClearFullLinesRule
 
 
 @pytest.fixture(autouse=True)

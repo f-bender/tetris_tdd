@@ -2,8 +2,8 @@ from collections.abc import Iterator, Mapping
 
 import pytest
 
-from game_logic.action_counter import ActionCounter
-from game_logic.interfaces.controller import Action
+from tetris.game_logic.action_counter import ActionCounter
+from tetris.game_logic.interfaces.controller import Action
 
 
 @pytest.fixture

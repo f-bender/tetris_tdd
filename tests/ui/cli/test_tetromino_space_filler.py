@@ -5,8 +5,8 @@ import pytest
 from numpy.typing import NDArray
 from skimage import measure
 
-from game_logic.components.block import Block, BlockType
-from tetromino_space_filler.tetromino_space_filler import TetrominoSpaceFiller
+from tetris.game_logic.components.block import Block, BlockType
+from tetris.tetromino_space_filler.tetromino_space_filler import TetrominoSpaceFiller
 
 
 @pytest.mark.parametrize(

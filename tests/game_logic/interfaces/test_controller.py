@@ -1,4 +1,4 @@
-from game_logic.interfaces.controller import Action, Controller
+from tetris.game_logic.interfaces.controller import Action, Controller
 
 
 class DummyController(Controller):

@@ -3,13 +3,13 @@ from unittest.mock import Mock
 
 import pytest
 
-from game_logic.components.block import Block, BlockType
-from game_logic.components.board import Board
-from game_logic.game import Game, GameOver
-from game_logic.interfaces.controller import Action, Controller
-from game_logic.interfaces.rule_sequence import RuleSequence
-from rules.move_rotate_rules import HeldInputPolicy, MoveRule, RotateRule
-from rules.spawn_drop_merge_rule import SpawnDropMergeRule, SpawnStrategyImpl
+from tetris.game_logic.components.block import Block, BlockType
+from tetris.game_logic.components.board import Board
+from tetris.game_logic.game import Game, GameOver
+from tetris.game_logic.interfaces.controller import Action, Controller
+from tetris.game_logic.interfaces.rule_sequence import RuleSequence
+from tetris.rules.move_rotate_rules import HeldInputPolicy, MoveRule, RotateRule
+from tetris.rules.spawn_drop_merge_rule import SpawnDropMergeRule, SpawnStrategyImpl
 
 
 class DummyController(Controller):

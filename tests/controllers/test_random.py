@@ -1,5 +1,5 @@
-from controllers.random import RandomController
-from game_logic.interfaces.controller import Action
+from tetris.controllers.random import RandomController
+from tetris.game_logic.interfaces.controller import Action
 
 
 def test_do_nothing_ever() -> None:

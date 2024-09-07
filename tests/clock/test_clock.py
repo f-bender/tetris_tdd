@@ -2,9 +2,9 @@ import time
 
 import pytest
 
-from clock.amortizing import AmortizingClock
-from clock.simple import SimpleClock
-from game_logic.interfaces import Clock
+from tetris.clock.amortizing import AmortizingClock
+from tetris.clock.simple import SimpleClock
+from tetris.game_logic.interfaces import Clock
 
 TAKES_TOO_LONG_MESSAGE = "Takes too long. Enable when making changes to a clock class!"
 

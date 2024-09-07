@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
 
-from game_logic.components import Block, BlockType, Board
-from game_logic.components.exceptions import ActiveBlockOverlap, CannotDropBlock, CannotSpawnBlock, NoActiveBlock
+from tetris.game_logic.components import Block, BlockType, Board
+from tetris.game_logic.components.exceptions import ActiveBlockOverlap, CannotDropBlock, CannotSpawnBlock, NoActiveBlock
 
 
 def test_create_empty_board() -> None:

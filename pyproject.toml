@@ -17,6 +17,9 @@ scikit-image = "^0.24.0"
 pytest = "^8.2.2"
 pre-commit = "^3.8.0"
 
+[tool.poetry.scripts]
+tetris = 'tetris.main:main'
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
@@ -41,3 +44,4 @@ fix = true
 strict = true
 warn_return_any = false
 enable_incomplete_feature = "NewGenericSyntax"
+mypy_path = "src"

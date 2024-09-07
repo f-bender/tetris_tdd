@@ -1,6 +1,6 @@
 from unittest.mock import Mock
 
-from rules.move_rotate_rules import HeldInputPolicy, MoveRule
+from tetris.rules.move_rotate_rules import HeldInputPolicy, MoveRule
 
 
 def test_move_triggered_on_correct_frames() -> None:

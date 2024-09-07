@@ -1,6 +1,6 @@
 from unittest.mock import Mock
 
-from rules.spawn_drop_merge_rule import SpawnDropMergeRule
+from tetris.rules.spawn_drop_merge_rule import SpawnDropMergeRule
 
 
 def test_drop_triggered_on_correct_frames() -> None:

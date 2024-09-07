@@ -1,6 +1,6 @@
 from unittest.mock import Mock
 
-from game_logic.interfaces.rule_sequence import RuleSequence
+from tetris.game_logic.interfaces.rule_sequence import RuleSequence
 
 
 def test_rule_sequence_calls_apply_in_order() -> None:

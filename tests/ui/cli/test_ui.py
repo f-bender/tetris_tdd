@@ -1,7 +1,7 @@
 import inspect
 from typing import Literal, get_type_hints
 
-from ui.cli.color_palette import ColorPalette
+from tetris.ui.cli.color_palette import ColorPalette
 
 
 def test_color_palette_from_rgb_parameters() -> None:
