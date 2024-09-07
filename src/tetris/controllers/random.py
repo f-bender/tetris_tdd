@@ -26,7 +26,7 @@ class RandomController(Controller):
         ):
             raise ValueError(
                 "max_buttons_at_once must cannot be greater than the biggest button combination that is valid "
-                f"({self.MAX_VALID_COMBINATION_BUTTONS}), if only valid combinations are allowed"
+                f"({self.MAX_VALID_COMBINATION_BUTTONS}), if only valid combinations are allowed",
             )
 
         self._max_buttons_at_once = max_buttons_at_once or self.MAX_VALID_COMBINATION_BUTTONS

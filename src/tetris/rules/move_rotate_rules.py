@@ -43,11 +43,16 @@ class MoveRule:
                 fine-tuned for 60 FPS gameplay.
         """
         self._held_input_policy = held_input_policy or HeldInputPolicy(
-            repeat_interval_frames=4, single_press_delay_frames=15
+            repeat_interval_frames=4,
+            single_press_delay_frames=15,
         )
 
     def apply(
-        self, frame_counter: int, action_counter: ActionCounter, board: Board, callback_collection: CallbackCollection
+        self,
+        frame_counter: int,
+        action_counter: ActionCounter,
+        board: Board,
+        callback_collection: CallbackCollection,
     ) -> None:
         if not board.has_active_block():
             return
@@ -70,13 +75,17 @@ class RotateRule:
         self._held_input_policy = held_input_policy or HeldInputPolicy(repeat_interval_frames=20)
 
     def apply(
-        self, frame_counter: int, action_counter: ActionCounter, board: Board, callback_collection: CallbackCollection
+        self,
+        frame_counter: int,
+        action_counter: ActionCounter,
+        board: Board,
+        callback_collection: CallbackCollection,
     ) -> None:
         if not board.has_active_block():
             return
 
         if self._held_input_policy.should_trigger(
-            held_since_frames=action_counter.held_since(Action(left_shoulder=True))
+            held_since_frames=action_counter.held_since(Action(left_shoulder=True)),
         ):
             board.try_rotate_active_block_left()
 
@@ -84,6 +93,6 @@ class RotateRule:
             held_since_frames=max(
                 action_counter.held_since(Action(right_shoulder=True)),
                 action_counter.held_since(Action(up=True)),  # up can be used for right rotation as well
-            )
+            ),
         ):
             board.try_rotate_active_block_right()

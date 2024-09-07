@@ -20,7 +20,11 @@ class ParryRule(Callback):
         self._quick_merge = False
 
     def apply(
-        self, frame_counter: int, action_counter: ActionCounter, board: Board, callback_collection: CallbackCollection
+        self,
+        frame_counter: int,
+        action_counter: ActionCounter,
+        board: Board,
+        callback_collection: CallbackCollection,
     ) -> None:
         if self._already_applied:
             return
@@ -33,7 +37,7 @@ class ParryRule(Callback):
             self._just_merged = False
 
         if self._last_merge_within_leeway_frames(frame_counter) and self._parry_press_started_within_leeway_frames(
-            action_counter
+            action_counter,
         ):
             self._reward_board_manipulation.manipulate(board)
             self._already_applied = True

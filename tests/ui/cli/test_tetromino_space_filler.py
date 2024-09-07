@@ -83,7 +83,8 @@ from tetris.tetromino_space_filler.tetromino_space_filler import TetrominoSpaceF
 def test_space_fillable(space: NDArray[np.int32], expected: bool) -> None:
     with (
         pytest.raises(
-            ValueError, match="Space cannot be filled! Contains at least one island with size not divisible by 4!"
+            ValueError,
+            match="Space cannot be filled! Contains at least one island with size not divisible by 4!",
         )
         if expected is False
         else contextlib.nullcontext()
@@ -185,7 +186,7 @@ def test_check_islands_are_fillable_and_set_smallest_island() -> None:
             [1, 1, 1, 1, 1, 1, 1, 1, 1],
             [1, 1, 1, 1, 1, 0, 0, 0, 0],
             [0, 0, 0, 0, 1, 0, 0, 0, 0],
-        ]
+        ],
     )
     filler = TetrominoSpaceFiller(space)
 
@@ -222,7 +223,8 @@ def test_get_neighboring_empty_cell_with_least_empty_neighbors_position_with_emp
     tetromino_position = (0, 0)
 
     result = filler._get_neighboring_empty_cell_with_least_empty_neighbors_position(
-        tetromino=tetromino, tetromino_position=tetromino_position
+        tetromino=tetromino,
+        tetromino_position=tetromino_position,
     )
     assert result == (2, 1)
 
@@ -242,7 +244,8 @@ def test_get_neighboring_empty_cell_with_least_empty_neighbors_position_without_
     tetromino_position = (0, 0)
 
     result = filler._get_neighboring_empty_cell_with_least_empty_neighbors_position(
-        tetromino=tetromino, tetromino_position=tetromino_position
+        tetromino=tetromino,
+        tetromino_position=tetromino_position,
     )
     assert result is None
 

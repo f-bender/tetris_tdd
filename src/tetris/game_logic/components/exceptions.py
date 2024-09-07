@@ -1,21 +1,25 @@
-from tetris.exceptions import BaseTetrisException
+from tetris.exceptions import BaseTetrisError
 
 
-class NoActiveBlock(BaseTetrisException):
+class NoActiveBlockError(BaseTetrisError):
     pass
 
 
-class CannotSpawnBlock(BaseTetrisException):
+class CannotSpawnBlockError(BaseTetrisError):
     pass
 
 
-class CannotDropBlock(BaseTetrisException):
+class CannotDropBlockError(BaseTetrisError):
     pass
 
 
-class CannotNudge(BaseTetrisException):
+class CannotNudgeError(BaseTetrisError):
     pass
 
 
-class ActiveBlockOverlap(BaseTetrisException):
+class ActiveBlockOverlapError(BaseTetrisError):
+    pass
+
+
+class NotFillableError(BaseTetrisError):
     pass

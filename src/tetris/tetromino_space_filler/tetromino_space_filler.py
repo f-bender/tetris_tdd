@@ -10,11 +10,8 @@ from numpy.typing import NDArray
 from skimage import measure
 
 from tetris.game_logic.components.block import Block, BlockType
+from tetris.game_logic.components.exceptions import NotFillableError
 from tetris.tetromino_space_filler.offset_iterables import CyclingOffsetIterable, RandomOffsetIterable
-
-
-class NotFillable(Exception):
-    pass
 
 
 class TetrominoSpaceFiller:
@@ -40,6 +37,7 @@ class TetrominoSpaceFiller:
     def __init__(
         self,
         space: NDArray[np.int32],
+        *,
         use_rng: bool = True,
         rng_seed: int | None = None,
         top_left_tendency: bool = False,
@@ -97,10 +95,10 @@ class TetrominoSpaceFiller:
             self._default_start_position = (0, 0)
 
         self._nested_tetromino_iterable = iterable_type(
-            [iterable_type(self._get_unique_rotations_transposes(tetromino)) for tetromino in self.TETROMINOS]
+            [iterable_type(self._get_unique_rotations_transposes(tetromino)) for tetromino in self.TETROMINOS],
         )
         self._tetromino_idx_neighbor_offset_iterable: Iterable[tuple[int, tuple[int, int]]] = list(
-            product(range(self.TETROMINO_SIZE), ((-1, 0), (0, -1), (1, 0), (0, 1)))
+            product(range(self.TETROMINO_SIZE), ((-1, 0), (0, -1), (1, 0), (0, 1))),
         )
         # if we iterate over self._tetromino_idx_neighbor_offset_iterable as is, top and left neighbors will always be
         # checked first, and if they have 3 neighbors, they are early returned without ever checking more neighbors,
@@ -154,7 +152,7 @@ class TetrominoSpaceFiller:
             self._fill(cell_to_fill_position=start_position or self._default_start_position)
 
         if not self._finished:
-            raise NotFillable(self.UNFILLABLE_MESSAGE)
+            raise NotFillableError(self.UNFILLABLE_MESSAGE)
 
     def _fill(self, cell_to_fill_position: tuple[int, int]) -> None:
         cell_to_fill_position = self._updated_cell_to_fill_position(cell_to_fill_position)
@@ -181,7 +179,7 @@ class TetrominoSpaceFiller:
             yield from self._ifill(cell_to_fill_position=start_position or self._default_start_position)
 
         if not self._finished:
-            raise NotFillable(self.UNFILLABLE_MESSAGE)
+            raise NotFillableError(self.UNFILLABLE_MESSAGE)
 
     def _ifill(self, cell_to_fill_position: tuple[int, int]) -> Iterator[None]:
         cell_to_fill_position = self._updated_cell_to_fill_position(cell_to_fill_position)
@@ -213,13 +211,15 @@ class TetrominoSpaceFiller:
         # Prio 2: Fill the smallest island (in case the requested position is not inside it, change it)
         elif self._smallest_island is not None and not self._smallest_island[cell_to_fill_position]:
             cell_to_fill_position = self._closest_position_in_area(
-                allowed_area=self._smallest_island, position=cell_to_fill_position
+                allowed_area=self._smallest_island,
+                position=cell_to_fill_position,
             )
 
         # Prio 3: Select an empty cell as close as possible to the requested cell (the cell itself in case it's empty)
         elif self.space[cell_to_fill_position] != 0:
             cell_to_fill_position = self._closest_position_in_area(
-                allowed_area=self.space == 0, position=cell_to_fill_position
+                allowed_area=self.space == 0,
+                position=cell_to_fill_position,
             )
 
         # whether we used it or not, unset self._smallest_island as it will be invalid after the next placement
@@ -231,7 +231,7 @@ class TetrominoSpaceFiller:
     def _closest_position_in_area(allowed_area: NDArray[np.bool], position: tuple[int, int]) -> tuple[int, int]:
         allowed_positions = np.argwhere(allowed_area)
         distances_to_position = np.abs(allowed_positions[:, 0] - position[0]) + np.abs(
-            allowed_positions[:, 1] - position[1]
+            allowed_positions[:, 1] - position[1],
         )
         return tuple(allowed_positions[np.argmin(distances_to_position)])
 
@@ -292,7 +292,8 @@ class TetrominoSpaceFiller:
                         return
 
                     next_cell_to_fill_position = self._get_neighboring_empty_cell_with_least_empty_neighbors_position(
-                        tetromino=tetromino, tetromino_position=tetromino_position
+                        tetromino=tetromino,
+                        tetromino_position=tetromino_position,
                     )
                     if next_cell_to_fill_position is None:
                         # no neighbors to fill next: yield the cell that was just filled and let _fill find the closest
@@ -333,8 +334,7 @@ class TetrominoSpaceFiller:
         return measure.label(island_map, connectivity=1, return_num=True)[1] > 1
 
     def _check_islands_are_fillable_and_set_smallest_island(self) -> bool:
-        """
-        Check if the current state of the space has multiple islands of empty space, and if so, whether all islands
+        """Check if the current state of the space has multiple islands of empty space, and if so, whether all islands
         are all still fillable (have a size divisible by TETROMINO_SIZE (4)).
 
         If so, set self._smallest_island to the smallest island (boolean array being True at the cells belonging to the
@@ -366,7 +366,9 @@ class TetrominoSpaceFiller:
         return True
 
     def _get_neighboring_empty_cell_with_least_empty_neighbors_position(
-        self, tetromino: NDArray[np.bool], tetromino_position: tuple[int, int]
+        self,
+        tetromino: NDArray[np.bool],
+        tetromino_position: tuple[int, int],
     ) -> tuple[int, int] | None:
         min_empty_neighbors = 4
         min_empty_neighbors_position: tuple[int, int] | None = None
@@ -412,7 +414,10 @@ class TetrominoSpaceFiller:
         # fmt: on
 
     def _is_close(
-        self, tetromino: NDArray[np.bool], tetromino_position: tuple[int, int], cell_position: tuple[int, int]
+        self,
+        tetromino: NDArray[np.bool],
+        tetromino_position: tuple[int, int],
+        cell_position: tuple[int, int],
     ) -> bool:
         tetromino_cell_positions = np.argwhere(tetromino) + tetromino_position
         tetromino_to_cell_distances = np.sum(np.abs(tetromino_cell_positions - cell_position), axis=1)

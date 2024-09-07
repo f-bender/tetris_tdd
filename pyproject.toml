@@ -18,7 +18,7 @@ pytest = "^8.2.2"
 pre-commit = "^3.8.0"
 
 [tool.poetry.scripts]
-tetris = 'tetris.main:main'
+tetris = "tetris.main:main"
 
 [build-system]
 requires = ["poetry-core"]
@@ -28,17 +28,21 @@ build-backend = "poetry.core.masonry.api"
 line-length = 120
 target-version = "py312"
 src = ["src"]
-lint.select = [
-    "F",   # Pyflakes
-    "UP",  # pyupgrade
-    "B",   # flake8-bugbear
-    "SIM", # flake8-simplify
-    "C4",  # flake8-comprehensions
-    "I",   # isort
-    "E",   # pycodestyle
-]
-lint.pydocstyle.convention = "google"
 fix = true
+
+[tool.ruff.lint]
+pydocstyle.convention = "google"
+select = ["ALL"]
+ignore = [
+    "D1",     # missing docstrings     (use own judgement)
+    "COM812", # missing trailing comma (handled by formatter)
+    "S101",   # assert used            (used only for things that should never fail and need no check in production)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"src/tetris/ui/cli/*" = ["T201"]                       # prints are allowed in CLI UI
+"tests/*" = ["INP001"]                                 # we want no __init__.py files in tests
+"tests/game_logic/test_action_counter.py" = ["FBT003"] # bool positional args
 
 [tool.mypy]
 strict = true

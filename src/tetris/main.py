@@ -32,7 +32,7 @@ def main() -> None:
             parry_rule,
             ClearFullLinesRule(),
             track_score_rule,
-        )
+        ),
     )
     callback_collection = CallbackCollection((spawn_drop_merge_rule, parry_rule, track_score_rule))
 

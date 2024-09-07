@@ -10,42 +10,42 @@ def test_block_representation() -> None:
         [
             "XX",
             "XX",
-        ]
+        ],
     )
     assert str(Block(BlockType.L)) == "\n".join(
         [
             "...",
             "XXX",
             "X..",
-        ]
+        ],
     )
     assert str(Block(BlockType.J)) == "\n".join(
         [
             "...",
             "XXX",
             "..X",
-        ]
+        ],
     )
     assert str(Block(BlockType.Z)) == "\n".join(
         [
             "...",
             "XX.",
             ".XX",
-        ]
+        ],
     )
     assert str(Block(BlockType.S)) == "\n".join(
         [
             "...",
             ".XX",
             "XX.",
-        ]
+        ],
     )
     assert str(Block(BlockType.T)) == "\n".join(
         [
             "...",
             "XXX",
             ".X.",
-        ]
+        ],
     )
     assert str(Block(BlockType.I)) == "\n".join(
         [
@@ -53,7 +53,7 @@ def test_block_representation() -> None:
             "....",
             "XXXX",
             "....",
-        ]
+        ],
     )
 
 
@@ -65,7 +65,7 @@ def test_block_rotation() -> None:
             ".X.",
             ".XX",
             "..X",
-        ]
+        ],
     )
     s.rotate_left()
     assert str(s) == "\n".join(
@@ -73,7 +73,7 @@ def test_block_rotation() -> None:
             ".XX",
             "XX.",
             "...",
-        ]
+        ],
     )
     s.rotate_left()
     assert str(s) == "\n".join(
@@ -81,7 +81,7 @@ def test_block_rotation() -> None:
             "X..",
             "XX.",
             ".X.",
-        ]
+        ],
     )
 
     i = Block(BlockType.I)
@@ -92,7 +92,7 @@ def test_block_rotation() -> None:
             ".X..",
             ".X..",
             ".X..",
-        ]
+        ],
     )
     i.rotate_right()
     assert str(i) == "\n".join(
@@ -101,7 +101,7 @@ def test_block_rotation() -> None:
             "XXXX",
             "....",
             "....",
-        ]
+        ],
     )
     i.rotate_right()
     assert str(i) == "\n".join(
@@ -110,5 +110,5 @@ def test_block_rotation() -> None:
             "..X.",
             "..X.",
             "..X.",
-        ]
+        ],
     )

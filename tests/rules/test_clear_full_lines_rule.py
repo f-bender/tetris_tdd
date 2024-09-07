@@ -10,7 +10,10 @@ from tetris.rules.clear_full_lines_rule import ClearFullLinesRule
 @pytest.fixture(autouse=True)
 def clear_full_lines_fn() -> Callable[[Board], None]:
     return lambda board: ClearFullLinesRule().apply(
-        board=board, frame_counter=Mock(), action_counter=Mock(), callback_collection=Mock()
+        board=board,
+        frame_counter=Mock(),
+        action_counter=Mock(),
+        callback_collection=Mock(),
     )
 
 
@@ -19,7 +22,7 @@ def test_one_line_cleared(clear_full_lines_fn: Callable[[Board], None]) -> None:
         """
             ..........
             XXXXXXXXXX
-        """
+        """,
     )
 
     clear_full_lines_fn(board)
@@ -27,7 +30,7 @@ def test_one_line_cleared(clear_full_lines_fn: Callable[[Board], None]) -> None:
         [
             "..........",
             "..........",
-        ]
+        ],
     )
 
 
@@ -38,7 +41,7 @@ def test_four_lines_cleared(clear_full_lines_fn: Callable[[Board], None]) -> Non
             XXXXXXXXXX
             XXXXXXXXXX
             XXXXXXXXXX
-        """
+        """,
     )
 
     clear_full_lines_fn(board)
@@ -48,7 +51,7 @@ def test_four_lines_cleared(clear_full_lines_fn: Callable[[Board], None]) -> Non
             "..........",
             "..........",
             "..........",
-        ]
+        ],
     )
 
 
@@ -59,7 +62,7 @@ def test_lines_above_clear_drop_down(clear_full_lines_fn: Callable[[Board], None
             X..XX....X
             XXXXXXXXXX
             X....XXXXX
-        """
+        """,
     )
 
     clear_full_lines_fn(board)
@@ -69,7 +72,7 @@ def test_lines_above_clear_drop_down(clear_full_lines_fn: Callable[[Board], None
             "X........X",
             "X..XX....X",
             "X....XXXXX",
-        ]
+        ],
     )
 
 
@@ -80,7 +83,7 @@ def test_lines_above_disconnected_line_clear_drop_down_correctly(clear_full_line
             XXXXXXXXXX
             X....XXXXX
             XXXXXXXXXX
-        """
+        """,
     )
 
     clear_full_lines_fn(board)
@@ -90,5 +93,5 @@ def test_lines_above_disconnected_line_clear_drop_down_correctly(clear_full_line
             "..........",
             "X........X",
             "X....XXXXX",
-        ]
+        ],
     )

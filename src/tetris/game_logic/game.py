@@ -1,4 +1,4 @@
-from tetris.exceptions import BaseTetrisException
+from tetris.exceptions import BaseTetrisError
 from tetris.game_logic.action_counter import ActionCounter
 from tetris.game_logic.components import Board
 from tetris.game_logic.interfaces.callback_collection import CallbackCollection
@@ -8,7 +8,7 @@ from tetris.game_logic.interfaces.rule_sequence import RuleSequence
 from tetris.game_logic.interfaces.ui import UI
 
 
-class GameOver(BaseTetrisException):
+class GameOver(BaseTetrisError):
     pass
 
 

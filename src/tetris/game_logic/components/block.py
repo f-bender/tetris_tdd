@@ -1,11 +1,38 @@
 import contextlib
 import random
+from collections.abc import Iterator
+from dataclasses import dataclass
 from enum import Enum, auto
 from functools import cached_property
 from typing import Self
 
 import numpy as np
 from numpy.typing import NDArray
+
+
+@dataclass(frozen=True, slots=True)
+class Vec:
+    y: int
+    x: int
+
+    def __add__(self, other: Self) -> "Vec":
+        return Vec(y=self.y + other.y, x=self.x + other.x)
+
+
+@dataclass(frozen=True, slots=True)
+class BoundingBox:
+    top_left: Vec
+    bottom_right: Vec
+
+    def __add__(self, position: Vec) -> "BoundingBox":
+        return BoundingBox(
+            top_left=self.top_left + position,
+            bottom_right=self.bottom_right + position,
+        )
+
+    def __iter__(self) -> Iterator[int]:
+        """Allow unpacking a bounding box into top, left, bottom, and right values."""
+        return iter((self.top_left.y, self.top_left.x, self.bottom_right.y, self.bottom_right.x))
 
 
 class BlockType(Enum):
@@ -85,7 +112,8 @@ class Block:
                     dtype=np.bool,
                 )
             case _:
-                raise ValueError(f"Unknown block type: {block_type}")
+                msg = f"Unknown block type: {block_type}"
+                raise ValueError(msg)
 
         # all blocks should have a square box of cells within which they are rotated (even if there would be a smaller
         # rectangular bounding box for the shape)
@@ -100,7 +128,7 @@ class Block:
         return self.cells.shape[0]
 
     @cached_property
-    def actual_bounding_box(self) -> tuple[tuple[int, int], tuple[int, int]]:
+    def actual_bounding_box(self) -> BoundingBox:
         """Returns the actual bounding box of the active cells within the block."""
         rows_with_active_cells = np.where(np.any(self.cells, axis=1))[0]
         first_row_with_active_cells, last_row_with_active_cells = (
@@ -114,12 +142,9 @@ class Block:
             int(cols_with_active_cells[-1]),
         )
 
-        return (
-            first_row_with_active_cells,
-            first_col_with_active_cells,
-        ), (
-            last_row_with_active_cells + 1,
-            last_col_with_active_cells + 1,
+        return BoundingBox(
+            top_left=Vec(first_row_with_active_cells, first_col_with_active_cells),
+            bottom_right=Vec(last_row_with_active_cells + 1, last_col_with_active_cells + 1),
         )
 
     def _invalidate_actual_bounding_box_cache(self) -> None:
@@ -130,8 +155,8 @@ class Block:
     def actual_cells(self) -> NDArray[np.bool]:
         """Returns the actual cells of the block."""
         return self.cells[
-            self.actual_bounding_box[0][0] : self.actual_bounding_box[1][0],
-            self.actual_bounding_box[0][1] : self.actual_bounding_box[1][1],
+            self.actual_bounding_box.top_left.y : self.actual_bounding_box.bottom_right.y,
+            self.actual_bounding_box.top_left.x : self.actual_bounding_box.bottom_right.x,
         ]
 
     def __str__(self) -> str:

@@ -10,7 +10,9 @@ TAKES_TOO_LONG_MESSAGE = "Takes too long. Enable when making changes to a clock 
 
 
 def measure_average_time_between_ticks(
-    clock: Clock, simulated_processing_time_between_ticks_s: float = 0, num_samples: int = 10
+    clock: Clock,
+    simulated_processing_time_between_ticks_s: float = 0,
+    num_samples: int = 10,
 ) -> float:
     clock.tick()
     before = time.perf_counter()
@@ -44,7 +46,8 @@ def test_clock_tick_delay_with_small_processing_time(clock_class: type[SimpleClo
     clock = clock_class(fps=fps)
 
     tick_delay = measure_average_time_between_ticks(
-        clock, simulated_processing_time_between_ticks_s=desired_tick_delay / 2
+        clock,
+        simulated_processing_time_between_ticks_s=desired_tick_delay / 2,
     )
 
     assert tick_delay == pytest.approx(desired_tick_delay, abs=1e-3)
@@ -58,7 +61,8 @@ def test_clock_tick_delay_with_large_processing_time(clock_class: type[SimpleClo
     clock = clock_class(fps=fps)
 
     tick_delay = measure_average_time_between_ticks(
-        clock, simulated_processing_time_between_ticks_s=desired_tick_delay * 1.5
+        clock,
+        simulated_processing_time_between_ticks_s=desired_tick_delay * 1.5,
     )
 
     assert tick_delay == pytest.approx(desired_tick_delay * 1.5, abs=1e-3)

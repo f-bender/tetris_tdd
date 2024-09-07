@@ -4,7 +4,7 @@ from typing import NamedTuple, Protocol
 from tetris.game_logic.action_counter import ActionCounter
 from tetris.game_logic.components.block import Block
 from tetris.game_logic.components.board import Board
-from tetris.game_logic.components.exceptions import CannotDropBlock, CannotSpawnBlock
+from tetris.game_logic.components.exceptions import CannotDropBlockError, CannotSpawnBlockError
 from tetris.game_logic.game import GameOver
 from tetris.game_logic.interfaces.callback import Callback
 from tetris.game_logic.interfaces.callback_collection import CallbackCollection
@@ -25,7 +25,7 @@ class SpawnStrategyImpl:
     def apply(self, board: Board) -> None:
         try:
             board.spawn(self._select_block_fn())
-        except CannotSpawnBlock as e:
+        except CannotSpawnBlockError as e:
             raise GameOver from e
 
 
@@ -88,7 +88,11 @@ class SpawnDropMergeRule(Callback):
         self._quick_interval = max(round(normal_interval / self._quick_interval_factor), 1)
 
     def apply(
-        self, frame_counter: int, action_counter: ActionCounter, board: Board, callback_collection: CallbackCollection
+        self,
+        frame_counter: int,
+        action_counter: ActionCounter,
+        board: Board,
+        callback_collection: CallbackCollection,
     ) -> None:
         """Do only one of the actions at a time: Either spawn a block, or drop the block, or merge it into the board.
 
@@ -119,6 +123,6 @@ class SpawnDropMergeRule(Callback):
         try:
             self._drop_strategy.apply(board)
             return False
-        except CannotDropBlock:
+        except CannotDropBlockError:
             self._merge_strategy.apply(board)
             return True

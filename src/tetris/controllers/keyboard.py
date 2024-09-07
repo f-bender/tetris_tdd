@@ -37,5 +37,5 @@ class KeyboardController(Controller):
             **{
                 action_name: any(keyboard.is_pressed(key) for key in key_list)
                 for action_name, key_list in self._action_to_keys.items()
-            }
+            },
         )

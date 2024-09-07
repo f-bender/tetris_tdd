@@ -10,7 +10,7 @@ def test_gravity_manipulation_01() -> None:
             [1, 0, 1, 0],
             [0, 1, 0, 0],
             [0, 0, 1, 1],
-        ]
+        ],
     )
     array_after = Gravity()._apply_gravity(array_before)
     assert np.array_equal(
@@ -21,7 +21,7 @@ def test_gravity_manipulation_01() -> None:
                 [0, 0, 1, 0],
                 [0, 1, 1, 0],
                 [1, 1, 1, 1],
-            ]
+            ],
         ),
     )
 
@@ -33,7 +33,7 @@ def test_gravity_manipulation_integers() -> None:
             [9, 0, 1, -1],
             [0, 6, 0, 0],
             [0, 0, 0, 1],
-        ]
+        ],
     )
     array_after = Gravity()._apply_gravity(array_before)
     assert np.array_equal(
@@ -44,6 +44,6 @@ def test_gravity_manipulation_integers() -> None:
                 [0, 0, 0, 0],
                 [3, 7, 2, -1],
                 [9, 6, 1, 1],
-            ]
+            ],
         ),
     )

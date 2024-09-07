@@ -1,5 +1,6 @@
 import atexit
 from dataclasses import dataclass
+from typing import Self
 
 import numpy as np
 from ansi import color, cursor
@@ -20,7 +21,7 @@ class Vec:
     y: int
     x: int
 
-    def __add__(self, other: "Vec") -> "Vec":
+    def __add__(self, other: Self) -> "Vec":
         return Vec(self.y + other.y, self.x + other.x)
 
 

@@ -21,7 +21,11 @@ class TrackScoreRule(Callback):
             self._high_score = max(self._high_score, self._score)
 
     def apply(
-        self, frame_counter: int, action_counter: ActionCounter, board: Board, callback_collection: CallbackCollection
+        self,
+        frame_counter: int,
+        action_counter: ActionCounter,
+        board: Board,
+        callback_collection: CallbackCollection,
     ) -> None:
         print(f"Score: {self._score}")
         print(f"High Score: {self._high_score}")

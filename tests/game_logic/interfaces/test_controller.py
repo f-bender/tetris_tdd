@@ -22,7 +22,7 @@ def test_button_description_default_implementation() -> None:
                 right_shoulder=True,
                 confirm=True,
                 cancel=True,
-            )
+            ),
         )
         == "Left + Right + Up + Down + Left Shoulder + Right Shoulder + Confirm + Cancel"
     )

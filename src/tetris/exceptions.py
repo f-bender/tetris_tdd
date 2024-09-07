@@ -1,2 +1,2 @@
-class BaseTetrisException(Exception):
+class BaseTetrisError(Exception):
     pass

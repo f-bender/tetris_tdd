@@ -13,7 +13,11 @@ class RuleSequence:
         self._rule_sequence = rule_sequence
 
     def apply(
-        self, frame_counter: int, action_counter: ActionCounter, board: Board, callback_collection: CallbackCollection
+        self,
+        frame_counter: int,
+        action_counter: ActionCounter,
+        board: Board,
+        callback_collection: CallbackCollection,
     ) -> None:
         for rule in self._rule_sequence:
             rule.apply(frame_counter, action_counter, board, callback_collection)

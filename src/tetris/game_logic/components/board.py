@@ -7,54 +7,61 @@ import numpy as np
 from numpy.typing import NDArray
 
 from tetris.game_logic.components import Block
+from tetris.game_logic.components.block import BoundingBox, Vec
 from tetris.game_logic.components.exceptions import (
-    ActiveBlockOverlap,
-    CannotDropBlock,
-    CannotNudge,
-    CannotSpawnBlock,
-    NoActiveBlock,
+    ActiveBlockOverlapError,
+    CannotDropBlockError,
+    CannotNudgeError,
+    CannotSpawnBlockError,
+    NoActiveBlockError,
 )
 
 
-@dataclass(slots=True)
-class ActiveBlock:
+@dataclass(frozen=True, slots=True)
+class PositionedBlock:
     block: Block
-    position: tuple[int, int]
+    position: Vec
+
+    @property
+    def actual_bounding_box(self) -> BoundingBox:
+        return self.block.actual_bounding_box + self.position
 
 
 class Board:
     def __init__(self) -> None:
         # initialized in a degenerate state - don't call constructor but rather one of the creation classmethods
         self._board: NDArray[np.bool] = np.zeros((0, 0), dtype=np.bool)
-        self._active_block: ActiveBlock | None = None
+        self._active_block: PositionedBlock | None = None
 
     @classmethod
     def create_empty(cls, height: int, width: int) -> Self:
         board = cls()
-        board._board = np.zeros((height, width), dtype=np.bool)
+        board._board = np.zeros((height, width), dtype=np.bool)  # noqa: SLF001
         return board
 
     @classmethod
     def from_string_representation(cls, string: str) -> Self:
         if not set(string).issubset({"X", ".", " ", "\n"}):
-            raise ValueError(
+            msg = (
                 "Invalid string representation of board! "
                 f"Must consist of only 'X', '.', spaces, and newlines, but found {set(string)}"
             )
+            raise ValueError(msg)
 
         width = 0
         _board: list[list[bool]] = []
         for line in string.strip().splitlines():
-            line = line.strip()
+            line = line.strip()  # noqa: PLW2901
             if not width:
                 width = len(line)
             elif len(line) != width:
-                raise ValueError("Invalid string representation of board (all lines must have the same width)")
+                msg = "Invalid string representation of board (all lines must have the same width)"
+                raise ValueError(msg)
 
             _board.append([c == "X" for c in line])
 
         board = cls()
-        board._board = np.array(_board, dtype=np.bool)
+        board._board = np.array(_board, dtype=np.bool)  # noqa: SLF001
         return board
 
     def as_array(self) -> NDArray[np.bool]:
@@ -66,17 +73,13 @@ class Board:
     def set_from_array(self, array: NDArray[np.bool]) -> None:
         new_board = array.astype(np.bool)
         if new_board.shape != self._board.shape:
-            raise ValueError("Array shape does not match board shape")
+            msg = "Array shape does not match board shape"
+            raise ValueError(msg)
 
-        if self._active_block is not None:
-            (top, left), (bottom, right) = self._actual_block_bounding_box(
-                self._active_block.block, self._active_block.position
-            )
-
-            if self._active_block_overlaps_with_active_cells(
-                new_board, self._active_block.block.actual_cells, top, left, bottom, right
-            ):
-                raise ActiveBlockOverlap()
+        if self._active_block is not None and self._positioned_block_overlaps_with_active_cells(
+            new_board, self._active_block
+        ):
+            raise ActiveBlockOverlapError
 
         self._board = new_board
 
@@ -100,17 +103,16 @@ class Board:
     def spawn_random_block(self) -> None:
         self.spawn(Block.create_random())
 
-    def spawn(self, block: Block, position: tuple[int, int] | None = None) -> None:
+    def spawn(self, block: Block, position: Vec | None = None) -> None:
         position = position or self._top_middle_position(block)
-        active_block = ActiveBlock(block, position)
+        self._active_block = PositionedBlock(block, position)
 
-        if not self._active_block_is_in_valid_position(active_block):
+        if not self._positioned_block_is_in_valid_position(self._active_block):
             try:
-                self._nudge_block_into_valid_position(active_block)
-            except CannotNudge as e:
-                raise CannotSpawnBlock() from e
-
-        self._active_block = active_block
+                self._nudge_active_block_into_valid_position()
+            except CannotNudgeError as e:
+                self._active_block = None
+                raise CannotSpawnBlockError from e
 
     def try_move_active_block_left(self) -> None:
         self._move(-1)
@@ -126,108 +128,100 @@ class Board:
 
     def drop_active_block(self) -> None:
         if self._active_block is None:
-            raise NoActiveBlock()
+            raise NoActiveBlockError
 
-        dropped_position = (
-            self._active_block.position[0] + 1,
-            self._active_block.position[1],
-        )
+        dropped_block = PositionedBlock(self._active_block.block, self._active_block.position + Vec(1, 0))
 
-        (dropped_top, dropped_left), (dropped_bottom, dropped_right) = self._actual_block_bounding_box(
-            self._active_block.block, dropped_position
-        )
+        if not self._bbox_in_bounds(dropped_block.actual_bounding_box):
+            msg = "Active block reached bottom of the board"
+            raise CannotDropBlockError(msg)
 
-        if not self._bbox_in_bounds(dropped_top, dropped_left, dropped_bottom, dropped_right):
-            raise CannotDropBlock("Active block reached bottom of the board")
+        if self._positioned_block_overlaps_with_active_cells(self._board, dropped_block):
+            msg = "Active block has landed on an active cell"
+            raise CannotDropBlockError(msg)
 
-        if self._active_block_overlaps_with_active_cells(
-            self._board, self._active_block.block.actual_cells, dropped_top, dropped_left, dropped_bottom, dropped_right
-        ):
-            raise CannotDropBlock("Active block has landed on an active cell")
-
-        self._active_block.position = dropped_position
+        self._active_block = dropped_block
 
     def merge_active_block(self) -> None:
         if self._active_block is None:
-            raise NoActiveBlock()
+            raise NoActiveBlockError
 
         self._merge_active_block_into_board(self._active_block, self._board)
         self._active_block = None
 
-    def _top_middle_position(self, block: Block) -> tuple[int, int]:
-        y_offset = block.actual_bounding_box[0][0]
-        return -y_offset, ceil((self.width - block.sidelength) / 2)
+    def _top_middle_position(self, block: Block) -> Vec:
+        y_offset = block.actual_bounding_box.top_left.y
+        return Vec(-y_offset, ceil((self.width - block.sidelength) / 2))
 
-    def _bbox_in_bounds(self, _: int, left: int, bottom: int, right: int) -> bool:
+    def _bbox_in_bounds(self, bbox: BoundingBox) -> bool:
         # note: top is not relevant since blocks may stretch beyond the top of the board
         # its spot however left in the signature to avoid confusing arguments
+        _, left, bottom, right = bbox
         return not (left < 0 or bottom > self.height or right > self.width)
 
     @staticmethod
-    def _active_block_overlaps_with_active_cells(
-        board: NDArray[np.bool], active_block_cells: NDArray[np.bool], top: int, left: int, bottom: int, right: int
+    def _positioned_block_overlaps_with_active_cells(
+        board: NDArray[np.bool], positioned_block: PositionedBlock
     ) -> bool:
+        top, left, bottom, right = positioned_block.actual_bounding_box
         # blocks are allowed to stretch beyond the top line; in this case the corresponding cells are not considered
         # part of the board
         top_cutoff = max(0, -top)
-        return bool(np.any(board[top + top_cutoff : bottom, left:right] & active_block_cells[top_cutoff:, :]))
+        return bool(
+            np.any(board[top + top_cutoff : bottom, left:right] & positioned_block.block.actual_cells[top_cutoff:, :])
+        )
 
     def _move(self, x_offset: Literal[-1, 1]) -> None:
         if self._active_block is None:
-            raise NoActiveBlock()
+            raise NoActiveBlockError
 
-        moved_position = (
-            self._active_block.position[0],
-            self._active_block.position[1] + x_offset,
-        )
+        moved_block = PositionedBlock(self._active_block.block, self._active_block.position + Vec(0, x_offset))
 
-        if self._active_block_is_in_valid_position(ActiveBlock(self._active_block.block, position=moved_position)):
-            self._active_block.position = moved_position
+        if self._positioned_block_is_in_valid_position(moved_block):
+            self._active_block = moved_block
 
     def _rotate(self, direction: Literal["left", "right"]) -> None:
         if self._active_block is None:
-            raise NoActiveBlock()
+            raise NoActiveBlockError
 
         if direction == "left":
             self._active_block.block.rotate_left()
         else:
             self._active_block.block.rotate_right()
 
-        if not self._active_block_is_in_valid_position(self._active_block):
+        if not self._positioned_block_is_in_valid_position(self._active_block):
             try:
-                self._nudge_block_into_valid_position(self._active_block)
-            except CannotNudge:
+                self._nudge_active_block_into_valid_position()
+            except CannotNudgeError:
                 if direction == "left":
                     self._active_block.block.rotate_right()
                 else:
                     self._active_block.block.rotate_left()
 
-    def _active_block_is_in_valid_position(self, active_block: ActiveBlock) -> bool:
-        (top, left), (bottom, right) = self._actual_block_bounding_box(active_block.block, active_block.position)
+    def _positioned_block_is_in_valid_position(self, positioned_block: PositionedBlock) -> bool:
+        return self._bbox_in_bounds(
+            positioned_block.actual_bounding_box
+        ) and not self._positioned_block_overlaps_with_active_cells(self._board, positioned_block)
 
-        return self._bbox_in_bounds(top, left, bottom, right) and not self._active_block_overlaps_with_active_cells(
-            self._board, active_block.block.actual_cells, top, left, bottom, right
-        )
+    def _nudge_active_block_into_valid_position(self) -> None:
+        if self._active_block is None:
+            raise NoActiveBlockError
 
-    def _nudge_block_into_valid_position(self, active_block: ActiveBlock) -> None:
         # RULES:
         # we can only nudge laterally (left, right)
         # we can nudge the block at most by half its sidelength
         # we must nudge the least possible amount
 
-        max_nudge = active_block.block.sidelength // 2
+        max_nudge = self._active_block.block.sidelength // 2
 
         for x_offset in sorted(range(-max_nudge, max_nudge + 1), key=abs):
-            nudged_position = (
-                active_block.position[0],
-                active_block.position[1] + x_offset,
-            )
+            nudged_block = PositionedBlock(self._active_block.block, self._active_block.position + Vec(0, x_offset))
 
-            if self._active_block_is_in_valid_position(ActiveBlock(active_block.block, position=nudged_position)):
-                active_block.position = nudged_position
+            if self._positioned_block_is_in_valid_position(nudged_block):
+                self._active_block = nudged_block
                 return
 
-        raise CannotNudge()
+        raise CannotNudgeError
 
     def _board_with_block(self) -> NDArray[np.bool]:
         if self._active_block is not None:
@@ -243,7 +237,8 @@ class Board:
 
     def clear_line(self, line_idx: int) -> None:
         if line_idx < 0 or line_idx >= self.height:
-            raise IndexError(f"Line index out of range (0-{self.height - 1})")
+            msg = f"Line index out of range (0-{self.height - 1})"
+            raise IndexError(msg)
 
         # move everything above the cleared line one line down
         self._board[1 : line_idx + 1] = self._board[:line_idx]
@@ -254,21 +249,11 @@ class Board:
         return list(np.where(np.all(self._board, axis=1))[0])
 
     @staticmethod
-    def _merge_active_block_into_board(active_block: ActiveBlock, board: NDArray[np.bool]) -> None:
-        (top, left), (bottom, right) = Board._actual_block_bounding_box(active_block.block, active_block.position)
+    def _merge_active_block_into_board(positioned_block: PositionedBlock, board: NDArray[np.bool]) -> None:
+        top, left, bottom, right = positioned_block.actual_bounding_box
 
         # blocks are allowed to stretch beyond the top line; in this case the corresponding cells are not considered
         # part of the board
         top_cutoff = max(0, -top)
 
-        board[top + top_cutoff : bottom, left:right] |= active_block.block.actual_cells[top_cutoff:, :]
-
-    @staticmethod
-    def _actual_block_bounding_box(block: Block, position: tuple[int, int]) -> tuple[tuple[int, int], tuple[int, int]]:
-        (y_offset, x_offset), (y_end_offset, x_end_offset) = block.actual_bounding_box
-        top = position[0] + y_offset
-        left = position[1] + x_offset
-        bottom = position[0] + y_end_offset
-        right = position[1] + x_end_offset
-
-        return (top, left), (bottom, right)
+        board[top + top_cutoff : bottom, left:right] |= positioned_block.block.actual_cells[top_cutoff:, :]

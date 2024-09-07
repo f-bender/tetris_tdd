@@ -53,7 +53,7 @@ def test_game_runs_as_expected() -> None:
             Block(BlockType.Z),
             Block(BlockType.I),
             Block(BlockType.T),
-        ]
+        ],
     )
 
     # GIVEN predefined controller actions
@@ -69,7 +69,7 @@ def test_game_runs_as_expected() -> None:
             Action(left=True),
             Action(left_shoulder=True),
             Action(left_shoulder=True),
-        ]
+        ],
     )
 
     ui_mock = Mock()
@@ -90,7 +90,7 @@ def test_game_runs_as_expected() -> None:
                     normal_interval=1,
                     spawn_strategy=SpawnStrategyImpl(select_block_fn=Mock(side_effect=blocks_to_spawn)),
                 ),
-            ]
+            ],
         ),
     )
 

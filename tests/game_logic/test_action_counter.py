@@ -17,7 +17,7 @@ def action_iterator() -> Iterator[Action]:
             Action( True,  True,  True, False,  True),
             Action( True,  True, False,  True,  True),
             Action(False, False, False,  True,  True),
-        ]
+        ],
     )
     # fmt: on
 
@@ -66,37 +66,44 @@ def test_controller_wrapper_action_combo_held_since(action_iterator: Iterator[Ac
 
     controller_wrapper = ActionCounter()
     assert_actions_held_for(
-        controller_wrapper, {action_all: 0, action_01: 0, action_012: 0, action_014: 0, action_23: 0}
+        controller_wrapper,
+        {action_all: 0, action_01: 0, action_012: 0, action_014: 0, action_23: 0},
     )
 
     controller_wrapper.update(next(action_iterator))
     assert_actions_held_for(
-        controller_wrapper, {action_all: 1, action_01: 1, action_012: 1, action_014: 1, action_23: 1}
+        controller_wrapper,
+        {action_all: 1, action_01: 1, action_012: 1, action_014: 1, action_23: 1},
     )
 
     controller_wrapper.update(next(action_iterator))
     assert_actions_held_for(
-        controller_wrapper, {action_all: 0, action_01: 0, action_012: 0, action_014: 0, action_23: 0}
+        controller_wrapper,
+        {action_all: 0, action_01: 0, action_012: 0, action_014: 0, action_23: 0},
     )
 
     controller_wrapper.update(next(action_iterator))
     assert_actions_held_for(
-        controller_wrapper, {action_all: 0, action_01: 1, action_012: 0, action_014: 0, action_23: 0}
+        controller_wrapper,
+        {action_all: 0, action_01: 1, action_012: 0, action_014: 0, action_23: 0},
     )
 
     controller_wrapper.update(next(action_iterator))
     assert_actions_held_for(
-        controller_wrapper, {action_all: 0, action_01: 2, action_012: 1, action_014: 1, action_23: 0}
+        controller_wrapper,
+        {action_all: 0, action_01: 2, action_012: 1, action_014: 1, action_23: 0},
     )
 
     controller_wrapper.update(next(action_iterator))
     assert_actions_held_for(
-        controller_wrapper, {action_all: 0, action_01: 3, action_012: 0, action_014: 2, action_23: 0}
+        controller_wrapper,
+        {action_all: 0, action_01: 3, action_012: 0, action_014: 2, action_23: 0},
     )
 
     controller_wrapper.update(next(action_iterator))
     assert_actions_held_for(
-        controller_wrapper, {action_all: 0, action_01: 0, action_012: 0, action_014: 0, action_23: 0}
+        controller_wrapper,
+        {action_all: 0, action_01: 0, action_012: 0, action_014: 0, action_23: 0},
     )
 
 
