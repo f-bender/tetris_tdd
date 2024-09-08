@@ -12,8 +12,8 @@ class LineClearMessage(NamedTuple):
 class ClearFullLinesRule:
     def apply(
         self,
-        _frame_counter: int,
-        _action_counter: ActionCounter,
+        frame_counter: int,
+        action_counter: ActionCounter,
         board: Board,
         callback_collection: CallbackCollection,
     ) -> None:

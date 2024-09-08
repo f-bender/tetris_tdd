@@ -48,6 +48,8 @@ unfixable = [
 # allow redundant import aliases to signify explicit export in __init__.py files
 "**/__init__.py" = ["PLC0414"]
 "src/tetris/ui/cli/*" = ["T201"] # prints are allowed in CLI UI
+# unused method arguments are ok (required to conform to rule protocol, but not necessarily used)
+"src/tetris/rules/*" = ["ARG002"]
 
 "tests/*" = ["INP001"] # we want no __init__.py files in tests
 # boolean positional args are okay to avoid clutter

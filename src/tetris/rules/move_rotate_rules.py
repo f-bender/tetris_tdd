@@ -49,10 +49,10 @@ class MoveRule:
 
     def apply(
         self,
-        _frame_counter: int,
+        frame_counter: int,
         action_counter: ActionCounter,
         board: Board,
-        _callback_collection: CallbackCollection,
+        callback_collection: CallbackCollection,
     ) -> None:
         if not board.has_active_block():
             return
@@ -76,10 +76,10 @@ class RotateRule:
 
     def apply(
         self,
-        _frame_counter: int,
+        frame_counter: int,
         action_counter: ActionCounter,
         board: Board,
-        _callback_collection: CallbackCollection,
+        callback_collection: CallbackCollection,
     ) -> None:
         if not board.has_active_block():
             return

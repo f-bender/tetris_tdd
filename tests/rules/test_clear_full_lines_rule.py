@@ -11,8 +11,8 @@ from tetris.rules.clear_full_lines_rule import ClearFullLinesRule
 def clear_full_lines_fn() -> Callable[[Board], None]:
     return lambda board: ClearFullLinesRule().apply(
         board=board,
-        _frame_counter=Mock(),
-        _action_counter=Mock(),
+        frame_counter=Mock(),
+        action_counter=Mock(),
         callback_collection=Mock(),
     )
 

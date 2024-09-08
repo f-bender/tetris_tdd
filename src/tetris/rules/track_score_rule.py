@@ -22,10 +22,10 @@ class TrackScoreRule(Callback):
 
     def apply(
         self,
-        _frame_counter: int,
-        _action_counter: ActionCounter,
-        _board: Board,
-        _callback_collection: CallbackCollection,
+        frame_counter: int,
+        action_counter: ActionCounter,
+        board: Board,
+        callback_collection: CallbackCollection,
     ) -> None:
         print(f"Score: {self._score}")  # noqa: T201
         print(f"High Score: {self._high_score}")  # noqa: T201
