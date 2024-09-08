@@ -1,6 +1,7 @@
 import contextlib
 import inspect
 import sys
+from collections import deque
 from collections.abc import Callable, Generator, Iterator
 from itertools import chain
 
@@ -69,7 +70,7 @@ class FourColorizer:
             raise ValueError(msg)
 
         self._total_blocks_to_color = total_blocks_to_color or max_value
-        self._next_block_to_color = 1
+        self._num_colored_blocks = 0
         self._space_updated_callback = space_updated_callback
 
         colors = list(range(1, self.NUM_COLORS + 1))
@@ -77,8 +78,15 @@ class FourColorizer:
             RandomOffsetIterable(items=colors, seed=rng_seed) if use_rng else CyclingOffsetIterable(colors)
         )
 
-        # self._uncolorable_block: int | None = None
+        self._uncolorable_block: int | None = None
         self._finished = False
+        # keep track of all blocks that already have neighbors with 3 different colors, i.e. there is only one option
+        # when choosing a color for them. Color these with first priority, and only turn to other blocks when this list
+        # is empty
+        # Every time after coloring a new block, check all its uncolored neighbors and add them to this list if they
+        # have only one option
+        # add using .append, pop using .popleft
+        self._single_option_blocks: deque[int] = deque()
 
     @property
     def colored_space(self) -> NDArray[np.uint8]:
@@ -89,8 +97,8 @@ class FourColorizer:
         return self._total_blocks_to_color
 
     @property
-    def num_blocks_colored(self) -> int:
-        return self._next_block_to_color - 1
+    def num_colored_blocks(self) -> int:
+        return self._num_colored_blocks
 
     @contextlib.contextmanager
     def _ensure_sufficient_recursion_depth(self) -> Iterator[None]:
@@ -118,15 +126,6 @@ class FourColorizer:
             if self._finished:
                 # when finished, simply unwind the stack all the way to the top, *without* backtracking
                 return
-        # at this point we either have tried everything to color `self._next_block_to_color` but were unsuccessful,
-        # or are in the process of fast backtracking because we have encountered an uncolorable block deeper down the
-        # stack
-
-        # # in case we are not already in the process of fast backtracking to a block we were unable to color
-        # if not self._uncolorable_block:
-        #     # remember this block as the block that could not be colored, then fast backtrack until a block close to it
-        #     # is uncolored, hopefully removing the issue that made this one uncolorable
-        #     self._uncolorable_block = self._next_block_to_color
 
     def icolorize(self) -> Generator[None, None, NDArray[np.uint8]]:
         """Fill up the space with tetrominos, each identified by a unique number, inplace."""
@@ -152,8 +151,21 @@ class FourColorizer:
         # yield
 
     def _generate_coloring(self) -> Iterator[None]:
+        is_single_option_block = False
+        if self._single_option_blocks:
+            is_single_option_block = True
+            block_to_colorize = self._single_option_blocks.popleft()
+            # print("single", block_to_colorize, self._single_option_blocks)
+        else:
+            block_to_colorize = int(
+                np.min(
+                    self._space_to_be_colored[np.logical_and(self._colored_space == 0, self._space_to_be_colored > 0)]
+                )
+            )
+            # print("multi ", block_to_colorize)
+
         neighboring_colors, neighboring_uncolored_blocks = self._get_neighboring_colors_and_uncolored_blocks(
-            block=self._next_block_to_color
+            block=block_to_colorize
         )
 
         for color in self._color_selection_iterable:
@@ -163,8 +175,8 @@ class FourColorizer:
             # if self._next_block_to_color == self._uncolorable_block:
             #     self._uncolorable_block = None
 
-            self._colored_space[self._space_to_be_colored == self._next_block_to_color] = color
-            self._next_block_to_color += 1
+            self._colored_space[self._space_to_be_colored == block_to_colorize] = color
+            self._num_colored_blocks += 1
 
             # if (
             #     self._uncolorable_block is not None
@@ -183,28 +195,57 @@ class FourColorizer:
             # if x:
             #     continue
 
-            if any(
-                len(self._get_neighboring_colors_and_uncolored_blocks(uncolored_block)[0]) == self.NUM_COLORS
-                for uncolored_block in neighboring_uncolored_blocks
-            ):
-                self._next_block_to_color -= 1
-                self._colored_space[self._space_to_be_colored == self._next_block_to_color] = 0
+            no_option_neighbor = False
+            single_option_neighbors: list[int] = []
+            for neighboring_uncolored_block in neighboring_uncolored_blocks:
+                num_neighboring_colors = len(
+                    self._get_neighboring_colors_and_uncolored_blocks(neighboring_uncolored_block)[0]
+                )
+                if num_neighboring_colors == self.NUM_COLORS:
+                    self._num_colored_blocks -= 1
+                    self._colored_space[self._space_to_be_colored == block_to_colorize] = 0
+                    no_option_neighbor = True
+                    break
+
+                if (
+                    num_neighboring_colors == self.NUM_COLORS - 1
+                    and neighboring_uncolored_block not in self._single_option_blocks
+                ):
+                    single_option_neighbors.append(neighboring_uncolored_block)
+
+            if no_option_neighbor:
                 continue
+
+            self._single_option_blocks.extend(single_option_neighbors)
+
+            # if any(
+            #     len(self._get_neighboring_colors_and_uncolored_blocks(uncolored_block)[0]) == self.NUM_COLORS
+            #     for uncolored_block in neighboring_uncolored_blocks
+            # ):
+            #     self._next_block_to_color -= 1
+            #     self._colored_space[self._space_to_be_colored == self._next_block_to_color] = 0
+            #     continue
 
             if self._space_updated_callback is not None:
                 self._space_updated_callback()
 
-            if self._next_block_to_color > self._total_blocks_to_color:
+            # print(f"{self._num_colored_blocks}")
+            # print(self._colored_space)
+            # print(self._single_option_blocks)
+            if self._num_colored_blocks == self._total_blocks_to_color:
                 self._finished = True
                 return
 
             yield
 
-            self._next_block_to_color -= 1
-            self._colored_space[self._space_to_be_colored == self._next_block_to_color] = 0
+            self._num_colored_blocks -= 1
+            self._colored_space[self._space_to_be_colored == block_to_colorize] = 0
 
             if self._space_updated_callback is not None:
                 self._space_updated_callback()
+
+            for _ in range(len(single_option_neighbors)):
+                self._single_option_blocks.pop()
 
             # if self._uncolorable_block is not None and not self._blocks_are_adjacent(
             #     self._next_block_to_color, self._uncolorable_block
@@ -213,6 +254,19 @@ class FourColorizer:
             #     # this change has not made the uncolorable block colorable again, thus we need to immediately fast
             #     # backtrack further.
             #     return
+
+        if is_single_option_block:
+            self._single_option_blocks.appendleft(block_to_colorize)
+
+        # at this point we either have tried everything to color `self._next_block_to_color` but were unsuccessful,
+        # or are in the process of fast backtracking because we have encountered an uncolorable block deeper down the
+        # stack
+
+        # # in case we are not already in the process of fast backtracking to a block we were unable to color
+        # if not self._uncolorable_block:
+        #     # remember this block as the block that could not be colored, then fast backtrack until a block close to it
+        #     # is uncolored, hopefully removing the issue that made this one uncolorable
+        #     self._uncolorable_block = self._next_block_to_color
 
     def _get_neighboring_colors_and_uncolored_blocks(self, block: int) -> tuple[set[int], set[int]]:
         neighboring_colors: set[int] = set()
