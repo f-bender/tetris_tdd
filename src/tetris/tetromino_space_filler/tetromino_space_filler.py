@@ -394,6 +394,7 @@ class TetrominoSpaceFiller:
                 or not 0 <= neighbor_position[1] < self.space.shape[1]
                 or self.space[*neighbor_position] != 0
             ):
+                # neighbor is out of bounds, or already filled
                 continue
 
             empty_neighbors = self._count_empty_neighbors(neighbor_position)
