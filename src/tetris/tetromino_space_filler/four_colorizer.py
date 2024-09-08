@@ -56,6 +56,9 @@ class FourColorizer:
             msg = "Space must contain at least one positive value. Otherwise there is nothing to be colored!"
             raise ValueError(msg)
 
+        #! for some reason, this number doesn't match up with the actual recursion depth, or with
+        #! self._num_colored_blocks after the algorithm has finished. FIND OUT WHY!
+        #! Do we ever maybe color over an element that has already been colored?
         max_value = int(np.max(space))
 
         if gaps := (set(range(1, max_value + 1)) - set(np.unique(space[space > 0]))):
@@ -102,7 +105,7 @@ class FourColorizer:
 
     @contextlib.contextmanager
     def _ensure_sufficient_recursion_depth(self) -> Iterator[None]:
-        required_depth = len(inspect.stack()) + self._total_blocks_to_color + self.STACK_FRAMES_SAFETY_MARGIN
+        required_depth = len(inspect.stack()) + self._total_blocks_to_color + self.STACK_FRAMES_SAFETY_MARGIN + 50
 
         prev_depth = sys.getrecursionlimit()
         sys.setrecursionlimit(max(required_depth, prev_depth))
@@ -152,7 +155,10 @@ class FourColorizer:
 
     def _generate_coloring(self) -> Iterator[None]:
         is_single_option_block = False
-        if self._single_option_blocks:
+        if self._uncolorable_block is not None:
+            block_to_colorize = self._uncolorable_block
+            self._uncolorable_block = None
+        elif self._single_option_blocks:
             is_single_option_block = True
             block_to_colorize = self._single_option_blocks.popleft()
             # print("single", block_to_colorize, self._single_option_blocks)
@@ -174,6 +180,12 @@ class FourColorizer:
 
             # if self._next_block_to_color == self._uncolorable_block:
             #     self._uncolorable_block = None
+
+            # if not np.all(self._colored_space[self._space_to_be_colored == block_to_colorize] == 0):
+            #     msg = "This should not happen!"
+            #     #! but it does happen... find out why!
+            #     #! probably an issue with bookkeeping of _single_option_blocks...
+            #     raise RuntimeError(msg)
 
             self._colored_space[self._space_to_be_colored == block_to_colorize] = color
             self._num_colored_blocks += 1
@@ -232,7 +244,9 @@ class FourColorizer:
             # print(f"{self._num_colored_blocks}")
             # print(self._colored_space)
             # print(self._single_option_blocks)
-            if self._num_colored_blocks == self._total_blocks_to_color:
+
+            # if self._num_colored_blocks == self._total_blocks_to_color:
+            if np.all(self._colored_space[self._space_to_be_colored > 0]):
                 self._finished = True
                 return
 
@@ -247,13 +261,16 @@ class FourColorizer:
             for _ in range(len(single_option_neighbors)):
                 self._single_option_blocks.pop()
 
-            # if self._uncolorable_block is not None and not self._blocks_are_adjacent(
-            #     self._next_block_to_color, self._uncolorable_block
-            # ):
-            #     # If the block we have just uncolored during backtracking is not adjacent to the uncolorable block, then
-            #     # this change has not made the uncolorable block colorable again, thus we need to immediately fast
-            #     # backtrack further.
-            #     return
+            if self._uncolorable_block is not None and not self._blocks_are_close(
+                self._space_to_be_colored, block_to_colorize, self._uncolorable_block
+            ):
+                # If the block we have just uncolored during backtracking is not adjacent to the uncolorable block, then
+                # this change has not made the uncolorable block colorable again, thus we need to immediately fast
+                # backtrack further.
+                if is_single_option_block:
+                    self._single_option_blocks.appendleft(block_to_colorize)
+                return
+            # print("adjacent")
 
         if is_single_option_block:
             self._single_option_blocks.appendleft(block_to_colorize)
@@ -262,11 +279,11 @@ class FourColorizer:
         # or are in the process of fast backtracking because we have encountered an uncolorable block deeper down the
         # stack
 
-        # # in case we are not already in the process of fast backtracking to a block we were unable to color
-        # if not self._uncolorable_block:
-        #     # remember this block as the block that could not be colored, then fast backtrack until a block close to it
-        #     # is uncolored, hopefully removing the issue that made this one uncolorable
-        #     self._uncolorable_block = self._next_block_to_color
+        # in case we are not already in the process of fast backtracking to a block we were unable to color
+        if not self._uncolorable_block:
+            # remember this block as the block that could not be colored, then fast backtrack until a block close to it
+            # is uncolored, hopefully removing the issue that made this one uncolorable
+            self._uncolorable_block = block_to_colorize
 
     def _get_neighboring_colors_and_uncolored_blocks(self, block: int) -> tuple[set[int], set[int]]:
         neighboring_colors: set[int] = set()
@@ -294,11 +311,14 @@ class FourColorizer:
 
         return neighboring_colors, neighboring_uncolored_blocks
 
-    def _blocks_are_adjacent(self, block1: int, block2: int) -> bool:
+    @staticmethod
+    def _blocks_are_close(space: NDArray[np.int32], block1: int, block2: int) -> bool:
         assert block1 != block2
 
-        block1_positions = np.argwhere(self._space_to_be_colored == block1)
-        block2_positions = np.argwhere(self._space_to_be_colored == block2)
+        block1_positions = np.argwhere(space == block1)
+        block2_positions = np.argwhere(space == block2)
 
-        cell_distances = np.sum(np.abs(block1_positions - block2_positions))
-        return np.min(cell_distances) == 1
+        return any(
+            np.min(np.sum(np.abs(block2_positions - block1_position), axis=1)) <= 5
+            for block1_position in block1_positions
+        )
