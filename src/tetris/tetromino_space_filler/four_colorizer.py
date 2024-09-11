@@ -82,6 +82,7 @@ class FourColorizer:
         )
 
         self._uncolorable_block: int | None = None
+        self._uncolorable_block_neighborhood: set[int] | None = None
         self._finished = False
         # keep track of all blocks that already have neighbors with 3 different colors, i.e. there is only one option
         # when choosing a color for them. Color these with first priority, and only turn to other blocks when this list
@@ -154,10 +155,18 @@ class FourColorizer:
         # yield
 
     def _generate_coloring(self) -> Iterator[None]:
+        #! THE ISSUE IS THAT THE SAME BLOCK MIGHT BE THE UNCOLORABLE BLOCK BUT ALSO IN THE DEQUE OF SINGLE OPTION BLOCKS
         is_single_option_block = False
+        single_block_index = 0
         if self._uncolorable_block is not None:
             block_to_colorize = self._uncolorable_block
             self._uncolorable_block = None
+            self._uncolorable_block_neighborhood = None
+            # * This solves the issue. REAAALLY requires some cleanup now though
+            if block_to_colorize in self._single_option_blocks:
+                is_single_option_block = True
+                single_block_index = self._single_option_blocks.index(block_to_colorize)
+                self._single_option_blocks.remove(block_to_colorize)
         elif self._single_option_blocks:
             is_single_option_block = True
             block_to_colorize = self._single_option_blocks.popleft()
@@ -173,6 +182,10 @@ class FourColorizer:
         neighboring_colors, neighboring_uncolored_blocks = self._get_neighboring_colors_and_uncolored_blocks(
             block=block_to_colorize
         )
+        #! probably notably less efficient... check!
+        # neighborhood = self._get_neighborhood(block_to_colorize)
+        # neighboring_colors = {color for color in neighborhood.values() if color != 0}
+        # neighboring_uncolored_blocks = {block for block, color in neighborhood.items() if color == 0}
 
         for color in self._color_selection_iterable:
             if color in neighboring_colors:
@@ -213,6 +226,7 @@ class FourColorizer:
                 num_neighboring_colors = len(
                     self._get_neighboring_colors_and_uncolored_blocks(neighboring_uncolored_block)[0]
                 )
+
                 if num_neighboring_colors == self.NUM_COLORS:
                     self._num_colored_blocks -= 1
                     self._colored_space[self._space_to_be_colored == block_to_colorize] = 0
@@ -261,19 +275,27 @@ class FourColorizer:
             for _ in range(len(single_option_neighbors)):
                 self._single_option_blocks.pop()
 
-            if self._uncolorable_block is not None and not self._blocks_are_close(
-                self._space_to_be_colored, block_to_colorize, self._uncolorable_block
-            ):
-                # If the block we have just uncolored during backtracking is not adjacent to the uncolorable block, then
-                # this change has not made the uncolorable block colorable again, thus we need to immediately fast
-                # backtrack further.
-                if is_single_option_block:
-                    self._single_option_blocks.appendleft(block_to_colorize)
-                return
+            # if self._uncolorable_block is not None and not self._blocks_are_close(
+            #     self._space_to_be_colored, block_to_colorize, self._uncolorable_block
+            # ):
+            if self._uncolorable_block is not None:
+                assert self._uncolorable_block_neighborhood is not None
+                #! neighborhood simply doesn't work... why?
+                #! TODO: debug the issue above (RuntimeError), then check if it works afterwards
+                #! (the issua above happening clearly means that all my assumptions don't hold... once they do, maybe
+                #! this will just work as well)
+                # if block_to_colorize not in self._uncolorable_block_neighborhood:
+                if not self._blocks_are_close(self._space_to_be_colored, block_to_colorize, self._uncolorable_block):
+                    # If the block we have just uncolored during backtracking is not adjacent to the uncolorable block, then
+                    # this change has not made the uncolorable block colorable again, thus we need to immediately fast
+                    # backtrack further.
+                    if is_single_option_block:
+                        self._single_option_blocks.insert(single_block_index, block_to_colorize)
+                    return
             # print("adjacent")
 
         if is_single_option_block:
-            self._single_option_blocks.appendleft(block_to_colorize)
+            self._single_option_blocks.insert(single_block_index, block_to_colorize)
 
         # at this point we either have tried everything to color `self._next_block_to_color` but were unsuccessful,
         # or are in the process of fast backtracking because we have encountered an uncolorable block deeper down the
@@ -284,6 +306,7 @@ class FourColorizer:
             # remember this block as the block that could not be colored, then fast backtrack until a block close to it
             # is uncolored, hopefully removing the issue that made this one uncolorable
             self._uncolorable_block = block_to_colorize
+            self._uncolorable_block_neighborhood = set(self._get_second_degree_neighborhood(block_to_colorize))
 
     def _get_neighboring_colors_and_uncolored_blocks(self, block: int) -> tuple[set[int], set[int]]:
         neighboring_colors: set[int] = set()
@@ -297,19 +320,59 @@ class FourColorizer:
             if (
                 not 0 <= neighbor_position[0] < self._colored_space.shape[0]
                 or not 0 <= neighbor_position[1] < self._colored_space.shape[1]
-                or self._space_to_be_colored[*neighbor_position] == block
             ):
-                # neighbor is out of bounds, or is part of the block itself (not a "real" neighbor)
+                # neighbor is out of bounds
                 continue
 
-            if self._colored_space[*neighbor_position] != 0:
+            neighboring_block = self._space_to_be_colored[*neighbor_position]
+            if neighboring_block == block or neighboring_block <= 0:
+                # neighbor is part of the block itself (not a "real" neighbor)
+                # or neighbor is not part of a block, but of the background that shall remain untouched
+                continue
+
+            if (neighboring_color := self._colored_space[*neighbor_position]) != 0:
                 # neighbor is colored
-                neighboring_colors.add(int(self._colored_space[*neighbor_position]))
+                neighboring_colors.add(int(neighboring_color))
             else:
                 # neighbor is uncolored
-                neighboring_uncolored_blocks.add(int(self._space_to_be_colored[*neighbor_position]))
+                neighboring_uncolored_blocks.add(int(neighboring_block))
 
         return neighboring_colors, neighboring_uncolored_blocks
+
+    def _get_neighborhood(self, block: int) -> dict[int, int]:
+        """Return a dict with the keys being the neighboring blocks and the keys being their colors."""
+        neighborhood: dict[int, int] = {}
+
+        block_positions = np.argwhere(self._space_to_be_colored == block)
+
+        for neighbor_position in chain.from_iterable(
+            block_positions + neighbor_offset for neighbor_offset in ((-1, 0), (0, -1), (1, 0), (0, 1))
+        ):
+            if (
+                not 0 <= neighbor_position[0] < self._colored_space.shape[0]
+                or not 0 <= neighbor_position[1] < self._colored_space.shape[1]
+            ):
+                # neighbor is out of bounds
+                continue
+
+            neighboring_block = self._space_to_be_colored[*neighbor_position]
+            if neighboring_block == block or neighboring_block <= 0:
+                # neighbor is part of the block itself (not a "real" neighbor)
+                # or neighbor is not part of a block, but of the background that shall remain untouched
+                continue
+
+            neighborhood[int(neighboring_block)] = int(self._colored_space[*neighbor_position])
+        return neighborhood
+
+    def _get_second_degree_neighborhood(self, block: int) -> dict[int, int]:
+        neighborhood = self._get_neighborhood(block)
+
+        for neighboring_block in list(neighborhood):
+            neighborhood |= self._get_neighborhood(neighboring_block)
+
+        # del neighborhood[block]
+
+        return neighborhood
 
     @staticmethod
     def _blocks_are_close(space: NDArray[np.int32], block1: int, block2: int) -> bool:
@@ -319,6 +382,6 @@ class FourColorizer:
         block2_positions = np.argwhere(space == block2)
 
         return any(
-            np.min(np.sum(np.abs(block2_positions - block1_position), axis=1)) <= 5
+            np.min(np.sum(np.abs(block2_positions - block1_position), axis=1)) <= 6
             for block1_position in block1_positions
         )
