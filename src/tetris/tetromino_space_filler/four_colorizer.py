@@ -167,6 +167,7 @@ class FourColorizer:
             self._uncolorable_block = None
             self._uncolorable_block_neighborhood = None
             # * This solves the issue. REAAALLY requires some cleanup now though
+            # TODO maybe, to simplify, make a copy of single_block_options (i.e. a snapshot) and restore to that state at the end?
             if block_to_colorize in self._single_option_blocks:
                 is_single_option_block = True
                 single_block_index = self._single_option_blocks.index(block_to_colorize)
@@ -386,6 +387,7 @@ class FourColorizer:
         block2_positions = np.argwhere(space == block2)
 
         return any(
-            np.min(np.sum(np.abs(block2_positions - block1_position), axis=1)) <= 6
+            np.min(np.sum(np.abs(block2_positions - block1_position), axis=1))
+            <= 6  # TODO make this an adjustable closeness threshold (recommend ~1.5 * size of largest island)
             for block1_position in block1_positions
         )
