@@ -19,6 +19,7 @@ class FourColorizer:
         self,
         space: NDArray[np.int32],
         *,
+        cycle_offset: bool = True,
         use_rng: bool = True,
         rng_seed: int | None = None,
         space_updated_callback: Callable[[], None] | None = None,
@@ -48,8 +49,8 @@ class FourColorizer:
                 tetromino has been placed or removed). This effectively temporarily hands control back to the user of
                 this class, letting it act one the latest space update (e.g. for drawing).
         """
-        if not use_rng and rng_seed is not None:
-            msg = "rng_seed should only be set when use_rng is True"
+        if (not cycle_offset or not use_rng) and rng_seed is not None:
+            msg = "rng_seed should only be set when cycle_offset and use_rng are True"
             raise ValueError(msg)
 
         if np.max(space) <= 0:
@@ -76,10 +77,13 @@ class FourColorizer:
         self._num_colored_blocks = 0
         self._space_updated_callback = space_updated_callback
 
-        colors = list(range(1, self.NUM_COLORS + 1))
-        self._color_selection_iterable = (
-            RandomOffsetIterable(items=colors, seed=rng_seed) if use_rng else CyclingOffsetIterable(colors)
-        )
+        self._color_selection_iterable = list(range(1, self.NUM_COLORS + 1))
+        if cycle_offset:
+            self._color_selection_iterable = (
+                RandomOffsetIterable(items=self._color_selection_iterable, seed=rng_seed)
+                if use_rng
+                else CyclingOffsetIterable(self._color_selection_iterable)
+            )
 
         self._uncolorable_block: int | None = None
         self._uncolorable_block_neighborhood: set[int] | None = None
