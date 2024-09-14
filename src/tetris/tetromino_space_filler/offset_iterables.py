@@ -1,5 +1,7 @@
 from collections.abc import Collection, Iterator, Sequence
+from copy import copy
 from random import Random
+from typing import Self
 
 
 class CyclingOffsetIterable[T]:
@@ -39,3 +41,18 @@ class RandomOrderIterable[T]:
         shuffled_items = list(self._items)
         self._rng.shuffle(shuffled_items)
         yield from shuffled_items
+
+
+class OnceResettable[T]:
+    def __init__(self, it: Iterator[T]) -> None:
+        self.it = it
+        self.it_copy = copy(it)
+
+    def reset(self) -> None:
+        self.it = self.it_copy
+
+    def __iter__(self) -> Self:
+        return self
+
+    def __next__(self) -> T:
+        return next(self.it)

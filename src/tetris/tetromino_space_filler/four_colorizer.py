@@ -8,7 +8,7 @@ from itertools import chain
 import numpy as np
 from numpy.typing import NDArray
 
-from tetris.tetromino_space_filler.offset_iterables import CyclingOffsetIterable, RandomOffsetIterable
+from tetris.tetromino_space_filler.offset_iterables import CyclingOffsetIterable, OnceResettable, RandomOffsetIterable
 
 
 class FourColorizer:
@@ -192,7 +192,9 @@ class FourColorizer:
         # neighboring_colors = {color for color in neighborhood.values() if color != 0}
         # neighboring_uncolored_blocks = {block for block, color in neighborhood.items() if color == 0}
 
-        for color in self._color_selection_iterable:
+        resettable_color_iterator = OnceResettable(iter(self._color_selection_iterable))
+
+        for color in resettable_color_iterator:
             if color in neighboring_colors:
                 continue
 
@@ -289,14 +291,15 @@ class FourColorizer:
                 #! TODO: debug the issue above (RuntimeError), then check if it works afterwards
                 #! (the issua above happening clearly means that all my assumptions don't hold... once they do, maybe
                 #! this will just work as well)
-                # if block_to_colorize not in self._uncolorable_block_neighborhood:
-                if not self._blocks_are_close(self._space_to_be_colored, block_to_colorize, self._uncolorable_block):
+                if block_to_colorize not in self._uncolorable_block_neighborhood:
+                # if not self._blocks_are_close(self._space_to_be_colored, block_to_colorize, self._uncolorable_block):
                     # If the block we have just uncolored during backtracking is not adjacent to the uncolorable block, then
                     # this change has not made the uncolorable block colorable again, thus we need to immediately fast
                     # backtrack further.
                     if is_single_option_block:
                         self._single_option_blocks.insert(single_block_index, block_to_colorize)
                     return
+                resettable_color_iterator.reset()
             # print("adjacent")
 
         if is_single_option_block:
@@ -375,7 +378,7 @@ class FourColorizer:
         for neighboring_block in list(neighborhood):
             neighborhood |= self._get_neighborhood(neighboring_block)
 
-        # del neighborhood[block]
+        del neighborhood[block]
 
         return neighborhood
 
