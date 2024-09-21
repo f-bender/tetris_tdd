@@ -44,7 +44,7 @@ class TetrominoSpaceFiller:
         *,
         use_rng: bool = True,
         rng_seed: int | None = None,
-        top_left_tendency: bool = False,
+        top_left_tendency: bool = True,
         space_updated_callback: Callable[[], None] | None = None,
     ) -> None:
         """Initialize the space filler.
@@ -86,19 +86,20 @@ class TetrominoSpaceFiller:
         self._num_blocks_placed = 0
         self._space_updated_callback = space_updated_callback
 
+        self._default_start_position = (0, 0)
         if use_rng:
             main_rng = random.Random(rng_seed)
 
-            self._default_start_position = (
-                main_rng.randrange(self.space.shape[0]),
-                main_rng.randrange(self.space.shape[1]),
-            )
-
             def iterable_type[T](items: Sequence[T]) -> Iterable[T]:
                 return RandomOffsetIterable(items=items, seed=main_rng.randrange(2**32))
+
+            if not top_left_tendency:
+                self._default_start_position = (
+                    main_rng.randrange(self.space.shape[0]),
+                    main_rng.randrange(self.space.shape[1]),
+                )
         else:
             iterable_type = CyclingOffsetIterable
-            self._default_start_position = (0, 0)
 
         self._nested_tetromino_iterable = iterable_type(
             [iterable_type(self._get_unique_rotations_transposes(tetromino)) for tetromino in self.TETROMINOS],
@@ -161,23 +162,11 @@ class TetrominoSpaceFiller:
             raise NotFillableError(self.UNFILLABLE_MESSAGE)
 
     def _fill(self, cell_to_fill_position: tuple[int, int]) -> None:
-        cell_to_fill_position = self._updated_cell_to_fill_position(cell_to_fill_position)
-
         for next_cell_to_fill_position in self._generate_tetromino_placements(cell_to_fill_position):
             self._fill(cell_to_fill_position=next_cell_to_fill_position)
             if self._finished:
                 # when finished, simply unwind the stack all the way to the top, *without* backtracking
                 return
-
-        # at this point we either have tried everything to fill `cell_to_fill_position` but were unsuccessful,
-        # or are in the process of fast backtracking because we have encountered an unfillable cell deeper down the
-        # stack
-
-        # in case we are not already in the process of fast backtracking to a cell we were unable to fill
-        if not self._unfillable_cell_position:
-            # remember this cell as the cell that could not be filled, then fast backtrack until a cell close to it is
-            # removed, hopefully removing the issue that made it unfillable
-            self._unfillable_cell_position = cell_to_fill_position
 
     def ifill(self, start_position: tuple[int, int] | None = None) -> Iterator[None]:
         """Iterator version of fill(). After every update of the space, control is yielded to the caller."""
@@ -188,8 +177,6 @@ class TetrominoSpaceFiller:
             raise NotFillableError(self.UNFILLABLE_MESSAGE)
 
     def _ifill(self, cell_to_fill_position: tuple[int, int]) -> Iterator[None]:
-        cell_to_fill_position = self._updated_cell_to_fill_position(cell_to_fill_position)
-
         for next_cell_to_fill_position in self._generate_tetromino_placements(cell_to_fill_position):
             # We have just placed a tetromino in the space.
             # Allow the caller of this iterator to act based on the current state of the space before handing back
@@ -204,9 +191,6 @@ class TetrominoSpaceFiller:
             # Allow the caller of this iterator to act based on the current state of the space before handing back
             # control to us through the next call of "next()".
             yield
-
-        if not self._unfillable_cell_position:
-            self._unfillable_cell_position = cell_to_fill_position
 
     def _updated_cell_to_fill_position(self, cell_to_fill_position: tuple[int, int]) -> tuple[int, int]:
         # Prio 1: Try to fill the unfillable cell if there is one
@@ -241,10 +225,12 @@ class TetrominoSpaceFiller:
         )
         return tuple(allowed_positions[np.argmin(distances_to_position)])
 
-    def _generate_tetromino_placements(  # noqa: C901
+    def _generate_tetromino_placements(  # noqa: C901, PLR0912
         self,
         cell_to_fill_position: tuple[int, int],
     ) -> Iterator[tuple[int, int]]:
+        cell_to_fill_position = self._updated_cell_to_fill_position(cell_to_fill_position)
+
         for tetromino_rotations_iterable in self._nested_tetromino_iterable:
             for tetromino in tetromino_rotations_iterable:
                 for cell_position_in_tetromino in np.argwhere(tetromino):
@@ -336,6 +322,16 @@ class TetrominoSpaceFiller:
                         # (Note that not returning would lead to the next loop iteration, which would lead to yielding,
                         # which would lead to calling _fill, which would lead to trying to fill the unfillable cell)
                         return
+
+        # at this point we either have tried everything to fill `cell_to_fill_position` but were unsuccessful,
+        # or are in the process of fast backtracking because we have encountered an unfillable cell deeper down the
+        # stack
+
+        # in case we are not already in the process of fast backtracking to a cell we were unable to fill
+        if not self._unfillable_cell_position:
+            # remember this cell as the cell that could not be filled, then fast backtrack until a cell close to it is
+            # removed, hopefully removing the issue that made it unfillable
+            self._unfillable_cell_position = cell_to_fill_position
 
     @staticmethod
     def _empty_space_has_multiple_islands(space: NDArray[np.int32]) -> bool:
