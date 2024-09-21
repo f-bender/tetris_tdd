@@ -2,7 +2,7 @@ import contextlib
 import inspect
 import sys
 from collections import deque
-from collections.abc import Callable, Generator, Iterator
+from collections.abc import Callable, Generator, Iterable, Iterator
 
 import numpy as np
 from numpy.typing import NDArray
@@ -15,7 +15,7 @@ class FourColorizer:
     NUM_COLORS = 4
     UNCOLORABLE_MESSAGE = "Wasn't able to color the space with 4 colors, this should not be possible!"
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         space: NDArray[np.int32],
         *,
@@ -81,13 +81,12 @@ class FourColorizer:
         self._num_colored_blocks = 0
         self._space_updated_callback = space_updated_callback
 
-        self._color_selection_iterable = list(range(1, self.NUM_COLORS + 1))
+        self._color_selection_iterable: Iterable[int] = list(range(1, self.NUM_COLORS + 1))
         if cycle_offset:
-            self._color_selection_iterable = (
-                RandomOffsetIterable(items=self._color_selection_iterable, seed=rng_seed)
-                if use_rng
-                else CyclingOffsetIterable(self._color_selection_iterable)
-            )
+            if use_rng:
+                self._color_selection_iterable = RandomOffsetIterable(self._color_selection_iterable, seed=rng_seed)
+            else:
+                self._color_selection_iterable = CyclingOffsetIterable(self._color_selection_iterable)
 
         self._uncolorable_block: int | None = None
         self._finished = False
@@ -167,26 +166,12 @@ class FourColorizer:
         finally:
             self._single_option_blocks = single_option_blocks_copy
 
-    def _generate_coloring(self) -> Iterator[None]:  # noqa: C901, PLR0912
+    def _generate_coloring(self) -> Iterator[None]:  # noqa: C901
         with self._single_option_block_restorer():
-            if self._uncolorable_block is not None:
-                block_to_colorize = self._uncolorable_block
-                self._uncolorable_block = None
-                if block_to_colorize in self._single_option_blocks:
-                    self._single_option_blocks.remove(block_to_colorize)
-            elif self._single_option_blocks:
-                block_to_colorize = self._single_option_blocks.popleft()
-            else:
-                block_to_colorize = int(
-                    np.min(
-                        self._space_to_be_colored[
-                            np.logical_and(self._colored_space == 0, self._space_to_be_colored > 0)
-                        ]
-                    )
-                )
+            block_to_colorize = self._get_next_block_to_colorize()
 
             neighboring_colors, neighboring_uncolored_blocks = self._get_neighboring_colors_and_uncolored_blocks(
-                block=block_to_colorize
+                block_to_colorize
             )
 
             for color in self._color_selection_iterable:
@@ -208,8 +193,6 @@ class FourColorizer:
                     )
 
                     if num_neighboring_colors == self.NUM_COLORS:
-                        self._num_colored_blocks -= 1
-                        self._colored_space[self._space_to_be_colored == block_to_colorize] = 0
                         no_option_neighbor = True
                         break
 
@@ -220,6 +203,8 @@ class FourColorizer:
                         single_option_neighbors.append(neighboring_uncolored_block)
 
                 if no_option_neighbor:
+                    self._num_colored_blocks -= 1
+                    self._colored_space[self._space_to_be_colored == block_to_colorize] = 0
                     continue
 
                 self._single_option_blocks.extend(single_option_neighbors)
@@ -243,7 +228,7 @@ class FourColorizer:
                     self._single_option_blocks.pop()
 
                 if self._uncolorable_block is not None and not self._blocks_are_close(
-                    self._space_to_be_colored, block_to_colorize, self._uncolorable_block
+                    block_to_colorize, self._uncolorable_block
                 ):
                     # If the block we have just uncolored during backtracking is not close to the uncolorable block,
                     # then this change has likely not made the uncolorable block colorable again, thus we need to
@@ -259,6 +244,24 @@ class FourColorizer:
                 # remember this block as the block that could not be colored, then fast backtrack until a block close to
                 # it is uncolored, hopefully removing the issue that made this one uncolorable
                 self._uncolorable_block = block_to_colorize
+
+    def _get_next_block_to_colorize(self) -> int:
+        # Prio 1: Try to color the uncolorable block if there is one
+        if self._uncolorable_block is not None:
+            block_to_colorize = self._uncolorable_block
+            self._uncolorable_block = None
+            if block_to_colorize in self._single_option_blocks:
+                self._single_option_blocks.remove(block_to_colorize)
+            return block_to_colorize
+
+        # Prio 2: Try to color the first single option block
+        if self._single_option_blocks:
+            return self._single_option_blocks.popleft()
+
+        # Prio 3: Try to color the uncolored block with the smallest ID value
+        return int(
+            np.min(self._space_to_be_colored[np.logical_and(self._colored_space == 0, self._space_to_be_colored > 0)])
+        )
 
     def _get_neighboring_colors_and_uncolored_blocks(self, block: int) -> tuple[set[int], set[int]]:
         neighboring_colors: set[int] = set()
@@ -290,11 +293,11 @@ class FourColorizer:
 
         return neighboring_colors, neighboring_uncolored_blocks
 
-    def _blocks_are_close(self, space: NDArray[np.int32], block1: int, block2: int) -> bool:
+    def _blocks_are_close(self, block1: int, block2: int) -> bool:
         assert block1 != block2
 
-        block1_positions = np.argwhere(space == block1)
-        block2_positions = np.argwhere(space == block2)
+        block1_positions = np.argwhere(self._space_to_be_colored == block1)
+        block2_positions = np.argwhere(self._space_to_be_colored == block2)
 
         return any(
             np.min(np.sum(np.abs(block2_positions - block1_position), axis=1)) <= self._closeness_threshold
