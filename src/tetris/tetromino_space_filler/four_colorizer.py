@@ -24,6 +24,7 @@ class FourColorizer:
         rng_seed: int | None = None,
         space_updated_callback: Callable[[], None] | None = None,
         total_blocks_to_color: int | None = None,
+        closeness_threshold: int = 6,
     ) -> None:
         """Initialize the four-colorer.
 
@@ -34,20 +35,26 @@ class FourColorizer:
                 in range(1, N + 1) should be contained in the space.
                 The resulting space will only have values from 0 to 4. It will be 0 wherever space <= 0, and 1 to 4
                 everywhere else, representing the four colors.
-
-            TODO: the following has yet to be adapted
-
-            use_rng: Whether to use randomness in the selection of color, selection of tetromino rotation/transpose,
-                and selection of neighboring spot to fill next.
-            rng_seed: Optional seed to use for all RNG.
-            top_left_tendency: Whether to have a slight bias towards selecting spots top left of the last placed
-                tetromino as the next spot to be filled. This causes a tendency for the algorithm to gravitate towards
-                the top left of the space. This makes the filling up more predictable, but also reduces the likelihood
-                of large backtracks becoming necessary because the "surface area" of tetrominos tends to be smaller.
-                If True, selection of neighboring spot to fill next will not be random, even if use_rng is True.
-            space_updated_callback: Callback function which is called each time after the space has been updated (a
-                tetromino has been placed or removed). This effectively temporarily hands control back to the user of
+            cycle_offset: Whether to cycle through different starting offsets when choosing which color to use for a
+                block. If True, the first attempt to color each block is a different color. If False, all blocks are
+                first attempted to be colored with color 1, then 2, and so on. Defaults to True.
+            use_rng: Whether to use randomness in the color offset selection. Only applies, and should only be specified
+                if cycle_offset is True. Defaults to True.
+            rng_seed: Optional seed to use for all RNG. Only applies, and should only be specified if cycle_offset
+                and use_rng are True.
+            space_updated_callback: Callback function which is called each time after the colored space has been updated
+                (a block has been colord or uncolored). This effectively temporarily hands control back to the user of
                 this class, letting it act one the latest space update (e.g. for drawing).
+            total_blocks_to_color: The total number of blocks that need to be colored. If not provided, it is
+                determined from the given `space` array. A higher value than would be automatically determined can be
+                specified in order to indicate that the `space` array will change concurrently, and the colorization
+                will only be considered finished after this number of blocks has been colored.
+            closeness_threshold: The maximum manhattan distance between two blocks for them to be considered "close" to
+                each other. This is used as a heuristic to determine whether the change/removal of a block could make
+                another (previously uncolorable) block colorable while backtracking. 1.5 * the largest occuring blocks
+                seems to be a reasonable value. High values may severely degrade performance due to many unnecessary
+                backtracks. Low values may make the algorithm fail. Defaults to 6, assuming that blocks have size 4.
+                Change at your own risk!
         """
         if (not cycle_offset or not use_rng) and rng_seed is not None:
             msg = "rng_seed should only be set when cycle_offset and use_rng are True"
@@ -84,7 +91,8 @@ class FourColorizer:
 
         self._uncolorable_block: int | None = None
         self._finished = False
-        # keep track of all blocks that already have neighbors with 3 different colors, i.e. there is only one option
+        self._closeness_threshold = closeness_threshold
+        # Keep track of all blocks that already have neighbors with 3 different colors, i.e. there is only one option
         # when choosing a color for them. Color these with first priority, and only turn to other blocks when this list
         # is empty
         # Every time after coloring a new block, check all its uncolored neighbors and add them to this list if they
@@ -106,7 +114,7 @@ class FourColorizer:
 
     @contextlib.contextmanager
     def _ensure_sufficient_recursion_depth(self) -> Iterator[None]:
-        required_depth = len(inspect.stack()) + self._total_blocks_to_color + self.STACK_FRAMES_SAFETY_MARGIN + 50
+        required_depth = len(inspect.stack()) + self._total_blocks_to_color + self.STACK_FRAMES_SAFETY_MARGIN
 
         prev_depth = sys.getrecursionlimit()
         sys.setrecursionlimit(max(required_depth, prev_depth))
@@ -282,15 +290,13 @@ class FourColorizer:
 
         return neighboring_colors, neighboring_uncolored_blocks
 
-    @staticmethod
-    def _blocks_are_close(space: NDArray[np.int32], block1: int, block2: int) -> bool:
+    def _blocks_are_close(self, space: NDArray[np.int32], block1: int, block2: int) -> bool:
         assert block1 != block2
 
         block1_positions = np.argwhere(space == block1)
         block2_positions = np.argwhere(space == block2)
 
         return any(
-            np.min(np.sum(np.abs(block2_positions - block1_position), axis=1))
-            <= 6  # TODO make this an adjustable closeness threshold (recommend ~1.5 * size of largest island)
+            np.min(np.sum(np.abs(block2_positions - block1_position), axis=1)) <= self._closeness_threshold
             for block1_position in block1_positions
         )
