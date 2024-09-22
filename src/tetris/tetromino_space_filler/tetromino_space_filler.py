@@ -281,7 +281,7 @@ class TetrominoSpaceFiller:
                     if self._space_updated_callback is not None:
                         self._space_updated_callback()
 
-                    if np.all(self.space):
+                    if self._num_blocks_placed == self._total_blocks_to_place:
                         # we are done and trigger the immediate unwinding of the stack without backtracking
                         self._finished = True
                         return
