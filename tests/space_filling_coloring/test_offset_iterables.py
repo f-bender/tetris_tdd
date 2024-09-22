@@ -1,4 +1,4 @@
-from tetris.tetromino_space_filler.offset_iterables import (
+from tetris.space_filling_coloring.offset_iterables import (
     CyclingOffsetIterable,
     RandomOffsetIterable,
     RandomOrderIterable,

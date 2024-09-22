@@ -1,7 +1,7 @@
 import numpy as np
 from numpy.typing import NDArray
 
-from tetris.tetromino_space_filler.four_colorizer import FourColorizer
+from tetris.space_filling_coloring.four_colorizer import FourColorizer
 
 
 def test_blocks_are_close_adjacent_blocks() -> None:

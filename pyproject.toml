@@ -55,8 +55,8 @@ unfixable = [
 # boolean positional args are okay to avoid clutter
 "tests/game_logic/test_action_counter.py" = ["FBT003"]
 # we do want to test and thus need to access private methods here
-"tests/tetromino_space_filler/test_tetromino_space_filler.py" = ["SLF001"]
-"tests/tetromino_space_filler/test_four_colorizer.py" = ["SLF001"]
+"tests/space_filling_coloring/test_tetromino_space_filler.py" = ["SLF001"]
+"tests/space_filling_coloring/test_four_colorizer.py" = ["SLF001"]
 "tests/board_manipulations/test_gravity.py" = ["SLF001"]
 
 [tool.mypy]

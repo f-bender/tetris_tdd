@@ -11,7 +11,7 @@ from skimage import measure
 
 from tetris.exceptions import BaseTetrisError
 from tetris.game_logic.components.block import Block, BlockType
-from tetris.tetromino_space_filler.offset_iterables import CyclingOffsetIterable, RandomOffsetIterable
+from tetris.space_filling_coloring.offset_iterables import CyclingOffsetIterable, RandomOffsetIterable
 
 
 class NotFillableError(BaseTetrisError):

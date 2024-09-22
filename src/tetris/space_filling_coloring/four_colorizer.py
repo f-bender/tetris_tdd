@@ -7,7 +7,7 @@ from collections.abc import Callable, Generator, Iterable, Iterator
 import numpy as np
 from numpy.typing import NDArray
 
-from tetris.tetromino_space_filler.offset_iterables import CyclingOffsetIterable, RandomOffsetIterable
+from tetris.space_filling_coloring.offset_iterables import CyclingOffsetIterable, RandomOffsetIterable
 
 
 class FourColorizer:
