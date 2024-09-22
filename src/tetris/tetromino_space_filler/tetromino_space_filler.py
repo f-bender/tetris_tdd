@@ -68,7 +68,7 @@ class TetrominoSpaceFiller:
             msg = "rng_seed should only be set when use_rng is True"
             raise ValueError(msg)
 
-        if not set(np.unique(space)).issubset({-1, 0}):
+        if not set(np.unique(space)) <= {-1, 0}:
             msg = "Space must consist of -1s and 0s only."
             raise ValueError(msg)
 
