@@ -135,12 +135,16 @@ class TetrominoSpaceFiller:
         return unique_tetromino_views
 
     @property
-    def total_block_to_place(self) -> int:
+    def total_blocks_to_place(self) -> int:
         return self._total_blocks_to_place
 
     @property
     def num_blocks_placed(self) -> int:
         return self._num_blocks_placed
+
+    @property
+    def finished(self) -> bool:
+        return self._finished
 
     @contextlib.contextmanager
     def _ensure_sufficient_recursion_depth(self) -> Iterator[None]:

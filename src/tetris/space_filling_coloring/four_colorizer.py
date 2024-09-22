@@ -60,11 +60,17 @@ class FourColorizer:
             msg = "rng_seed should only be set when cycle_offset and use_rng are True"
             raise ValueError(msg)
 
-        if np.max(space) <= 0:
-            msg = "Space must contain at least one positive value. Otherwise there is nothing to be colored!"
+        max_value = int(np.max(space))
+
+        if total_blocks_to_color is not None and total_blocks_to_color < max_value:
+            msg = "total_blocks_to_color must be at least as large as the current maximum value in the space!"
             raise ValueError(msg)
 
-        max_value = int(np.max(space))
+        self._total_blocks_to_color = total_blocks_to_color or max_value
+
+        if self._total_blocks_to_color <= 0:
+            msg = f"{self.total_blocks_to_color =}; there is nothing to be colored!"
+            raise ValueError(msg)
 
         if gaps := (set(range(1, max_value + 1)) - set(np.unique(space[space > 0]))):
             msg = f"Space must contain every value from 1 up to its max value! It has gaps at {gaps}."
@@ -73,11 +79,6 @@ class FourColorizer:
         self._space_to_be_colored = space
         self._colored_space = np.zeros_like(space, dtype=np.uint8)
 
-        if total_blocks_to_color is not None and total_blocks_to_color < max_value:
-            msg = "total_blocks_to_color must be at least as large as the current maximum value in the space!"
-            raise ValueError(msg)
-
-        self._total_blocks_to_color = total_blocks_to_color or max_value
         self._num_colored_blocks = 0
         self._space_updated_callback = space_updated_callback
 
@@ -110,6 +111,10 @@ class FourColorizer:
     @property
     def num_colored_blocks(self) -> int:
         return self._num_colored_blocks
+
+    @property
+    def finished(self) -> bool:
+        return self._finished
 
     @contextlib.contextmanager
     def _ensure_sufficient_recursion_depth(self) -> Iterator[None]:
