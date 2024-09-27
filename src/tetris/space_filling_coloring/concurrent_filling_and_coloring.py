@@ -13,7 +13,7 @@ from tetris.space_filling_coloring.tetromino_space_filler import TetrominoSpaceF
 
 
 def fill_and_colorize(
-    space: NDArray[np.bool],
+    space: NDArray[np.bool], use_rng: bool = True, rng_seed: int | None = None
 ) -> Generator[tuple[NDArray[np.int32], NDArray[np.uint8]], None, tuple[NDArray[np.int32], NDArray[np.uint8]]]:
     """Concurrently fill a space with tetrominos, and colorize the placed tetrominos with four colors.
 
@@ -26,8 +26,10 @@ def fill_and_colorize(
     """
     space_being_filled = space.astype(np.int32) - 1
 
-    space_filler = TetrominoSpaceFiller(space_being_filled)
-    four_colorizer = FourColorizer(space_being_filled, total_blocks_to_color=space_filler.total_blocks_to_place)
+    space_filler = TetrominoSpaceFiller(space_being_filled, use_rng=use_rng, rng_seed=rng_seed)
+    four_colorizer = FourColorizer(
+        space_being_filled, total_blocks_to_color=space_filler.total_blocks_to_place, use_rng=use_rng, rng_seed=rng_seed
+    )
 
     yield space_filler.space, four_colorizer.colored_space
 
@@ -40,20 +42,22 @@ def fill_and_colorize(
     with space_filler._ensure_sufficient_recursion_depth():  # noqa: SLF001
         # TODO remove priming, and instead properly handle the situations that currently still cause errors
         # (e.g. space filler backtracking back further than the point where the colorizer currently is)
-        for _ in range(10):
-            next(space_filling_iterator)
+        # for _ in range(1000):
+        #     next(space_filling_iterator)
 
-        try:
-            # interleave space filling and colorization steps
-            for _ in space_filling_iterator:
+        # interleave space filling and colorization steps
+        for _ in space_filling_iterator:
+            try:
                 next(four_colorizing_iterator)
-                yield space_filler.space, four_colorizer.colored_space
+            except StopIteration as e:
+                msg = "FourColorizer finished before TetrominoSpaceFiller - this should never happen!"
+                raise RuntimeError(msg) from e
 
-            # filing is done: finish up colorization
-            for _ in four_colorizing_iterator:
-                yield space_filler.space, four_colorizer.colored_space
-        except StopIteration as e:
-            raise RuntimeError from e
+            yield space_filler.space, four_colorizer.colored_space
+
+        # filing is done: finish up colorization
+        for _ in four_colorizing_iterator:
+            yield space_filler.space, four_colorizer.colored_space
 
         return space_filler.space, four_colorizer.colored_space
 
@@ -105,7 +109,7 @@ def main() -> None:
     # prev_depth = sys.getrecursionlimit()
     # sys.setrecursionlimit(10000)
 
-    for filled_space, colored_space in fill_and_colorize(np.ones((60, 100), dtype=bool)):
+    for filled_space, colored_space in fill_and_colorize(np.ones((60, 100), dtype=bool), use_rng=True, rng_seed=5):
         sleep(0.01)
         draw_tetromino_space(np.where(colored_space > 0, colored_space, np.where(filled_space > 0, filled_space, 0)))
     draw_tetromino_space(colored_space)
