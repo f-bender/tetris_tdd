@@ -298,6 +298,14 @@ class FourColorizer:
                     if not invalid_state_before:
                         break
 
+                    # this block may now have been placed at a different position, so update it
+                    block_indices = self._space_to_be_colored == block_to_colorize
+                    # * NOTE: I think a more consequent way of dealing with this is to start basically the entire method
+                    # * over in this case, instead of just checking this one color again (i.e. restart from the
+                    # * beginning which naturally includes the line
+                    # *     block_indices = self._space_to_be_colored == block_to_colorize
+                    # * )
+
             # at this point we either have tried everything to color `self._next_block_to_color` but were unsuccessful,
             # or are in the process of fast backtracking because we have encountered an uncolorable block deeper down
             # the stack
