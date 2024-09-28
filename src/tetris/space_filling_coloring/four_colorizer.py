@@ -171,8 +171,6 @@ class FourColorizer:
                 # colored.
                 continue
 
-            # TODO handle when block placement has backtracked such that a colored block no longer actually exists
-
             yield from self._icolorize()
             if self._finished:
                 # when finished, simply unwind the stack all the way to the top, *without* backtracking
@@ -201,16 +199,14 @@ class FourColorizer:
         finally:
             self._single_option_blocks = single_option_blocks_copy
 
-    def _generate_coloring(self, block_to_colorize: int | None = None) -> Iterator[bool]:  # noqa: C901, PLR0912
+    def _generate_coloring(self) -> Iterator[bool]:
         """TODO.
 
         Yields:
             Bool, whether a block was placed or not.
         """
         with self._single_option_block_restorer():
-            block_to_colorize = block_to_colorize or self._get_next_block_to_colorize()
-            while block_to_colorize is None:
-                block_to_colorize = self._get_next_block_to_colorize()
+            while (block_to_colorize := self._get_next_block_to_colorize()) is None:
                 yield False
 
                 if np.any(np.logical_and(self._space_to_be_colored <= 0, self._colored_space > 0)):
@@ -219,97 +215,106 @@ class FourColorizer:
                     self._uncolorable_block = None
                     return
 
-            neighboring_colors, neighboring_uncolored_blocks = self._get_neighboring_colors_and_uncolored_blocks(
-                block_to_colorize
+            yield from self._generate_coloring_for_block(block_to_colorize)
+
+    def _generate_coloring_for_block(self, block_to_colorize: int) -> Iterator[bool]:  # noqa: C901, PLR0912
+        """TODO.
+
+        Yields:
+            Bool, whether a block was placed or not.
+        """
+        neighboring_colors, neighboring_uncolored_blocks = self._get_neighboring_colors_and_uncolored_blocks(
+            block_to_colorize
+        )
+
+        block_positions_index = self._space_to_be_colored == block_to_colorize
+
+        for color in self._color_selection_iterable:
+            if color in neighboring_colors:
+                continue
+
+            assert np.all(self._colored_space[block_positions_index] == 0), (
+                "Trying to color an already colored block! This should never happen!\n"
+                f"{np.argwhere(block_positions_index) = }\n"
+                f"{self._colored_space[block_positions_index] = }\n"
+                f"{self._space_to_be_colored[block_positions_index] = }\n"
             )
 
-            block_indices = self._space_to_be_colored == block_to_colorize
+            self._colored_space[block_positions_index] = color
+            self._num_colored_blocks += 1
 
-            for color in self._color_selection_iterable:
-                if color in neighboring_colors:
-                    continue
-
-                assert np.all(self._colored_space[block_indices] == 0), (
-                    "Trying to color an already colored block! This should never happen!\n"
-                    f"{np.argwhere(block_indices) = }\n"
-                    f"{self._colored_space[block_indices] = }\n"
-                    f"{self._space_to_be_colored[block_indices] = }\n"
+            # TODO extract into method (everything up to "continue")
+            no_option_neighbor = False
+            single_option_neighbors: list[int] = []
+            for neighboring_uncolored_block in neighboring_uncolored_blocks:
+                num_neighboring_colors = len(
+                    self._get_neighboring_colors_and_uncolored_blocks(neighboring_uncolored_block)[0]
                 )
 
-                self._colored_space[block_indices] = color
-                self._num_colored_blocks += 1
+                if num_neighboring_colors == self.NUM_COLORS:
+                    no_option_neighbor = True
+                    break
 
-                no_option_neighbor = False
-                single_option_neighbors: list[int] = []
-                for neighboring_uncolored_block in neighboring_uncolored_blocks:
-                    num_neighboring_colors = len(
-                        self._get_neighboring_colors_and_uncolored_blocks(neighboring_uncolored_block)[0]
-                    )
-
-                    if num_neighboring_colors == self.NUM_COLORS:
-                        no_option_neighbor = True
-                        break
-
-                    if (
-                        num_neighboring_colors == self.NUM_COLORS - 1
-                        and neighboring_uncolored_block not in self._single_option_blocks
-                    ):
-                        single_option_neighbors.append(neighboring_uncolored_block)
-
-                if no_option_neighbor:
-                    self._num_colored_blocks -= 1
-                    self._colored_space[block_indices] = 0
-                    continue
-
-                self._single_option_blocks.extend(single_option_neighbors)
-
-                if self._space_updated_callback is not None:
-                    self._space_updated_callback()
-
-                if self._num_colored_blocks == self._total_blocks_to_color:
-                    self._finished = True
-                    return
-
-                yield True
-
-                invalid_state_before = np.any(np.logical_and(self._space_to_be_colored <= 0, self._colored_space > 0))
-
-                self._num_colored_blocks -= 1
-                self._colored_space[block_indices] = 0
-
-                if self._space_updated_callback is not None:
-                    self._space_updated_callback()
-
-                for _ in range(len(single_option_neighbors)):
-                    self._single_option_blocks.pop()
-
-                if np.any(np.logical_and(self._space_to_be_colored <= 0, self._colored_space > 0)):
-                    # we are in an "invalid state" where we have previously colored a block that has now been un-set in
-                    # space_to_be_colored -> immediately fast backtrack until this is no longer the case!
-                    self._uncolorable_block = None
-                    return
-
-                if self._uncolorable_block is not None and not self._blocks_are_close(
-                    block_to_colorize, self._uncolorable_block
+                if (
+                    num_neighboring_colors == self.NUM_COLORS - 1
+                    and neighboring_uncolored_block not in self._single_option_blocks
                 ):
-                    # If the block we have just uncolored during backtracking is not close to the uncolorable block,
-                    # then this change has likely not made the uncolorable block colorable again, thus we need to
-                    # immediately fast backtrack further.
-                    return
+                    single_option_neighbors.append(neighboring_uncolored_block)
 
-                if invalid_state_before:  # and not an invalid state anymore, otherwise we would have returned above
-                    self._generate_coloring(block_to_colorize)
-                    return
+            if no_option_neighbor:
+                self._num_colored_blocks -= 1
+                self._colored_space[block_positions_index] = 0
+                continue
 
-            # at this point we either have tried everything to color `self._next_block_to_color` but were unsuccessful,
-            # or are in the process of fast backtracking because we have encountered an uncolorable block deeper down
-            # the stack
+            self._single_option_blocks.extend(single_option_neighbors)
 
-            # in case we are not already in the process of fast backtracking to a block we were unable to color
-            if not self._uncolorable_block:
-                # remember this block as the block that could not be colored, then fast backtrack until a block close to
-                # it is uncolored, hopefully removing the issue that made this one uncolorable
-                self._uncolorable_block = block_to_colorize
+            if self._space_updated_callback is not None:
+                self._space_updated_callback()
+
+            if self._num_colored_blocks == self._total_blocks_to_color:
+                self._finished = True
+                return
+
+            yield True
+
+            invalid_state_before = np.any(np.logical_and(self._space_to_be_colored <= 0, self._colored_space > 0))
+
+            self._num_colored_blocks -= 1
+            self._colored_space[block_positions_index] = 0
+
+            if self._space_updated_callback is not None:
+                self._space_updated_callback()
+
+            for _ in range(len(single_option_neighbors)):
+                self._single_option_blocks.pop()
+
+            if np.any(np.logical_and(self._space_to_be_colored <= 0, self._colored_space > 0)):
+                # we are in an "invalid state" where we have previously colored a block that has now been un-set in
+                # space_to_be_colored -> immediately fast backtrack until this is no longer the case!
+                self._uncolorable_block = None
+                return
+
+            if self._uncolorable_block is not None and not self._blocks_are_close(
+                block_to_colorize, self._uncolorable_block
+            ):
+                # If the block we have just uncolored during backtracking is not close to the uncolorable block,
+                # then this change has likely not made the uncolorable block colorable again, thus we need to
+                # immediately fast backtrack further.
+                return
+
+            if invalid_state_before:  # and not an invalid state anymore, otherwise we would have returned above
+                self._generate_coloring_for_block(block_to_colorize)
+                return
+
+        # at this point we either have tried everything to color `self._next_block_to_color` but were unsuccessful,
+        # or are in the process of fast backtracking because we have encountered an uncolorable block deeper down
+        # the stack
+
+        # in case we are not already in the process of fast backtracking to a block we were unable to color
+        if not self._uncolorable_block:
+            # remember this block as the block that could not be colored, then fast backtrack until a block close to
+            # it is uncolored, hopefully removing the issue that made this one uncolorable
+            self._uncolorable_block = block_to_colorize
 
     def _get_next_block_to_colorize(self) -> int | None:
         # Prio 1: Try to color the uncolorable block if there is one
