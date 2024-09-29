@@ -31,7 +31,7 @@ class TetrominoSpaceFiller:
         )
     )
     STACK_FRAMES_SAFETY_MARGIN = 10
-    CLOSE_DISTANCE_THRESHOLD = 4
+    CLOSE_DISTANCE_THRESHOLD = 5
     UNFILLABLE_MESSAGE = (
         "Space could not be filled! "
         "It likely contains some empty cells in a configuration that are impossible to fill with tetrominos."
