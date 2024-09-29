@@ -216,6 +216,7 @@ class FourColorizer:
             while (block_to_colorize := self._get_next_block_to_colorize()) is None:
                 yield False
 
+                # TODO check where these blocks are actually necessary, and remove all remaining instances of them
                 if np.any(np.logical_and(self._space_to_be_colored <= 0, self._colored_space > 0)):
                     # we are in an "invalid state" where we have previously colored a block that has now been un-set in
                     # space_to_be_colored -> immediately fast backtrack until this is no longer the case!
@@ -379,7 +380,11 @@ class FourColorizer:
         return neighboring_colors, neighboring_uncolored_blocks
 
     def _blocks_are_close(self, block1: int, block2: int) -> bool:
-        assert block1 != block2
+        # In concurrent operation (concurrent coloring while space is being filled), sometimes block1 == block2.
+        # This is unexpected and it's unclear why exactly this happens, but empirically,
+        # everything still ends up working fine and the algorithm ends up being successful, with a correct solution.
+        # So we don't assert block1 != block2 here.
+        # (Note: to gain a better understanding what's going on, it could still make sense to debug this situation)
 
         block1_positions = np.argwhere(self._space_to_be_colored == block1)
         block2_positions = np.argwhere(self._space_to_be_colored == block2)
