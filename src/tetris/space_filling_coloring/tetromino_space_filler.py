@@ -72,17 +72,18 @@ class TetrominoSpaceFiller:
             msg = "Space must consist of -1s and 0s only."
             raise ValueError(msg)
 
-        self.space = space
-        cells_to_fill = np.sum(~self.space.astype(bool))
-
-        if cells_to_fill % self.TETROMINO_SIZE != 0 or not self._check_islands_are_fillable_and_set_smallest_island():
+        if not self.space_can_be_filled(space):
             msg = (
                 "Space cannot be filled! "
                 f"Contains at least one island with size not divisible by {self.TETROMINO_SIZE}!"
             )
             raise ValueError(msg)
 
+        self.space = space
+
+        cells_to_fill = np.sum(~self.space.astype(bool))
         self._total_blocks_to_place = cells_to_fill // self.TETROMINO_SIZE
+
         self._num_blocks_placed = 0
         self._space_updated_callback = space_updated_callback
 
@@ -434,3 +435,40 @@ class TetrominoSpaceFiller:
         tetromino_to_cell_distances = np.sum(np.abs(tetromino_cell_positions - cell_position), axis=1)
         min_distance = np.min(tetromino_to_cell_distances)
         return min_distance <= self.CLOSE_DISTANCE_THRESHOLD
+
+    @staticmethod
+    def space_can_be_filled(space: NDArray[np.int32]) -> bool:
+        """Check that space is (probably) fillable, i.e. all its islands have a size divisible by TETROMINO_SIZE (4)."""
+        island_map = (space == 0).astype(np.uint8)
+        space_with_labeled_islands, num_islands = measure.label(island_map, connectivity=1, return_num=True)
+        return all(
+            np.sum(space_with_labeled_islands == i) % TetrominoSpaceFiller.TETROMINO_SIZE == 0
+            for i in range(1, num_islands + 1)
+        )
+
+    @staticmethod
+    def validate_filled_space(filled_space: NDArray[np.int32]) -> None:
+        """Validate that the filled space is a valid tetromino space filling.
+
+        Raises:
+            ValueError: If the filled space is invalid.
+        """
+        if np.any(filled_space == 0):
+            msg = "There are empty spaces left, space has not been completely filled."
+            raise ValueError(msg)
+
+        tetromino_idxs = [idx for idx in np.unique(filled_space) if idx > 0]
+        if sorted(tetromino_idxs) != list(range(1, np.sum(filled_space > 0) // 4 + 1)):
+            msg = "Tetromino indices are not consecutive."
+            raise ValueError(msg)
+
+        for idx in tetromino_idxs:
+            # check that each tetromino is a single connected component of size 4
+            island_map = (filled_space == idx).astype(np.uint8)
+            if np.sum(island_map) != TetrominoSpaceFiller.TETROMINO_SIZE:
+                msg = f"Tetromino {idx} isn't of size 4."
+                raise ValueError(msg)
+
+            if measure.label(island_map, connectivity=1, return_num=True)[1] != 1:
+                msg = f"Tetromino {idx} is not a single connected component."
+                raise ValueError(msg)

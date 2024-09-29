@@ -383,3 +383,50 @@ class FourColorizer:
             np.min(np.sum(np.abs(block2_positions - block1_position), axis=1)) <= self._closeness_threshold
             for block1_position in block1_positions
         )
+
+    @staticmethod
+    def validate_colored_space(colored_space: NDArray[np.uint8], space_being_colored: NDArray[np.int32]) -> None:
+        """Validate that the given colored space is a valid four-coloring of the given space to be colored.
+
+        Raises:
+            ValueError: If the colored space is invalid.
+        """
+        if np.any(colored_space < 0):
+            msg = "Colored space contains negative values."
+            raise ValueError(msg)
+
+        if np.any(colored_space > FourColorizer.NUM_COLORS):
+            msg = f"Colored space contains values greater than {FourColorizer.NUM_COLORS = }."
+            raise ValueError(msg)
+
+        if np.any(colored_space[space_being_colored <= 0] != 0):
+            msg = "Colored space contains values for non-existent blocks."
+            raise ValueError(msg)
+
+        for block_index in np.unique(space_being_colored):
+            block_colors = np.unique(colored_space[space_being_colored == block_index])
+            if len(block_colors) != 1:
+                msg = f"Block {block_index} has multiple colors ({block_colors.tolist()})"
+                raise ValueError(msg)
+
+            block_color = block_colors[0]
+            if any(
+                colored_space[neighbor_position] == block_color
+                for neighbor_position in FourColorizer._neighboring_positions(space_being_colored, block_index)
+            ):
+                msg = f"Block {block_index} has a neighbor with the same color ({block_color})"
+                raise ValueError(msg)
+
+    @staticmethod
+    def _neighboring_positions(space_being_colored: NDArray[np.int32], block_index: int) -> set[tuple[int, int]]:
+        block_positions = np.argwhere(space_being_colored == block_index)
+        return {
+            tuple(neighbor_position)
+            for offset in ((-1, 0), (0, -1), (1, 0), (0, 1))
+            for neighbor_position in block_positions + offset
+            if neighbor_position not in block_positions
+            and (
+                0 <= neighbor_position[0] < space_being_colored.shape[0]
+                and 0 <= neighbor_position[1] < space_being_colored.shape[1]
+            )
+        }

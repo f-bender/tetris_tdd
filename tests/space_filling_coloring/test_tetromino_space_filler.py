@@ -288,12 +288,4 @@ def test_fill() -> None:
     space = np.zeros((height, width), dtype=np.int32)
     TetrominoSpaceFiller(space).fill()
 
-    tetromino_idxs = np.unique(space).tolist()
-    assert tetromino_idxs == list(range(1, (height * width // 4) + 1))
-
-    for idx in tetromino_idxs:
-        # check that each tetromino is a single connected component of size 4
-        island_map = (space == idx).astype(np.uint8)
-        assert np.sum(island_map) == TetrominoSpaceFiller.TETROMINO_SIZE
-
-        assert measure.label(island_map, connectivity=1, return_num=True)[1] == 1
+    TetrominoSpaceFiller.validate_filled_space(space)

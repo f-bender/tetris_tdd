@@ -47,7 +47,12 @@ unfixable = [
 [tool.ruff.lint.per-file-ignores]
 # allow redundant import aliases to signify explicit export in __init__.py files
 "**/__init__.py" = ["PLC0414"]
-"src/tetris/ui/cli/*" = ["T201"] # prints are allowed in CLI UI
+# prints are allowed in CLI UI, and space-filling-coloring fuzz test and drawer
+"src/tetris/ui/cli/*" = ["T201"]
+"src/tetris/space_filling_coloring/drawer.py" = ["T201"]
+"src/tetris/space_filling_coloring/fuzz_test_concurrent_fill_and_colorize.py" = [
+    "T201",
+]
 # unused method arguments are ok (required to conform to rule protocol, but not necessarily used)
 "src/tetris/rules/*" = ["ARG002"]
 

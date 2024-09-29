@@ -1,0 +1,123 @@
+import random
+import traceback
+from itertools import count
+from pathlib import Path
+from pprint import pformat
+from time import sleep
+from typing import NamedTuple, Self
+
+import numpy as np
+from numpy.typing import NDArray
+
+from tetris.space_filling_coloring import drawer
+from tetris.space_filling_coloring.concurrent_fill_and_colorize import fill_and_colorize
+from tetris.space_filling_coloring.four_colorizer import FourColorizer
+from tetris.space_filling_coloring.tetromino_space_filler import TetrominoSpaceFiller
+
+
+class TestConfig(NamedTuple):
+    main_rng_seed: int
+    fill_and_colorize_rng_seed: int
+    size_limits: tuple[tuple[int, int], tuple[int, int]]
+    size: tuple[int, int]
+    max_holes: int
+    holes: list[tuple[int, int, int, int]]
+
+    @property
+    def num_holes(self) -> int:
+        return len(self.holes)
+
+    @classmethod
+    def from_main_rng_seed(
+        cls, main_rng_seed: int, max_holes: int, size_limits: tuple[tuple[int, int], tuple[int, int]]
+    ) -> Self:
+        main_rng = random.Random(main_rng_seed)
+
+        fill_and_colorize_rng_seed = main_rng.randrange(2**32)
+        num_holes = main_rng.randint(0, max_holes)
+        while True:
+            size = (
+                main_rng.randint(*size_limits[0]),
+                main_rng.randint(*size_limits[1]),
+            )
+
+            holes: list[tuple[int, int, int, int]] = []
+            for _ in range(num_holes):
+                y1 = main_rng.randint(0, size[0] - 1)
+                x1 = main_rng.randint(0, size[1] - 1)
+                y2 = main_rng.randint(y1 + 1, size[0])
+                x2 = main_rng.randint(x1 + 1, size[1])
+                holes.append((y1, x1, y2, x2))
+
+            config = cls(
+                main_rng_seed=main_rng_seed,
+                fill_and_colorize_rng_seed=fill_and_colorize_rng_seed,
+                size_limits=size_limits,
+                size=size,
+                max_holes=max_holes,
+                holes=holes,
+            )
+            if TetrominoSpaceFiller.space_can_be_filled(config.generate_array().astype(np.int32) - 1):
+                return config
+
+    def generate_array(self) -> NDArray[np.bool]:
+        array = np.ones(self.size, dtype=bool)
+
+        for y1, x1, y2, x2 in self.holes:
+            array[y1:y2, x1:x2] = False
+
+        return array
+
+
+def fuzz_test(
+    *,
+    size_limits: tuple[tuple[int, int], tuple[int, int]] = ((10, 80), (10, 150)),
+    max_holes: int = 5,
+    draw: bool = False,
+) -> None:
+    for i in count(1):
+        _seeded_test(
+            test_config=TestConfig.from_main_rng_seed(
+                random.randrange(2**32), max_holes=max_holes, size_limits=size_limits
+            ),
+            draw=draw,
+        )
+
+        if draw:
+            # if we draw, sleep to let the user look at the result drawn for a second
+            sleep(1)
+        else:
+            # otherwise, print the number of tests performed so far
+            print(f"\r{i}", end="")
+
+
+def _seeded_test(
+    test_config: TestConfig,
+    *,
+    error_output_file: Path | None = Path(__file__).parent / "fuzz_test_errors.txt",
+    draw: bool = False,
+) -> None:
+    try:
+        for filled_space, colored_space in fill_and_colorize(
+            test_config.generate_array(), use_rng=True, rng_seed=test_config.fill_and_colorize_rng_seed
+        ):
+            if draw:
+                drawer.draw_array(np.where(colored_space > 0, colored_space, filled_space))
+
+        if draw:
+            drawer.draw_array(np.where(colored_space > 0, colored_space, filled_space))
+
+        TetrominoSpaceFiller.validate_filled_space(filled_space)
+        FourColorizer.validate_colored_space(colored_space, filled_space)
+    except Exception:  # noqa: BLE001
+        error_description = f"{pformat(test_config)}\n\n{traceback.format_exc()}\n\n\n"
+
+        if error_output_file is not None:
+            with error_output_file.open("a") as f:
+                f.write(error_description)
+
+        print(error_description)
+
+
+if __name__ == "__main__":
+    fuzz_test(draw=True)

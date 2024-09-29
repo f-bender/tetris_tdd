@@ -79,26 +79,4 @@ def test_colorize() -> None:
     # fmt: on
     colored_space = FourColorizer(space).colorize()
 
-    colors = np.unique(colored_space)
-    assert set(colors) <= {1, 2, 3, 4}
-
-    for block_index in np.unique(space):
-        block_colors = np.unique(colored_space[space == block_index])
-        assert len(block_colors) == 1, f"Block {block_index} has multiple colors ({block_colors.tolist()})"
-
-        block_color = block_colors[0]
-        assert not any(
-            colored_space[neighbor_position] == block_color
-            for neighbor_position in _neighboring_positions(space, block_index)
-        ), f"Block {block_index} has a neighbor with the same color ({block_color})"
-
-
-def _neighboring_positions(space: NDArray[np.int32], block_index: int) -> set[tuple[int, int]]:
-    block_positions = np.argwhere(space == block_index)
-    return {
-        tuple(neighbor_position)
-        for offset in ((-1, 0), (0, -1), (1, 0), (0, 1))
-        for neighbor_position in block_positions + offset
-        if neighbor_position not in block_positions
-        and (0 <= neighbor_position[0] < space.shape[0] and 0 <= neighbor_position[1] < space.shape[1])
-    }
+    FourColorizer.validate_colored_space(colored_space, space)
