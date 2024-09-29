@@ -18,6 +18,9 @@ def fill_and_colorize(
             space to be left empty.
         use_rng: Whether to use a random number generator for the filling and coloring steps.
         rng_seed: Seed for the random number generator. If None, a random seed will be generated.
+        allow_coloring_retry: Whether to allow the colorization step to retry if it fails with an
+            UnableToColorizeError. This can happen if the concurrent modification of the space being colored (i.e. it
+            being filled with tetrominos) "messes" with the colorization algorithm.
 
     Yields and Returns:
         Always a reference to the same uint8 numpy array which is being filled with 4 colors (int values 1-4) over time.

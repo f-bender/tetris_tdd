@@ -9,6 +9,7 @@ from tetris.ansi_extensions import cursor as cursorx
 
 last_drawn_array: NDArray[np.int32] | None = None
 rng = random.Random()
+draw_value: bool = False
 
 
 def draw_array(array: NDArray[np.int32], *, rgb_range: tuple[int, int] = (50, 150)) -> None:
@@ -31,7 +32,12 @@ def draw_array(array: NDArray[np.int32], *, rgb_range: tuple[int, int] = (50, 15
 def _draw_full_array(array: NDArray[np.int32], *, rgb_range: tuple[int, int]) -> None:
     print(cursor.goto(1, 1), end="")
     for row in array:
-        print("".join(_ansi_color_for(val, rgb_range=rgb_range) + "  " for val in row))
+        print(
+            "".join(
+                _ansi_color_for(int(val), rgb_range=rgb_range) + (f"{val%100:>2}" if draw_value else "  ")
+                for val in row
+            )
+        )
     print(color.fx.reset, end="")
 
 
@@ -40,7 +46,12 @@ def _draw_differences(
 ) -> None:
     for y, x in np.argwhere(array != last_drawn_array):
         print(cursor.goto(y + 1, x * 2 + 1), end="")
-        print(_ansi_color_for(int(array[y, x]), rgb_range=rgb_range) + "  " + color.fx.reset, end="")
+        print(
+            _ansi_color_for(val := int(array[y, x]), rgb_range=rgb_range)
+            + (f"{val%100:>2}" if draw_value else "  ")
+            + color.fx.reset,
+            end="",
+        )
 
 
 def _ansi_color_for(value: int, *, rgb_range: tuple[int, int]) -> str:
