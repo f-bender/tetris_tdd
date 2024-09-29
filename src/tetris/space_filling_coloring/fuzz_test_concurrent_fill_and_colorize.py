@@ -72,7 +72,7 @@ class TestConfig(NamedTuple):
 def fuzz_test(
     *,
     size_limits: tuple[tuple[int, int], tuple[int, int]] = ((10, 80), (10, 150)),
-    max_holes: int = 5,
+    max_holes: int = 10,
     draw: bool = False,
 ) -> None:
     for i in count(1):
