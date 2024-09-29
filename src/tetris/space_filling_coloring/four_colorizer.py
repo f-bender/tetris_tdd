@@ -294,6 +294,9 @@ class FourColorizer:
                 self._uncolorable_block = None
                 return
 
+            if self._uncolorable_block not in self._space_to_be_colored:
+                self._uncolorable_block = None
+
             if self._uncolorable_block is not None and not self._blocks_are_close(
                 block_to_colorize, self._uncolorable_block
             ):
