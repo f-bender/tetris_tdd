@@ -7,7 +7,12 @@ from collections.abc import Callable, Generator, Iterable, Iterator
 import numpy as np
 from numpy.typing import NDArray
 
+from tetris.exceptions import BaseTetrisError
 from tetris.space_filling_coloring.offset_iterables import CyclingOffsetIterable, RandomOffsetIterable
+
+
+class UnableToColorizeError(BaseTetrisError):
+    pass
 
 
 class FourColorizer:
@@ -148,7 +153,9 @@ class FourColorizer:
         with self._ensure_sufficient_recursion_depth():
             yield from self._icolorize()
 
-        assert self._finished, self.UNCOLORABLE_MESSAGE
+        if not self._finished:
+            self._uncolorable_block = None
+            raise UnableToColorizeError(self.UNCOLORABLE_MESSAGE)
 
         return self._colored_space
 

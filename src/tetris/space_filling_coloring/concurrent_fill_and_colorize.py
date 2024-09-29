@@ -4,12 +4,12 @@ from collections.abc import Generator
 import numpy as np
 from numpy.typing import NDArray
 
-from tetris.space_filling_coloring.four_colorizer import FourColorizer
+from tetris.space_filling_coloring.four_colorizer import FourColorizer, UnableToColorizeError
 from tetris.space_filling_coloring.tetromino_space_filler import TetrominoSpaceFiller
 
 
 def fill_and_colorize(
-    space: NDArray[np.bool], *, use_rng: bool = True, rng_seed: int | None = None
+    space: NDArray[np.bool], *, use_rng: bool = True, rng_seed: int | None = None, allow_coloring_retry: bool = True
 ) -> Generator[tuple[NDArray[np.int32], NDArray[np.uint8]], None, tuple[NDArray[np.int32], NDArray[np.uint8]]]:
     """Concurrently fill a space with tetrominos, and colorize the placed tetrominos with four colors.
 
@@ -54,11 +54,24 @@ def fill_and_colorize(
             except StopIteration as e:
                 msg = "FourColorizer finished before TetrominoSpaceFiller - this should never happen!"
                 raise RuntimeError(msg) from e
+            except UnableToColorizeError:
+                if allow_coloring_retry:
+                    four_colorizing_iterator = four_colorizer.icolorize()
+                else:
+                    raise
 
             yield space_filler.space, four_colorizer.colored_space
 
         # filing is done: finish up colorization
-        for _ in four_colorizing_iterator:
-            yield space_filler.space, four_colorizer.colored_space
+        try:
+            for _ in four_colorizing_iterator:
+                yield space_filler.space, four_colorizer.colored_space
+        except UnableToColorizeError:
+            if allow_coloring_retry:
+                # retry just once more, otherwise more tries will not help
+                for _ in four_colorizer.icolorize():
+                    yield space_filler.space, four_colorizer.colored_space
+            else:
+                raise
 
         return space_filler.space, four_colorizer.colored_space
