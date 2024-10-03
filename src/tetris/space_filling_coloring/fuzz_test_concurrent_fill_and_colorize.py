@@ -110,7 +110,6 @@ def _seeded_test(
             test_config.generate_array(),
             use_rng=True,
             rng_seed=test_config.fill_and_colorize_rng_seed,
-            allow_coloring_retry=False,
         ):
             if draw:
                 drawer.draw_array(np.where(colored_space > 0, colored_space, filled_space))
