@@ -32,13 +32,13 @@ def fill_and_colorize(
     space_filler = TetrominoSpaceFiller(
         space_being_filled,
         use_rng=use_rng,
-        rng_seed=main_rng and main_rng.randrange(2**32),
+        rng_seed=main_rng.randrange(2**32) if main_rng is not None else None,
     )
     four_colorizer = FourColorizer(
         space_being_filled,
         total_blocks_to_color=space_filler.total_blocks_to_place,
         use_rng=use_rng,
-        rng_seed=main_rng and main_rng.randrange(2**32),
+        rng_seed=main_rng.randrange(2**32) if main_rng is not None else None,
         closeness_threshold=7,  # empirically, there are rare cases where 6 is not enough in concurrent operation
     )
 

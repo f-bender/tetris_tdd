@@ -22,6 +22,7 @@ class TestConfig(NamedTuple):
     size: tuple[int, int]
     max_holes: int
     holes: list[tuple[int, int, int, int]]
+    inverted: bool = False
 
     @property
     def num_holes(self) -> int:
@@ -35,6 +36,9 @@ class TestConfig(NamedTuple):
 
         fill_and_colorize_rng_seed = main_rng.randrange(2**32)
         num_holes = main_rng.randint(0, max_holes)
+
+        inverted = num_holes > 0 and main_rng.randint(0, 1) == 1
+
         while True:
             size = (
                 main_rng.randint(*size_limits[0]),
@@ -56,6 +60,7 @@ class TestConfig(NamedTuple):
                 size=size,
                 max_holes=max_holes,
                 holes=holes,
+                inverted=inverted,
             )
             if TetrominoSpaceFiller.space_can_be_filled(config.generate_array().astype(np.int32) - 1):
                 return config
@@ -65,6 +70,9 @@ class TestConfig(NamedTuple):
 
         for y1, x1, y2, x2 in self.holes:
             array[y1:y2, x1:x2] = False
+
+        if self.inverted:
+            array = ~array
 
         return array
 
