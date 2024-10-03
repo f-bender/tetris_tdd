@@ -7,7 +7,7 @@ from itertools import product
 
 import numpy as np
 from numpy.typing import NDArray
-from skimage import measure
+from skimage import measure, segmentation
 
 from tetris.exceptions import BaseTetrisError
 from tetris.game_logic.components.block import Block, BlockType
@@ -79,7 +79,13 @@ class TetrominoSpaceFiller:
             )
             raise ValueError(msg)
 
+        # 0: space to be filled, -1: holes not to be filled
         self.space = space
+
+        # 0: space to be filled, >0: holes, each holes with an individual value, starting at 1
+        self._space_with_labeled_holes: NDArray[np.int64] = measure.label(
+            (self.space == -1).astype(np.uint8), connectivity=2
+        )
 
         cells_to_fill = np.sum(~self.space.astype(bool))
         self._total_blocks_to_place = cells_to_fill // self.TETROMINO_SIZE
@@ -117,6 +123,7 @@ class TetrominoSpaceFiller:
 
         self._smallest_island: NDArray[np.bool] | None = None
         self._unfillable_cell_position: tuple[int, int] | None = None
+        self._unfillable_cell_neighborhood: NDArray[np.bool] | None = None
         self._finished = False
 
     @staticmethod
@@ -202,6 +209,7 @@ class TetrominoSpaceFiller:
         if self._unfillable_cell_position:
             cell_to_fill_position = self._unfillable_cell_position
             self._unfillable_cell_position = None
+            self._unfillable_cell_neighborhood = None
 
         # Prio 2: Fill the smallest island (in case the requested position is not inside it, change it)
         elif self._smallest_island is not None and not self._smallest_island[cell_to_fill_position]:
@@ -316,10 +324,11 @@ class TetrominoSpaceFiller:
                     if self._space_updated_callback is not None:
                         self._space_updated_callback()
 
-                    if self._unfillable_cell_position and not self._is_close(
-                        tetromino=tetromino,
-                        tetromino_position=tetromino_position,
-                        cell_position=self._unfillable_cell_position,
+                    if (
+                        self._unfillable_cell_position
+                        and not self._tetromino_overlaps_with_unfillable_cell_neighborhood(
+                            tetromino=tetromino, tetromino_position=tetromino_position
+                        )
                     ):
                         # We assume that if the block we have just removed during backtracking is not close to the
                         # unfillable cell, then this change has likely not made the unfillable block fillable again,
@@ -337,6 +346,40 @@ class TetrominoSpaceFiller:
             # remember this cell as the cell that could not be filled, then fast backtrack until a cell close to it is
             # removed, hopefully removing the issue that made it unfillable
             self._unfillable_cell_position = cell_to_fill_position
+            self._unfillable_cell_neighborhood = self._get_neighborhood(cell_to_fill_position)
+
+    def _tetromino_overlaps_with_unfillable_cell_neighborhood(
+        self, tetromino: NDArray[np.bool], tetromino_position: tuple[int, int]
+    ) -> bool:
+        assert self._unfillable_cell_neighborhood is not None
+        return bool(
+            np.any(
+                self._unfillable_cell_neighborhood[tetromino_position[0] :, tetromino_position[1] :][
+                    np.where(tetromino)
+                ]
+            )
+        )
+
+    def _get_neighborhood(self, position: tuple[int, int]) -> NDArray[np.bool]:
+        distances: NDArray[np.int64] = np.sum(
+            np.abs(np.indices(self.space.shape) - np.array(position)[:, np.newaxis, np.newaxis]), axis=0
+        )
+        # cells with a manhattan distance less than `CLOSE_DISTANCE_THRESHOLD` are considered to be in the neighborhood
+        neighborhood: NDArray[np.bool] = distances <= self.CLOSE_DISTANCE_THRESHOLD
+
+        # also, if holes (areas that shall not be filled) are within the neighborhood, their entire boundary is by
+        # extension also considered to be in the neighborhood
+        if np.any(hole_labels := self._space_with_labeled_holes[neighborhood]):
+            # remove 0, which is just background (not a hole)
+            hole_labels = [label for label in np.unique(hole_labels) if label != 0]
+
+            space_with_nearby_holes: NDArray[np.bool] = np.isin(self._space_with_labeled_holes, hole_labels)
+            holes_boundary: NDArray[np.bool] = segmentation.find_boundaries(
+                space_with_nearby_holes, mode="outer", connectivity=2
+            )
+            neighborhood[holes_boundary] = True
+
+        return neighborhood
 
     @staticmethod
     def _empty_space_has_multiple_islands(space: NDArray[np.int32]) -> bool:
@@ -424,17 +467,6 @@ class TetrominoSpaceFiller:
             )
         )
         # fmt: on
-
-    def _is_close(
-        self,
-        tetromino: NDArray[np.bool],
-        tetromino_position: tuple[int, int],
-        cell_position: tuple[int, int],
-    ) -> bool:
-        tetromino_cell_positions = np.argwhere(tetromino) + tetromino_position
-        tetromino_to_cell_distances = np.sum(np.abs(tetromino_cell_positions - cell_position), axis=1)
-        min_distance = np.min(tetromino_to_cell_distances)
-        return min_distance <= self.CLOSE_DISTANCE_THRESHOLD
 
     @staticmethod
     def space_can_be_filled(space: NDArray[np.int32]) -> bool:
