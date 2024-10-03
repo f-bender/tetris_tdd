@@ -126,6 +126,8 @@ class TetrominoSpaceFiller:
         self._unfillable_cell_neighborhood: NDArray[np.bool] | None = None
         self._finished = False
 
+        self._stop_fast_backtrack = False
+
     @staticmethod
     def _get_unique_rotations_transposes(tetromino: NDArray[np.bool]) -> list[NDArray[np.bool]]:
         """Return a list of all unique rotated or transposed views (not copies!) of the tetromino."""
@@ -324,18 +326,30 @@ class TetrominoSpaceFiller:
                     if self._space_updated_callback is not None:
                         self._space_updated_callback()
 
-                    if (
-                        self._unfillable_cell_position
-                        and not self._tetromino_overlaps_with_unfillable_cell_neighborhood(
-                            tetromino=tetromino, tetromino_position=tetromino_position
-                        )
-                    ):
-                        # We assume that if the block we have just removed during backtracking is not close to the
-                        # unfillable cell, then this change has likely not made the unfillable block fillable again,
-                        # thus we don't even try.
+                    if self._unfillable_cell_position and not self._stop_fast_backtrack:
+                        # We assume that if the block we have just removed during backtracking is not in the
+                        # neighborhood of the unfillable cell, then this change has likely not made the unfillable block
+                        # fillable again, thus in that case we don't even try and keep fast backtracking.
                         # (Note that not returning would lead to the next loop iteration, which would lead to yielding,
                         # which would lead to calling _fill, which would lead to trying to fill the unfillable cell)
-                        return
+
+                        # If we are in the neighborhood, we still remove "ourselves" (`tetromino` of this stack frame),
+                        # but tell the next stack frame up to stop fast backtracking, in order to then try and fill the
+                        # unfillable cell. The only exception: if we are at the very first step block placing step,
+                        # then backtracking one more step would cause the algorithm overall to be considered failed.
+                        # So we don't do this one more step in that case.
+                        self._stop_fast_backtrack = self._tetromino_overlaps_with_unfillable_cell_neighborhood(
+                            tetromino=tetromino, tetromino_position=tetromino_position
+                        )
+
+                        # Intentionally, we don't return in the top-most stack frame, even if we didn't even intend to
+                        # stop fast backtracking in the next frame, based on neighborhood. This is the last chance,
+                        # basically a hail mary to try if we can't perhaps possibly still fill the unfillable block
+                        # with basically no other blocks being placed.
+                        if self._num_blocks_placed != 0:
+                            return
+
+                    self._stop_fast_backtrack = False
 
         # at this point we either have tried everything to fill `cell_to_fill_position` but were unsuccessful,
         # or are in the process of fast backtracking because we have encountered an unfillable cell deeper down the
