@@ -439,6 +439,10 @@ class TetrominoSpaceFiller:
     @staticmethod
     def space_can_be_filled(space: NDArray[np.int32]) -> bool:
         """Check that space is (probably) fillable, i.e. all its islands have a size divisible by TETROMINO_SIZE (4)."""
+        if not np.any(space == 0):
+            # if there are no cells to be filled at all, we consider the space not fillable
+            return False
+
         island_map = (space == 0).astype(np.uint8)
         space_with_labeled_islands, num_islands = measure.label(island_map, connectivity=1, return_num=True)
         return all(

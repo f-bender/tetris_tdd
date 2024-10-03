@@ -71,7 +71,7 @@ class FourColorizer:
             msg = "total_blocks_to_color must be at least as large as the current maximum value in the space!"
             raise ValueError(msg)
 
-        self._total_blocks_to_color = total_blocks_to_color or max_value
+        self._total_blocks_to_color = total_blocks_to_color if total_blocks_to_color is not None else max_value
 
         if self._total_blocks_to_color <= 0:
             msg = f"{self.total_blocks_to_color =}; there is nothing to be colored!"
