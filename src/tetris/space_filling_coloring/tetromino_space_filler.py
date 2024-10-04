@@ -77,15 +77,20 @@ class TetrominoSpaceFiller:
             msg = "No zeros in space; there is nothing to be filled!"
             raise ValueError(msg)
 
-        if not self.space_can_be_filled(space):
+        # 0: space to be filled, -1: holes not to be filled
+        self.space = space
+
+        self._smallest_island: NDArray[np.bool] | None = None
+        self._unfillable_cell_position: tuple[int, int] | None = None
+        self._unfillable_cell_neighborhood: NDArray[np.bool] | None = None
+        self._finished = False
+
+        if not self._check_islands_are_fillable_and_set_smallest_island():
             msg = (
                 "Space cannot be filled! "
                 f"Contains at least one island with size not divisible by {self.TETROMINO_SIZE}!"
             )
             raise ValueError(msg)
-
-        # 0: space to be filled, -1: holes not to be filled
-        self.space = space
 
         # 0: space to be filled, >0: holes, each holes with an individual value, starting at 1
         self._space_with_labeled_holes: NDArray[np.int64] = measure.label(
@@ -125,11 +130,6 @@ class TetrominoSpaceFiller:
         if not top_left_tendency:
             # if this is not desired, use the offset iterable type to use different offsets into the list when iterating
             self._tetromino_idx_neighbor_offset_iterable = iterable_type(self._tetromino_idx_neighbor_offset_iterable)
-
-        self._smallest_island: NDArray[np.bool] | None = None
-        self._unfillable_cell_position: tuple[int, int] | None = None
-        self._unfillable_cell_neighborhood: NDArray[np.bool] | None = None
-        self._finished = False
 
     @staticmethod
     def _get_unique_rotations_transposes(tetromino: NDArray[np.bool]) -> list[NDArray[np.bool]]:
