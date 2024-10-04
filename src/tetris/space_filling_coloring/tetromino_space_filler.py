@@ -101,7 +101,7 @@ class TetrominoSpaceFiller:
         cells_to_fill = np.sum(~self.space.astype(bool))
         self._total_blocks_to_place = cells_to_fill // self.TETROMINO_SIZE
 
-        self._num_blocks_placed = 0
+        self._num_placed_blocks = 0
         self._space_updated_callback = space_updated_callback
 
         self._default_start_position = (0, 0)
@@ -153,8 +153,8 @@ class TetrominoSpaceFiller:
         return self._total_blocks_to_place
 
     @property
-    def num_blocks_placed(self) -> int:
-        return self._num_blocks_placed
+    def num_placed_blocks(self) -> int:
+        return self._num_placed_blocks
 
     @property
     def finished(self) -> bool:
@@ -274,8 +274,8 @@ class TetrominoSpaceFiller:
                         # proposed tetromino placement overlaps with an already filled cell
                         continue
 
-                    self._num_blocks_placed += 1
-                    space_view_to_put_tetromino[tetromino] = self._num_blocks_placed
+                    self._num_placed_blocks += 1
+                    space_view_to_put_tetromino[tetromino] = self._num_placed_blocks
 
                     space_view_around_tetromino = self.space[
                         max(tetromino_position[0] - 1, 0) : tetromino_position[0] + tetromino.shape[0] + 1,
@@ -294,7 +294,7 @@ class TetrominoSpaceFiller:
                         # Proposed tetromino placement would create at least one island of empty space with a size not
                         # divisible by TETROMINO_SIZE (4), thus not being fillable by tetrominos
                         # So we cancel the placement and skip to the next loop iteration
-                        self._num_blocks_placed -= 1
+                        self._num_placed_blocks -= 1
                         space_view_to_put_tetromino[tetromino] = 0
                         continue
 
@@ -304,7 +304,7 @@ class TetrominoSpaceFiller:
                     if self._space_updated_callback is not None:
                         self._space_updated_callback()
 
-                    if self._num_blocks_placed == self._total_blocks_to_place:
+                    if self._num_placed_blocks == self._total_blocks_to_place:
                         # we are done and trigger the immediate unwinding of the stack without backtracking
                         self._finished = True
                         return
@@ -325,7 +325,7 @@ class TetrominoSpaceFiller:
 
                     yield next_cell_to_fill_position
 
-                    self._num_blocks_placed -= 1
+                    self._num_placed_blocks -= 1
                     space_view_to_put_tetromino[tetromino] = 0
 
                     # We  have just removed a tetromino from the space because we are backtracking.
@@ -341,7 +341,7 @@ class TetrominoSpaceFiller:
                         )
                         # hail mary: if we are at the very top stack frame, about to fail the algorithm, still try if
                         # our remaining options here make it work
-                    ) and self._num_blocks_placed != 0:
+                    ) and self._num_placed_blocks != 0:
                         # We assume that if the block we have just removed during backtracking is not close to the
                         # unfillable cell, then this change has likely not made the unfillable block fillable again,
                         # thus we don't even try.

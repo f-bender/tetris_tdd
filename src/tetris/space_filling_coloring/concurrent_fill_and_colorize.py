@@ -61,7 +61,7 @@ def fill_and_colorize(
         # interleave space filling and colorization steps
         for _ in space_filling_iterator:
             try:
-                separation_steps = space_filler.num_blocks_placed - four_colorizer.num_colored_blocks
+                separation_steps = space_filler.num_placed_blocks - four_colorizer.num_colored_blocks
                 if not (0 <= separation_steps < minimum_separation_steps):
                     next(four_colorizing_iterator)
             except StopIteration:
