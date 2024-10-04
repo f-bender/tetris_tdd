@@ -335,7 +335,9 @@ class TetrominoSpaceFiller:
                         and not self._tetromino_overlaps_with_unfillable_cell_neighborhood(
                             tetromino=tetromino, tetromino_position=tetromino_position
                         )
-                    ):
+                        # hail mary: if we are at the very top stack frame, about to fail the algorithm, still try if
+                        # our remaining options here make it work
+                    ) and self._num_blocks_placed != 0:
                         # We assume that if the block we have just removed during backtracking is not close to the
                         # unfillable cell, then this change has likely not made the unfillable block fillable again,
                         # thus we don't even try.
