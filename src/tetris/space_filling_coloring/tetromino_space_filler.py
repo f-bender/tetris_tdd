@@ -83,6 +83,7 @@ class TetrominoSpaceFiller:
 
         self._smallest_island: NDArray[np.bool] | None = None
         self._unfillable_cell_position: tuple[int, int] | None = None
+        self._last_unfillable_cell_position: tuple[int, int] | None = None
         self._unfillable_cell_neighborhood: NDArray[np.bool] | None = None
         self._finished = False
 
@@ -222,7 +223,6 @@ class TetrominoSpaceFiller:
                     # unset unfillable cell regardless: if we didn't returned, it is already filled, otherwise it will
                     # be in this step
                     self._unfillable_cell_position = None
-                    self._unfillable_cell_neighborhood = None
 
             # Prio 2: Fill the smallest island (in case the requested position is not inside it, change it)
             if self._smallest_island is not None and not self._smallest_island[cell_to_fill_position]:
@@ -358,7 +358,12 @@ class TetrominoSpaceFiller:
             # remember this cell as the cell that could not be filled, then fast backtrack until a cell close to it is
             # removed, hopefully removing the issue that made it unfillable
             self._unfillable_cell_position = cell_to_fill_position
-            self._unfillable_cell_neighborhood = self._get_neighborhood(cell_to_fill_position)
+
+            # in case the last unfillable cell was the same as this, we can re-use the unfillable_cell_neighborhood
+            if self._unfillable_cell_position != self._last_unfillable_cell_position:
+                self._unfillable_cell_neighborhood = self._get_neighborhood(cell_to_fill_position)
+
+            self._last_unfillable_cell_position = self._unfillable_cell_position
 
     def _tetromino_overlaps_with_unfillable_cell_neighborhood(
         self, tetromino: NDArray[np.bool], tetromino_position: tuple[int, int]
