@@ -68,8 +68,13 @@ class TetrominoSpaceFiller:
             msg = "rng_seed should only be set when use_rng is True"
             raise ValueError(msg)
 
-        if not set(np.unique(space)) <= {-1, 0}:
+        values = set(np.unique(space))
+        if not values <= {-1, 0}:
             msg = "Space must consist of -1s and 0s only."
+            raise ValueError(msg)
+
+        if 0 not in values:
+            msg = "No zeros in space; there is nothing to be filled!"
             raise ValueError(msg)
 
         if not self.space_can_be_filled(space):
