@@ -211,30 +211,34 @@ class TetrominoSpaceFiller:
             yield
 
     def _updated_cell_to_fill_position(self, cell_to_fill_position: tuple[int, int]) -> tuple[int, int]:
-        # Prio 1: Try to fill the unfillable cell if there is one
-        if self._unfillable_cell_position:
-            cell_to_fill_position = self._unfillable_cell_position
-            self._unfillable_cell_position = None
-            self._unfillable_cell_neighborhood = None
+        try:
+            # Prio 1: Try to fill the unfillable cell if there is one
+            if self._unfillable_cell_position:
+                try:
+                    if self.space[self._unfillable_cell_position] == 0:
+                        # only if unfillable cell is actually still unfilled, set it as the next position to fill
+                        return self._unfillable_cell_position
+                finally:
+                    # unset unfillable cell regardless: if we didn't returned, it is already filled, otherwise it will
+                    # be in this step
+                    self._unfillable_cell_position = None
+                    self._unfillable_cell_neighborhood = None
 
-        # Prio 2: Fill the smallest island (in case the requested position is not inside it, change it)
-        elif self._smallest_island is not None and not self._smallest_island[cell_to_fill_position]:
-            cell_to_fill_position = self._closest_position_in_area(
-                allowed_area=self._smallest_island,
-                position=cell_to_fill_position,
-            )
+            # Prio 2: Fill the smallest island (in case the requested position is not inside it, change it)
+            if self._smallest_island is not None and not self._smallest_island[cell_to_fill_position]:
+                return self._closest_position_in_area(
+                    allowed_area=self._smallest_island, position=cell_to_fill_position
+                )
 
-        # Prio 3: Select an empty cell as close as possible to the requested cell (the cell itself in case it's empty)
-        elif self.space[cell_to_fill_position] != 0:
-            cell_to_fill_position = self._closest_position_in_area(
-                allowed_area=self.space == 0,
-                position=cell_to_fill_position,
-            )
+            # Prio 3: Select an empty cell as close as possible to the requested cell
+            # (the cell itself in case it's empty)
+            if self.space[cell_to_fill_position] != 0:
+                return self._closest_position_in_area(allowed_area=self.space == 0, position=cell_to_fill_position)
 
-        # whether we used it or not, unset self._smallest_island as it will be invalid after the next placement
-        self._smallest_island = None
-
-        return cell_to_fill_position
+            return cell_to_fill_position
+        finally:
+            # whether we used it or not, unset self._smallest_island as it will be invalid after the next placement
+            self._smallest_island = None
 
     @staticmethod
     def _closest_position_in_area(allowed_area: NDArray[np.bool], position: tuple[int, int]) -> tuple[int, int]:
