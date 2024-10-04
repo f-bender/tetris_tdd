@@ -1,3 +1,4 @@
+import contextlib
 import random
 import traceback
 from itertools import count
@@ -112,10 +113,10 @@ def _seeded_test(
             rng_seed=test_config.fill_and_colorize_rng_seed,
         ):
             if draw:
-                drawer.draw_array(np.where(colored_space > 0, colored_space, filled_space))
+                drawer.draw_array_fancy(np.where(colored_space > 0, colored_space, filled_space))
 
         if draw:
-            drawer.draw_array(np.where(colored_space > 0, colored_space, filled_space))
+            drawer.draw_array_fancy(np.where(colored_space > 0, colored_space, filled_space))
 
         TetrominoSpaceFiller.validate_filled_space(filled_space)
         FourColorizer.validate_colored_space(colored_space, filled_space)
@@ -125,6 +126,11 @@ def _seeded_test(
         if error_output_file is not None:
             with error_output_file.open("a") as f:
                 f.write(error_description)
+
+        print()
+
+        with contextlib.suppress(UnboundLocalError):
+            drawer.draw_full_array_raw(filled_space)
 
         print(error_description)
 

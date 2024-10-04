@@ -12,14 +12,14 @@ rng = random.Random()
 draw_value: bool = False
 
 
-def draw_array(array: NDArray[np.int32], *, rgb_range: tuple[int, int] = (50, 150)) -> None:
+def draw_array_fancy(array: NDArray[np.int32], *, rgb_range: tuple[int, int] = (50, 150)) -> None:
     global last_drawn_array  # noqa: PLW0603
 
     if last_drawn_array is None or last_drawn_array.shape != array.shape:
-        if last_drawn_array is not None:  # clear screen if array shape changed
-            print(cursor.erase(""), end="")
+        print(cursor.erase(""), end="")
+        print(cursor.goto(1, 1), end="")
 
-        _draw_full_array(array, rgb_range=rgb_range)
+        draw_full_array_raw(array, rgb_range=rgb_range)
     else:
         _draw_differences(array, last_drawn_array, rgb_range=rgb_range)
 
@@ -29,8 +29,7 @@ def draw_array(array: NDArray[np.int32], *, rgb_range: tuple[int, int] = (50, 15
     last_drawn_array = array.copy()
 
 
-def _draw_full_array(array: NDArray[np.int32], *, rgb_range: tuple[int, int]) -> None:
-    print(cursor.goto(1, 1), end="")
+def draw_full_array_raw(array: NDArray[np.int32], *, rgb_range: tuple[int, int] = (50, 150)) -> None:
     for row in array:
         print(
             "".join(
