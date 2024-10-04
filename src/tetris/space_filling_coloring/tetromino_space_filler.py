@@ -15,7 +15,12 @@ from tetris.space_filling_coloring.offset_iterables import CyclingOffsetIterable
 
 
 class NotFillableError(BaseTetrisError):
-    pass
+    def __init__(self, unfillable_cell_position: tuple[int, int] | None) -> None:
+        super().__init__(
+            "Space could not be filled! "
+            "It likely contains some empty cells in a configuration that are impossible to fill with tetrominos. "
+            f"Unfillable cell position: {unfillable_cell_position}"
+        )
 
 
 class TetrominoSpaceFiller:
@@ -32,10 +37,6 @@ class TetrominoSpaceFiller:
     )
     STACK_FRAMES_SAFETY_MARGIN = 10
     CLOSE_DISTANCE_THRESHOLD = 5
-    UNFILLABLE_MESSAGE = (
-        "Space could not be filled! "
-        "It likely contains some empty cells in a configuration that are impossible to fill with tetrominos."
-    )
     TETROMINO_SIZE = 4
 
     def __init__(
@@ -176,7 +177,7 @@ class TetrominoSpaceFiller:
             self._fill(cell_to_fill_position=start_position or self._default_start_position)
 
         if not self._finished:
-            raise NotFillableError(self.UNFILLABLE_MESSAGE)
+            raise NotFillableError(self._unfillable_cell_position)
 
     def _fill(self, cell_to_fill_position: tuple[int, int]) -> None:
         for next_cell_to_fill_position in self._generate_tetromino_placements(cell_to_fill_position):
@@ -191,7 +192,7 @@ class TetrominoSpaceFiller:
             yield from self._ifill(cell_to_fill_position=start_position or self._default_start_position)
 
         if not self._finished:
-            raise NotFillableError(self.UNFILLABLE_MESSAGE)
+            raise NotFillableError(self._unfillable_cell_position)
 
     def _ifill(self, cell_to_fill_position: tuple[int, int]) -> Iterator[None]:
         for next_cell_to_fill_position in self._generate_tetromino_placements(cell_to_fill_position):
