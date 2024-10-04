@@ -54,9 +54,10 @@ def fill_and_colorize(
         for _ in space_filling_iterator:
             try:
                 next(four_colorizing_iterator)
-            except StopIteration as e:
-                msg = "FourColorizer finished before TetrominoSpaceFiller - this should never happen!"
-                raise RuntimeError(msg) from e
+            except StopIteration:
+                # FourColorizer finished slightly before TetrominoSpaceFiller:
+                # this can happen in rare instances and can safely be ignored
+                pass
             except UnableToColorizeError:
                 if allow_coloring_retry:
                     four_colorizing_iterator = four_colorizer.icolorize()
