@@ -87,7 +87,9 @@ class TetrominoSpaceFiller:
         self._unfillable_cell_neighborhood: NDArray[np.bool] | None = None
         self._finished = False
 
-        if not self._check_islands_are_fillable_and_set_smallest_island():
+        cells_to_fill = np.sum(~self.space.astype(bool))
+
+        if cells_to_fill % self.TETROMINO_SIZE != 0 or not self._check_islands_are_fillable_and_set_smallest_island():
             msg = (
                 "Space cannot be filled! "
                 f"Contains at least one island with size not divisible by {self.TETROMINO_SIZE}!"
@@ -99,7 +101,6 @@ class TetrominoSpaceFiller:
             (self.space == -1).astype(np.uint8), connectivity=2
         )
 
-        cells_to_fill = np.sum(~self.space.astype(bool))
         self._total_blocks_to_place = cells_to_fill // self.TETROMINO_SIZE
 
         self._num_placed_blocks = 0

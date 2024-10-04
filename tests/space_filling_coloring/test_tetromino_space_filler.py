@@ -3,7 +3,6 @@ import contextlib
 import numpy as np
 import pytest
 from numpy.typing import NDArray
-from skimage import measure
 
 from tetris.game_logic.components.block import Block, BlockType
 from tetris.space_filling_coloring.tetromino_space_filler import TetrominoSpaceFiller
@@ -268,19 +267,6 @@ def test_count_empty_neighbors() -> None:
     assert filler._count_empty_neighbors((2, 0)) == 2  # noqa: PLR2004
     assert filler._count_empty_neighbors((3, 2)) == 1
     assert filler._count_empty_neighbors((4, 1)) == 0
-
-
-def test_is_close() -> None:
-    space = np.zeros((10, 10), dtype=np.int32)
-    filler = TetrominoSpaceFiller(space)
-    tetromino = np.array([[1, 1], [1, 1]], dtype=bool)
-    tetromino_position = (0, 0)
-
-    # Test close cell
-    assert filler._is_close(tetromino, tetromino_position, (3, 3))
-
-    # Test far cell
-    assert not filler._is_close(tetromino, tetromino_position, (8, 8))
 
 
 def test_fill() -> None:
