@@ -9,7 +9,12 @@ from tetris.space_filling_coloring.tetromino_space_filler import TetrominoSpaceF
 
 
 def fill_and_colorize(
-    space: NDArray[np.bool], *, use_rng: bool = True, rng_seed: int | None = None, allow_coloring_retry: bool = True
+    space: NDArray[np.bool],
+    *,
+    use_rng: bool = True,
+    rng_seed: int | None = None,
+    minimum_separation_steps: int = 0,
+    allow_coloring_retry: bool = True,
 ) -> Generator[tuple[NDArray[np.int32], NDArray[np.uint8]], None, tuple[NDArray[np.int32], NDArray[np.uint8]]]:
     """Concurrently fill a space with tetrominos, and colorize the placed tetrominos with four colors.
 
@@ -18,6 +23,9 @@ def fill_and_colorize(
             space to be left empty.
         use_rng: Whether to use a random number generator for the filling and coloring steps.
         rng_seed: Seed for the random number generator. If None, a random seed will be generated.
+        minimum_separation_steps: The minimum number of steps by which the space filling and coloring algorithms have to
+            be separated. At least this many blocks will placed but not yet colored at any point in time (except during
+            backtracks of the space filling algorithm). By default (0), no such separation is enforced.
         allow_coloring_retry: Whether to allow the colorization step to retry if it fails with an
             UnableToColorizeError. This can happen if the concurrent modification of the space being colored (i.e. it
             being filled with tetrominos) "messes" with the colorization algorithm.
@@ -53,7 +61,9 @@ def fill_and_colorize(
         # interleave space filling and colorization steps
         for _ in space_filling_iterator:
             try:
-                next(four_colorizing_iterator)
+                separation_steps = space_filler.num_blocks_placed - four_colorizer.num_colored_blocks
+                if not (0 <= separation_steps < minimum_separation_steps):
+                    next(four_colorizing_iterator)
             except StopIteration:
                 # FourColorizer finished slightly before TetrominoSpaceFiller:
                 # this can happen in rare instances and can safely be ignored
