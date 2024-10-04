@@ -31,7 +31,7 @@ class TetrominoSpaceFiller:
         )
     )
     STACK_FRAMES_SAFETY_MARGIN = 10
-    CLOSE_DISTANCE_THRESHOLD = 5
+    CLOSE_DISTANCE_THRESHOLD = 3
     UNFILLABLE_MESSAGE = (
         "Space could not be filled! "
         "It likely contains some empty cells in a configuration that are impossible to fill with tetrominos."
@@ -130,6 +130,8 @@ class TetrominoSpaceFiller:
         if not top_left_tendency:
             # if this is not desired, use the offset iterable type to use different offsets into the list when iterating
             self._tetromino_idx_neighbor_offset_iterable = iterable_type(self._tetromino_idx_neighbor_offset_iterable)
+
+        self._stop_fast_backtrack = False
 
     @staticmethod
     def _get_unique_rotations_transposes(tetromino: NDArray[np.bool]) -> list[NDArray[np.bool]]:
@@ -318,6 +320,10 @@ class TetrominoSpaceFiller:
                             # note that space_fillable sets the value of _smallest_island
                             self._check_islands_are_fillable_and_set_smallest_island()
 
+                    # we are forward tracking
+                    # -> the fast backtrack (if there was one) is over and the flag should be unset
+                    self._stop_fast_backtrack = False
+
                     yield next_cell_to_fill_position
 
                     self._num_blocks_placed -= 1
@@ -329,18 +335,27 @@ class TetrominoSpaceFiller:
                     if self._space_updated_callback is not None:
                         self._space_updated_callback()
 
-                    if (
-                        self._unfillable_cell_position
-                        and not self._tetromino_overlaps_with_unfillable_cell_neighborhood(
-                            tetromino=tetromino, tetromino_position=tetromino_position
-                        )
-                    ):
-                        # We assume that if the block we have just removed during backtracking is not close to the
-                        # unfillable cell, then this change has likely not made the unfillable block fillable again,
-                        # thus we don't even try.
+                    if self._unfillable_cell_position and not self._stop_fast_backtrack:
+                        # We assume that if the block we have just removed during backtracking is not in the
+                        # neighborhood of the unfillable cell, then this change has likely not made the unfillable block
+                        # fillable again, thus in that case we don't even try and keep fast backtracking.
                         # (Note that not returning would lead to the next loop iteration, which would lead to yielding,
                         # which would lead to calling _fill, which would lead to trying to fill the unfillable cell)
-                        return
+
+                        # If we are in the neighborhood, we still remove "ourselves" (`tetromino` of this stack frame),
+                        # but tell the next stack frame up to stop fast backtracking, in order to then try and fill the
+                        # unfillable cell. The only exception: if we are at the very first step block placing step,
+                        # then backtracking one more step would cause the algorithm overall to be considered failed.
+                        # So we don't do this one more step in that case.
+                        self._stop_fast_backtrack = self._tetromino_overlaps_with_unfillable_cell_neighborhood(
+                            tetromino=tetromino, tetromino_position=tetromino_position
+                        )
+
+                        # If we are in the top-most stack frame, we keep trying to forward track ourselves instead of
+                        # returning and telling the next stack frame up to stop fast backtracking
+                        # (since there is no stack frame up!)
+                        if self._num_blocks_placed != 0 or not self._stop_fast_backtrack:
+                            return
 
         # at this point we either have tried everything to fill `cell_to_fill_position` but were unsuccessful,
         # or are in the process of fast backtracking because we have encountered an unfillable cell deeper down the
