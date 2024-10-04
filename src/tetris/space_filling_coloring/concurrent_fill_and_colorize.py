@@ -39,7 +39,6 @@ def fill_and_colorize(
         total_blocks_to_color=space_filler.total_blocks_to_place,
         use_rng=use_rng,
         rng_seed=main_rng.randrange(2**32) if main_rng is not None else None,
-        closeness_threshold=7,  # empirically, there are rare cases where 6 is not enough in concurrent operation
     )
 
     yield space_filler.space, four_colorizer.colored_space
