@@ -58,10 +58,10 @@ def _ansi_color_for(value: int, *, rgb_range: tuple[int, int]) -> str:
     global rng  # noqa: PLW0602
 
     if value == 0:
-        return colorx.bg.rgb_truecolor(*((rgb_range[0] // 2) for _ in range(3)))
+        return colorx.bg.rgb_truecolor(*[rgb_range[0] // 2] * 3)
 
     if value < 0:
-        return colorx.bg.rgb_truecolor(*(((255 + rgb_range[1]) // 2) for _ in range(3)))
+        return colorx.bg.rgb_truecolor(*[(255 + rgb_range[1]) // 2] * 3)
 
     rng.seed(value)
     return colorx.bg.rgb_truecolor(*(rng.randrange(*rgb_range) for _ in range(3)))
