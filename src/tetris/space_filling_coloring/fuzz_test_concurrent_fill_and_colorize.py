@@ -1,5 +1,6 @@
 import contextlib
 import random
+import shutil
 import traceback
 from itertools import count
 from pathlib import Path
@@ -80,11 +81,24 @@ class TestConfig(NamedTuple):
 
 def fuzz_test(
     *,
-    size_limits: tuple[tuple[int, int], tuple[int, int]] = ((10, 80), (10, 150)),
+    size_limits: tuple[tuple[int, int], tuple[int, int]] | None = None,
     max_holes: int = 10,
     draw: bool = False,
 ) -> None:
+    determine_size_limits_from_terminal = False
+    if size_limits is None:
+        if draw:
+            determine_size_limits_from_terminal = True
+        else:
+            size_limits = (10, 80), (10, 150)
+
     for i in count(1):
+        if determine_size_limits_from_terminal:
+            terminal_width, terminal_height = shutil.get_terminal_size()
+            max_height, max_width = terminal_height - 1, terminal_width // 2
+            size_limits = (min(max_height, 10), max_height), (min(max_width, 10), max_width)
+
+        assert size_limits is not None
         _seeded_test(
             test_config=TestConfig.from_main_rng_seed(
                 random.randrange(2**32), max_holes=max_holes, size_limits=size_limits
