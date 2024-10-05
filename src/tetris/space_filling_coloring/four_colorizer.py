@@ -424,6 +424,9 @@ class FourColorizer:
             raise ValueError(msg)
 
         for block_index in np.unique(space_being_colored):
+            if block_index <= 0:
+                continue
+
             block_colors = np.unique(colored_space[space_being_colored == block_index])
             if len(block_colors) != 1:
                 msg = f"Block {block_index} has multiple colors ({block_colors.tolist()})"
