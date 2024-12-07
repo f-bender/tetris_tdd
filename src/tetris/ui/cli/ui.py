@@ -39,10 +39,10 @@ class CLI:
 
         self._color_palette = color_palette or ColorPalette.from_rgb(
             outer_bg_progress=(127, 127, 127),
-            outer_bg_1=(255, 0, 0),
-            outer_bg_2=(0, 255, 0),
-            outer_bg_3=(0, 0, 255),
-            outer_bg_4=(255, 255, 0),
+            outer_bg_1=(200, 3, 10),
+            outer_bg_2=(39, 85, 10),
+            outer_bg_3=(123, 1, 6),
+            outer_bg_4=(15, 33, 4),
             board_bg=(80, 80, 80),
             board_bg_alt=(60, 60, 60),
             board_fg=(200, 200, 200),
@@ -78,7 +78,7 @@ class CLI:
             self._buffered_print.discard_and_reset_buffer()
         print(color.fx.reset + cursor.erase("") + self._cursor_goto(Vec(0, 0)) + cursor.show(""), end="")
 
-    def _play_startup_animation(self, board_height: int, board_width: int, max_slow_steps: int = 1000) -> None:
+    def _play_startup_animation(self, board_height: int, board_width: int, max_slow_steps: int = 500) -> None:
         mock_board = np.zeros((board_height, board_width), dtype=np.bool)
 
         outer_background_mask = np.ones(
@@ -99,7 +99,7 @@ class CLI:
             self.draw(mock_board)
             if i < max_slow_steps:
                 # if it takes too long, just finish up as quickly as possible
-                sleep(0.003)
+                sleep(0.01)
 
         self._outer_background = self._background_from_filled_colored(filled_space, colored_space)
         self.draw(mock_board)
