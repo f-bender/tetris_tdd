@@ -1,17 +1,19 @@
 import atexit
 from dataclasses import dataclass
-from itertools import count
-from time import sleep
-from typing import Self
+from typing import TYPE_CHECKING, Self
 
 import numpy as np
 from ansi import color, cursor
 from numpy.typing import NDArray
 
 from tetris.ansi_extensions import cursor as cursorx
+from tetris.game_logic.interfaces.ui import UI
 from tetris.space_filling_coloring import concurrent_fill_and_colorize
 from tetris.ui.cli.buffered_printing import BufferedPrint
 from tetris.ui.cli.color_palette import ColorPalette
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 # see https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797 for a list of ANSI escape codes,
 # NOT ALL of which are provided in the `ansi` package
@@ -28,7 +30,7 @@ class Vec:
         return Vec(self.y + other.y, self.x + other.x)
 
 
-class CLI:
+class CLI(UI):
     PIXEL_WIDTH = 2  # how many terminal characters together form one pixel
     FRAME_WIDTH = 8  # width of the static frame around the board, in pixels
 
@@ -48,6 +50,10 @@ class CLI:
             board_fg=(200, 200, 200),
         )
         self._buffered_print = BufferedPrint()
+        self._startup_animation_iter: (
+            Generator[tuple[NDArray[np.int32], NDArray[np.uint8]], None, tuple[NDArray[np.int32], NDArray[np.uint8]]]
+            | None
+        ) = None
 
     @staticmethod
     def _cursor_goto(vec: Vec) -> str:
@@ -56,18 +62,16 @@ class CLI:
 
     def initialize(self, board_height: int, board_width: int) -> None:
         self._initialized_board_background(board_height, board_width)
-        self._initialize_terminal(board_height)
-        self._play_startup_animation(board_height, board_width)
+        self._initialize_terminal()
 
     def _initialized_board_background(self, board_height: int, board_width: int) -> None:
         self._board_background = np.full((board_height, board_width), ColorPalette.index_of_color("board_bg"))
         self._board_background[1::2, ::2] = ColorPalette.index_of_color("board_bg_alt")
         self._board_background[::2, 1::2] = ColorPalette.index_of_color("board_bg_alt")
 
-    def _initialize_terminal(self, board_height: int) -> None:
+    def _initialize_terminal(self) -> None:
         atexit.register(self.terminate)
         self._initialize_cursor()
-        self._setup_cursor_for_normal_printing(board_height)
         self._buffered_print.start_buffering()
 
     def _initialize_cursor(self) -> None:
@@ -78,31 +82,40 @@ class CLI:
             self._buffered_print.discard_and_reset_buffer()
         print(color.fx.reset + cursor.erase("") + self._cursor_goto(Vec(0, 0)) + cursor.show(""), end="")
 
-    def _play_startup_animation(self, board_height: int, board_width: int, max_slow_steps: int = 500) -> None:
-        mock_board = np.zeros((board_height, board_width), dtype=np.bool)
+    def advance_startup(self) -> bool:
+        """Advance the startup animation by one step. Returns True if the animation is finished."""
+        self._ensure_startup_animation_iter_initialized()
+        assert self._startup_animation_iter is not None
+
+        finished = False
+        try:
+            filled_space, colored_space = next(self._startup_animation_iter)
+        except StopIteration as e:
+            filled_space, colored_space = e.value
+            finished = True
+
+        self._outer_background = self._background_from_filled_colored(filled_space, colored_space)
+
+        return finished
+
+    def _ensure_startup_animation_iter_initialized(self) -> None:
+        if self._startup_animation_iter is not None:
+            return
+
+        if self._board_background is None:
+            msg = "background not initialized, likely advance_startup() was called before initialize()!"
+            raise RuntimeError(msg)
+
+        board_height, board_width = self._board_background.shape
 
         outer_background_mask = np.ones(
             (board_height + self.FRAME_WIDTH * 2, board_width + self.FRAME_WIDTH * 2), dtype=np.bool
         )
         outer_background_mask[self.FRAME_WIDTH : -self.FRAME_WIDTH, self.FRAME_WIDTH : -self.FRAME_WIDTH] = False
-        fill_and_color_iterator = concurrent_fill_and_colorize.fill_and_colorize(
+
+        self._startup_animation_iter = concurrent_fill_and_colorize.fill_and_colorize(
             outer_background_mask, minimum_separation_steps=15
         )
-        for i in count():
-            try:
-                filled_space, colored_space = next(fill_and_color_iterator)
-            except StopIteration as e:
-                filled_space, colored_space = e.value
-                break
-
-            self._outer_background = self._background_from_filled_colored(filled_space, colored_space)
-            self.draw(mock_board)
-            if i < max_slow_steps:
-                # if it takes too long, just finish up as quickly as possible
-                sleep(0.01)
-
-        self._outer_background = self._background_from_filled_colored(filled_space, colored_space)
-        self.draw(mock_board)
 
     def _background_from_filled_colored(
         self, filled_space: NDArray[np.int32], colored_space: NDArray[np.uint8]
@@ -117,17 +130,22 @@ class CLI:
             ),
         )
 
-    def draw(self, board: NDArray[np.bool]) -> None:
-        if self._board_background is None or self._outer_background is None:
+    def draw(self, board: NDArray[np.bool] | None = None) -> None:
+        if self._board_background is None:
             msg = "background not initialized, likely draw() was called before initialize()!"
+            raise RuntimeError(msg)
+        if self._outer_background is None:
+            msg = "outer background not initialized, likely draw() was called before advance_startup()!"
             raise RuntimeError(msg)
         if not self._buffered_print.is_active():
             msg = "buffered printing not active, likely draw() was called before initialize()!"
             raise RuntimeError(msg)
 
         image_buffer = self._outer_background.copy()
-        image_buffer[self.FRAME_WIDTH : -self.FRAME_WIDTH, self.FRAME_WIDTH : -self.FRAME_WIDTH] = np.where(
-            board, ColorPalette.index_of_color("board_fg"), self._board_background
+        image_buffer[self.FRAME_WIDTH : -self.FRAME_WIDTH, self.FRAME_WIDTH : -self.FRAME_WIDTH] = (
+            self._board_background
+            if board is None
+            else np.where(board, ColorPalette.index_of_color("board_fg"), self._board_background)
         )
 
         if self._last_image_buffer is None:

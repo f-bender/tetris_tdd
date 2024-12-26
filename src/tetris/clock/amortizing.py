@@ -21,5 +21,11 @@ class AmortizingClock:
 
         self._last_ticks.append(time.perf_counter())
 
+    def overdue(self) -> bool:
+        return (
+            bool(self._last_ticks)
+            and self._last_ticks[0] + self._tick_delay * len(self._last_ticks) < time.perf_counter()
+        )
+
     def reset(self) -> None:
         self._last_ticks.clear()

@@ -15,5 +15,8 @@ class SimpleClock:
 
         self._last_tick = time.perf_counter()
 
+    def overdue(self) -> bool:
+        return self._last_tick is not None and self._last_tick + self._tick_delay < time.perf_counter()
+
     def reset(self) -> None:
         self._last_tick = None
