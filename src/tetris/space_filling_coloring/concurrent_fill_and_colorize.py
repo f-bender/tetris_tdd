@@ -1,3 +1,4 @@
+import logging
 import random
 from collections.abc import Generator
 
@@ -6,6 +7,8 @@ from numpy.typing import NDArray
 
 from tetris.space_filling_coloring.four_colorizer import FourColorizer, UnableToColorizeError
 from tetris.space_filling_coloring.tetromino_space_filler import TetrominoSpaceFiller
+
+LOGGER = logging.getLogger(__name__)
 
 
 def fill_and_colorize(
@@ -35,18 +38,27 @@ def fill_and_colorize(
     """
     space_being_filled = space.astype(np.int32) - 1
 
-    main_rng = random.Random(rng_seed) if rng_seed is not None else None
+    main_rng_seed = rng_seed if rng_seed is not None else random.randrange(2**32)
+    main_rng = random.Random(main_rng_seed)
+
+    LOGGER.debug(
+        "fill_and_colorize:\n"  # noqa: G003
+        + (f"{main_rng_seed = }\n" if use_rng else "no rng")
+        + f"{minimum_separation_steps = }\n"
+        + f"{allow_coloring_retry = }\n"
+        + f"space:\n{np.array2string(space_being_filled, threshold=np.inf, max_line_width=np.inf)}\n\n"
+    )
 
     space_filler = TetrominoSpaceFiller(
         space_being_filled,
         use_rng=use_rng,
-        rng_seed=main_rng.randrange(2**32) if main_rng is not None else None,
+        rng_seed=main_rng.randrange(2**32),
     )
     four_colorizer = FourColorizer(
         space_being_filled,
         total_blocks_to_color=space_filler.total_blocks_to_place,
         use_rng=use_rng,
-        rng_seed=main_rng.randrange(2**32) if main_rng is not None else None,
+        rng_seed=main_rng.randrange(2**32),
     )
 
     yield space_filler.space, four_colorizer.colored_space

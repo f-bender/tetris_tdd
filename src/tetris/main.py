@@ -6,6 +6,7 @@ from tetris.game_logic.components import Board
 from tetris.game_logic.game import Game
 from tetris.game_logic.interfaces.callback_collection import CallbackCollection
 from tetris.game_logic.interfaces.rule_sequence import RuleSequence
+from tetris.logging import configure_logging
 from tetris.rules.clear_full_lines_rule import ClearFullLinesRule
 from tetris.rules.hacky_pause_rule import PauseRule
 from tetris.rules.move_rotate_rules import MoveRule, RotateRule
@@ -16,6 +17,8 @@ from tetris.ui.cli import CLI
 
 
 def main() -> None:
+    configure_logging()
+
     ui = CLI()
     board = Board.create_empty(20, 10)
     controller = KeyboardController()
