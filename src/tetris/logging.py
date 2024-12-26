@@ -1,4 +1,5 @@
 import logging
+import sys
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 
@@ -23,3 +24,8 @@ def configure_logging(log_dir: Path = Path(__file__).parents[2] / "logs") -> Non
     info_handler.setLevel(logging.INFO)
     info_handler.setFormatter(file_formatter)
     logging.getLogger().addHandler(info_handler)
+
+
+sys.excepthook = lambda exctype, value, traceback: logging.error(
+    "Uncaught exception:", exc_info=(exctype, value, traceback)
+)
