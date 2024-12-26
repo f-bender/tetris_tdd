@@ -8,7 +8,6 @@ from tetris.game_logic.interfaces.callback_collection import CallbackCollection
 from tetris.game_logic.interfaces.rule_sequence import RuleSequence
 from tetris.logging import configure_logging
 from tetris.rules.clear_full_lines_rule import ClearFullLinesRule
-from tetris.rules.hacky_pause_rule import PauseRule
 from tetris.rules.move_rotate_rules import MoveRule, RotateRule
 from tetris.rules.parry_rule import ParryRule
 from tetris.rules.spawn_drop_merge_rule import SpawnDropMergeRule
@@ -31,7 +30,6 @@ def main() -> None:
             MoveRule(),
             RotateRule(),
             spawn_drop_merge_rule,
-            PauseRule(controller, clock),
             parry_rule,
             ClearFullLinesRule(),
             track_score_rule,

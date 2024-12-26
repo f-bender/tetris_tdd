@@ -55,8 +55,6 @@ unfixable = [
 ]
 # unused method arguments are ok (required to conform to rule protocol, but not necessarily used)
 "src/tetris/rules/*" = ["ARG002"]
-# allow usage of private attributes of Game class in GameState classes
-"src/tetris/game_logic/game.py" = ["SLF001"]
 
 "tests/*" = ["INP001"] # we want no __init__.py files in tests
 # boolean positional args are okay to avoid clutter

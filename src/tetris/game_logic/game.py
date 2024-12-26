@@ -34,11 +34,7 @@ class Game:
         self._action_counter = ActionCounter()
         self._rule_sequence = rule_sequence
         self._callback_collection = callback_collection or CallbackCollection(())
-        self._state: GameState = StartupState()
-
-    @property
-    def frame_counter(self) -> int:
-        return self._frame_counter
+        self._state: GameState = STARTUP_STATE
 
     @property
     def state(self) -> "GameState":
@@ -47,6 +43,14 @@ class Game:
     @state.setter
     def state(self, state: "GameState") -> None:
         self._state = state
+
+    @property
+    def frame_counter(self) -> int:
+        return self._frame_counter
+
+    @property
+    def action_counter(self) -> ActionCounter:
+        return self._action_counter
 
     def reset(self) -> None:
         self._frame_counter = 0
@@ -75,9 +79,18 @@ class Game:
 
         self._frame_counter += 1
 
+    def apply_rules(self) -> None:
+        self._rule_sequence.apply(self._frame_counter, self._action_counter, self._board, self._callback_collection)
+        self._callback_collection.on_rules_applied()
 
-class GameState(Protocol):
-    def advance(self, game: Game) -> None: ...
+    def tick_is_overdue(self) -> bool:
+        return self._clock.overdue()
+
+    def advance_ui_startup(self) -> bool:
+        return self._ui.advance_startup()
+
+
+# State pattern
 
 
 class StartupState:
@@ -85,20 +98,41 @@ class StartupState:
 
     def advance(self, game: Game) -> None:
         for i in count():
-            finished = game._ui.advance_startup()
+            finished = game.advance_ui_startup()
             if finished:
-                game.state = PlayingState()
+                game.state = PLAYING_STATE
                 break
 
             if (
-                game._action_counter.held_since(Action(down=True)) == 0
-                or game._clock.overdue()
+                game.action_counter.held_since(Action(down=True)) == 0
+                or game.tick_is_overdue()
                 or i >= self.MAX_STEPS_PER_FRAME
             ):
                 break
 
 
+PAUSE_ACTION = Action(left=True, right=True, down=True)
+
+
 class PlayingState:
     def advance(self, game: Game) -> None:
-        game._rule_sequence.apply(game._frame_counter, game._action_counter, game._board, game._callback_collection)
-        game._callback_collection.on_rules_applied()
+        if game.action_counter.held_since(PAUSE_ACTION) == 1:
+            game.state = PAUSED_STATE
+            return
+
+        game.apply_rules()
+
+
+class PausedState:
+    def advance(self, game: Game) -> None:
+        if game.action_counter.held_since(PAUSE_ACTION) == 1:
+            game.state = PLAYING_STATE
+
+
+class GameState(Protocol):
+    def advance(self, game: Game) -> None: ...
+
+
+STARTUP_STATE = StartupState()
+PLAYING_STATE = PlayingState()
+PAUSED_STATE = PausedState()
