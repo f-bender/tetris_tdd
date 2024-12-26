@@ -20,6 +20,7 @@ from tetris.space_filling_coloring.tetromino_space_filler import TetrominoSpaceF
 class TestConfig(NamedTuple):
     main_rng_seed: int
     fill_and_colorize_rng_seed: int
+    minimum_separation_steps: int
     size_limits: tuple[tuple[int, int], tuple[int, int]]
     size: tuple[int, int]
     max_holes: int
@@ -40,6 +41,7 @@ class TestConfig(NamedTuple):
         num_holes = main_rng.randint(0, max_holes)
 
         inverted = num_holes > 0 and main_rng.randint(0, 1) == 1
+        minimum_separation_steps = main_rng.randint(0, 10) * 10
 
         while True:
             size = (
@@ -58,6 +60,7 @@ class TestConfig(NamedTuple):
             config = cls(
                 main_rng_seed=main_rng_seed,
                 fill_and_colorize_rng_seed=fill_and_colorize_rng_seed,
+                minimum_separation_steps=minimum_separation_steps,
                 size_limits=size_limits,
                 size=size,
                 max_holes=max_holes,
@@ -125,6 +128,7 @@ def _seeded_test(
             test_config.generate_array(),
             use_rng=True,
             rng_seed=test_config.fill_and_colorize_rng_seed,
+            minimum_separation_steps=test_config.minimum_separation_steps,
         ):
             if draw:
                 drawer.draw_array_fancy(np.where(colored_space > 0, colored_space, filled_space))

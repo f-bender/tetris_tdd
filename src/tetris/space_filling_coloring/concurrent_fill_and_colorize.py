@@ -70,21 +70,29 @@ def fill_and_colorize(
     # would reset it back to a too low value while four_colorizer still needs it (setting the depth on the outside
     # makes it so that the `prev_depth` that is being reset back to is still this sufficient depth)
     with space_filler._ensure_sufficient_recursion_depth():  # noqa: SLF001
+        previous_num_placed_blocks = space_filler.num_placed_blocks
+
         # interleave space filling and colorization steps
         for _ in space_filling_iterator:
-            try:
-                separation_steps = space_filler.num_placed_blocks - four_colorizer.num_colored_blocks
-                if not (0 <= separation_steps < minimum_separation_steps):
+            separation_steps = space_filler.num_placed_blocks - four_colorizer.num_colored_blocks
+
+            # if a block was removed or changed, we must give the colorizer a chance to react and potentially remove the
+            # corresponding colorized block on its side
+            block_was_removed_or_changed = space_filler.num_placed_blocks <= previous_num_placed_blocks
+            previous_num_placed_blocks = space_filler.num_placed_blocks
+
+            if separation_steps > minimum_separation_steps or block_was_removed_or_changed:
+                try:
                     next(four_colorizing_iterator)
-            except StopIteration:
-                # FourColorizer finished slightly before TetrominoSpaceFiller:
-                # this can happen in rare instances and can safely be ignored
-                pass
-            except UnableToColorizeError:
-                if allow_coloring_retry:
-                    four_colorizing_iterator = four_colorizer.icolorize()
-                else:
-                    raise
+                except StopIteration:
+                    # FourColorizer finished slightly before TetrominoSpaceFiller:
+                    # this can happen in rare instances and can safely be ignored
+                    pass
+                except UnableToColorizeError:
+                    if allow_coloring_retry:
+                        four_colorizing_iterator = four_colorizer.icolorize()
+                    else:
+                        raise
 
             yield space_filler.space, four_colorizer.colored_space
 
