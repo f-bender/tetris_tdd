@@ -1,5 +1,4 @@
 import numpy as np
-from numpy.typing import NDArray
 
 from tetris.space_filling_coloring.four_colorizer import FourColorizer
 
