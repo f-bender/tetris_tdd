@@ -2,6 +2,7 @@ from typing import NamedTuple
 
 from tetris.game_logic.action_counter import ActionCounter
 from tetris.game_logic.components.board import Board
+from tetris.game_logic.game import GameState
 from tetris.game_logic.interfaces.callback import Callback
 from tetris.game_logic.interfaces.callback_collection import CallbackCollection
 from tetris.rules.clear_full_lines_rule import LineClearMessage
@@ -26,6 +27,7 @@ class TrackScoreRule(Callback):
         action_counter: ActionCounter,
         board: Board,
         callback_collection: CallbackCollection,
+        state: GameState,
     ) -> None:
         print(f"Score: {self._score}")  # noqa: T201
         print(f"High Score: {self._high_score}")  # noqa: T201

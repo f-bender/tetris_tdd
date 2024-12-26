@@ -80,7 +80,9 @@ class Game:
         self._frame_counter += 1
 
     def apply_rules(self) -> None:
-        self._rule_sequence.apply(self._frame_counter, self._action_counter, self._board, self._callback_collection)
+        self._rule_sequence.apply(
+            self._frame_counter, self._action_counter, self._board, self._callback_collection, self._state
+        )
         self._callback_collection.on_rules_applied()
 
     def tick_is_overdue(self) -> bool:
@@ -118,7 +120,6 @@ class PlayingState:
     def advance(self, game: Game) -> None:
         if game.action_counter.held_since(PAUSE_ACTION) == 1:
             game.state = PAUSED_STATE
-            return
 
         game.apply_rules()
 
@@ -127,6 +128,8 @@ class PausedState:
     def advance(self, game: Game) -> None:
         if game.action_counter.held_since(PAUSE_ACTION) == 1:
             game.state = PLAYING_STATE
+
+        game.apply_rules()
 
 
 class GameState(Protocol):

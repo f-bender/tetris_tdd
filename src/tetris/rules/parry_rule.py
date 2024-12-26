@@ -4,6 +4,7 @@ from tetris.board_manipulations.board_manipulation import BoardManipulation
 from tetris.board_manipulations.gravity import Gravity
 from tetris.game_logic.action_counter import ActionCounter
 from tetris.game_logic.components.board import Board
+from tetris.game_logic.game import PLAYING_STATE, GameState
 from tetris.game_logic.interfaces.callback import Callback
 from tetris.game_logic.interfaces.callback_collection import CallbackCollection
 from tetris.game_logic.interfaces.controller import Action
@@ -25,7 +26,11 @@ class ParryRule(Callback):
         action_counter: ActionCounter,
         board: Board,
         callback_collection: CallbackCollection,
+        state: GameState,
     ) -> None:
+        if state is not PLAYING_STATE:
+            return
+
         if self._already_applied:
             return
 

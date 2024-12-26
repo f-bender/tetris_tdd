@@ -2,6 +2,7 @@ from typing import NamedTuple
 
 from tetris.game_logic.action_counter import ActionCounter
 from tetris.game_logic.components.board import Board
+from tetris.game_logic.game import PLAYING_STATE, GameState
 from tetris.game_logic.interfaces.callback_collection import CallbackCollection
 
 
@@ -16,7 +17,11 @@ class ClearFullLinesRule:
         action_counter: ActionCounter,
         board: Board,
         callback_collection: CallbackCollection,
+        state: GameState,
     ) -> None:
+        if state is not PLAYING_STATE:
+            return
+
         full_lines = board.get_full_line_idxs()
         board.clear_lines(full_lines)
         callback_collection.custom_message(LineClearMessage(cleared_lines=full_lines))
