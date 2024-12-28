@@ -9,7 +9,8 @@ from numpy.typing import NDArray
 from tetris.ansi_extensions import cursor as cursorx
 from tetris.game_logic.interfaces.ui import UI
 from tetris.space_filling_coloring import concurrent_fill_and_colorize
-from tetris.ui.cli.buffered_printing import BufferedPrint
+
+# from tetris.ui.cli.buffered_printing import BufferedPrint
 from tetris.ui.cli.color_palette import ColorPalette
 
 if TYPE_CHECKING:
@@ -34,7 +35,7 @@ class CLI(UI):
     PIXEL_WIDTH = 2  # how many terminal characters together form one pixel
     FRAME_WIDTH = 8  # width of the static frame around the board, in pixels
 
-    def __init__(self, color_palette: ColorPalette | None = None) -> None:
+    def __init__(self, color_palette: ColorPalette | None = None, offset: tuple[int, int] = (0, 0)) -> None:
         self._last_image_buffer: NDArray[np.uint8] | None = None
         self._board_background: NDArray[np.uint8] | None = None
         self._outer_background: NDArray[np.uint8] | None = None
@@ -55,16 +56,17 @@ class CLI(UI):
             block_6=(51, 153, 255),
             block_7=(240, 0, 1),
         )
-        self._buffered_print = BufferedPrint()
+        # self._buffered_print = BufferedPrint()
         self._startup_animation_iter: (
             Generator[tuple[NDArray[np.int32], NDArray[np.uint8]], None, tuple[NDArray[np.int32], NDArray[np.uint8]]]
             | None
         ) = None
 
-    @staticmethod
-    def _cursor_goto(vec: Vec) -> str:
+        self._offset = Vec(*offset)
+
+    def _cursor_goto(self, vec: Vec) -> str:
         # + 1 to make the interface 0-based (index of top CLI row, and left CLI column is actually 1, not 0)
-        return cursor.goto(vec.y + 1, vec.x * CLI.PIXEL_WIDTH + 1)
+        return cursor.goto(vec.y + self._offset.y + 1, (vec.x + self._offset.x) * CLI.PIXEL_WIDTH + 1)
 
     def initialize(self, board_height: int, board_width: int) -> None:
         self._initialized_board_background(board_height, board_width)
@@ -78,14 +80,14 @@ class CLI(UI):
     def _initialize_terminal(self) -> None:
         atexit.register(self.terminate)
         self._initialize_cursor()
-        self._buffered_print.start_buffering()
+        # self._buffered_print.start_buffering()
 
     def _initialize_cursor(self) -> None:
         print(cursor.hide("") + cursor.erase(""), end="")
 
     def terminate(self) -> None:
-        if self._buffered_print.is_active():
-            self._buffered_print.discard_and_reset_buffer()
+        # if self._buffered_print.is_active():
+        #     self._buffered_print.discard_and_reset_buffer()
         print(color.fx.reset + cursor.erase("") + self._cursor_goto(Vec(0, 0)) + cursor.show(""), end="")
 
     def advance_startup(self) -> bool:
@@ -143,9 +145,9 @@ class CLI(UI):
         if self._outer_background is None:
             msg = "outer background not initialized, likely draw() was called before advance_startup()!"
             raise RuntimeError(msg)
-        if not self._buffered_print.is_active():
-            msg = "buffered printing not active, likely draw() was called before initialize()!"
-            raise RuntimeError(msg)
+        # if not self._buffered_print.is_active():
+        #     msg = "buffered printing not active, likely draw() was called before initialize()!"
+        #     raise RuntimeError(msg)
 
         image_buffer = self._outer_background.copy()
         image_buffer[self.FRAME_WIDTH : -self.FRAME_WIDTH, self.FRAME_WIDTH : -self.FRAME_WIDTH] = (
@@ -162,7 +164,7 @@ class CLI(UI):
 
         self._last_image_buffer = image_buffer
 
-        self._buffered_print.print_and_restart_buffering()
+        # self._buffered_print.print_and_restart_buffering()
         self._setup_cursor_for_normal_printing(image_height=len(image_buffer))
 
     def _setup_cursor_for_normal_printing(self, image_height: int) -> None:
@@ -179,7 +181,7 @@ class CLI(UI):
 
     def _draw_array_row(self, top_left: Vec, array_row: NDArray[np.uint8]) -> None:
         print(
-            CLI._cursor_goto(top_left)
+            self._cursor_goto(top_left)
             + "".join(self._color_palette[color_index] + " " * CLI.PIXEL_WIDTH for color_index in array_row),
             end="",
         )
