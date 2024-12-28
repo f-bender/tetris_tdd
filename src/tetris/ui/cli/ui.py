@@ -49,10 +49,10 @@ class CLI(UI):
             board_bg_alt=(30, 30, 30),
             block_1=(160, 1, 241),
             block_2=(248, 230, 8),
-            block_3=(1, 241, 242),
+            block_3=(0, 255, 255),
             block_4=(239, 130, 1),
             block_5=(2, 241, 2),
-            block_6=(35, 35, 255),
+            block_6=(51, 153, 255),
             block_7=(240, 0, 1),
         )
         self._buffered_print = BufferedPrint()
