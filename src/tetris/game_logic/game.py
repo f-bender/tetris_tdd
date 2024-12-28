@@ -113,7 +113,7 @@ class StartupState:
                 break
 
 
-PAUSE_ACTION = Action(left=True, right=True, down=True)
+PAUSE_ACTION = Action(cancel=True)
 
 
 class PlayingState:
