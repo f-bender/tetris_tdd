@@ -1,5 +1,6 @@
 import random
 
+from tetris.game_logic.components.board import Board
 from tetris.game_logic.interfaces.controller import Action, Controller
 
 
@@ -34,7 +35,7 @@ class RandomController(Controller):
 
         self._max_buttons_at_once = max_buttons_at_once or self.MAX_VALID_COMBINATION_BUTTONS
 
-    def get_action(self) -> Action:
+    def get_action(self, board: Board) -> Action:
         if random.random() < self._p_do_nothing:
             return Action()
 

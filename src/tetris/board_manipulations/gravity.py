@@ -1,9 +1,12 @@
+import logging
 import random
 
 import numpy as np
 from numpy.typing import NDArray
 
 from tetris.game_logic.components.board import Board
+
+LOGGER = logging.getLogger(__name__)
 
 
 class Gravity:
@@ -12,12 +15,12 @@ class Gravity:
 
     def manipulate(self, board: Board) -> None:
         if board.has_active_block():
-            msg = "Gravity application while there is an active block is not supported!"
-            raise ValueError(msg)
+            LOGGER.warning("Gravity application while there is an active block is not supported!")
+            return
 
         board.set_from_array(self._apply_gravity(board.as_array()))
 
-    def _apply_gravity(self, array: NDArray) -> NDArray:
+    def _apply_gravity(self, array: NDArray[np.bool]) -> NDArray[np.bool]:
         """All falsy values 'float' to the top of each column, all truthy values 'fall' to the bottom of each column."""
         # Create an output array to store the sorted columns
         sorted_arr = np.copy(array)

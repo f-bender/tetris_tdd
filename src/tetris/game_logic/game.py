@@ -62,7 +62,7 @@ class Game:
         while True:
             self._clock.tick()
             try:
-                self.advance_frame(self._controller.get_action())
+                self.advance_frame(self._controller.get_action(self._board))
             except GameOverError:
                 return
 

@@ -1,7 +1,7 @@
 from time import sleep
 
 from tetris.clock.amortizing import AmortizingClock
-from tetris.controllers.keyboard import KeyboardController
+from tetris.controllers.llm import Gemini, LLMController
 from tetris.game_logic.components import Board
 from tetris.game_logic.game import Game
 from tetris.game_logic.interfaces.callback_collection import CallbackCollection
@@ -20,7 +20,7 @@ def main() -> None:
 
     ui = CLI()
     board = Board.create_empty(20, 10)
-    controller = KeyboardController()
+    controller = LLMController(Gemini())
     clock = AmortizingClock(fps=60, window_size=120)
     spawn_drop_merge_rule = SpawnDropMergeRule()
     parry_rule = ParryRule(leeway_frames=1)

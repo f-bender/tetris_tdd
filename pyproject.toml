@@ -11,10 +11,14 @@ numpy = "^2.0.0"
 ansi = "^0.3.7"
 keyboard = "^0.13.5"
 scikit-image = "^0.24.0"
+google-generativeai = { version = "^0.8.3", optional = true }
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.2"
 pre-commit = "^3.8.0"
+
+[tool.poetry.extras]
+gemini = ["google-generativeai"]
 
 [tool.poetry.scripts]
 tetris = "tetris.main:main"
@@ -53,8 +57,9 @@ unfixable = [
 "src/tetris/space_filling_coloring/fuzz_test_concurrent_fill_and_colorize.py" = [
     "T201",
 ]
-# unused method arguments are ok (required to conform to rule protocol, but not necessarily used)
+# unused method arguments are ok (required to conform to protocols, but not necessarily used)
 "src/tetris/rules/*" = ["ARG002"]
+"src/tetris/controllers/*" = ["ARG002"]
 
 "tests/*" = ["INP001"] # we want no __init__.py files in tests
 # boolean positional args are okay to avoid clutter
