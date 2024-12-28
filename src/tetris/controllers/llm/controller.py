@@ -1,7 +1,8 @@
 import logging
 import re
 from collections import deque
-from threading import Thread
+from itertools import chain
+from threading import Lock, Thread
 from typing import Protocol
 
 from tetris.game_logic.components.board import Board
@@ -45,31 +46,37 @@ class LLMController(Controller):
     COMMAND_PATTERN = re.compile(r"(?P<action>[MR])(?P<direction>[LR])(?P<count>\d+)")
 
     def __init__(self, llm: LLM) -> None:
-        self._llm = llm
-        self._llm.start_new_chat(self.SYSTEM_PROMPT)
         self._board: Board | None = None
-        self._command_queue: deque[Action] = deque()
-        self._active_frame = False
+        self._active_frame = True
         self._last_response: str | None = None
 
-        Thread(target=self._continuously_ask_llm, daemon=True).start()
+        self._action_queue: deque[Action] = deque()
+        self._action_queue_lock = Lock()
 
-    def _continuously_ask_llm(self) -> None:
+        Thread(target=self._continuously_ask_llm, args=(llm,), daemon=True).start()
+
+    def _continuously_ask_llm(self, llm: LLM) -> None:
+        llm.start_new_chat(self.SYSTEM_PROMPT)
         while True:
             if self._board is None:
                 continue
 
-            commands_str = self._llm.send_message(str(self._board))
+            commands_str = llm.send_message(str(self._board))
             self._last_response = commands_str
 
             if commands_str == "SKIP":
                 continue
 
-            for command in commands_str.split(","):
-                self._command_queue.extend(self._parse_command(command))
+            parsed_actions = list(
+                chain.from_iterable(self.parse_command(command) for command in commands_str.split(","))
+            )
 
-    def _parse_command(self, command: str) -> list[Action]:
-        match = self.COMMAND_PATTERN.match(command)
+            with self._action_queue_lock:
+                self._action_queue.extend(parsed_actions)
+
+    @staticmethod
+    def parse_command(command: str) -> list[Action]:
+        match = LLMController.COMMAND_PATTERN.match(command)
         if not match:
             LOGGER.warning("Invalid command: %s", command)
             return []
@@ -93,8 +100,10 @@ class LLMController(Controller):
 
         # skip every other frame such that each action is interpreted as a separate button press, instead of a single
         # button hold
-        self._active_frame = not self._active_frame
-        if not self._active_frame:
+        if not self._active_frame or not self._action_queue:
+            self._active_frame = True
             return Action()
 
-        return self._command_queue.popleft() if self._command_queue else Action()
+        self._active_frame = False
+        with self._action_queue_lock:
+            return self._action_queue.popleft()

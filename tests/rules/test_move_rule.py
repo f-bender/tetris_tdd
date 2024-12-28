@@ -1,5 +1,6 @@
 from unittest.mock import Mock
 
+from tetris.game_logic.game import PLAYING_STATE
 from tetris.rules.move_rotate_rules import HeldInputPolicy, MoveRule
 
 
@@ -55,6 +56,7 @@ def assert_whether_move_triggered_after(move_rule: MoveRule, *, n_frames: int, s
         action_counter=Mock(held_since=Mock(return_value=n_frames)),
         board=mock_board,
         callback_collection=Mock(),
+        state=PLAYING_STATE,
     )
     if should_trigger:
         mock_board.try_move_active_block_left.assert_called()

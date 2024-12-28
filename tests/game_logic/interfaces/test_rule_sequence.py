@@ -13,14 +13,15 @@ def test_rule_sequence_calls_apply_in_order() -> None:
     mock_board = Mock()
     rule_sequence = RuleSequence([mock_rule_1, mock_rule_2, mock_rule_3])
     mock_callback_collection = Mock()
+    mock_state = Mock()
 
     # WHEN applying the rule sequence
-    rule_sequence.apply(42, mock_action_counter, mock_board, mock_callback_collection)
+    rule_sequence.apply(42, mock_action_counter, mock_board, mock_callback_collection, mock_state)
 
     # THEN the rules are applied
-    mock_rule_1.apply.assert_called_once_with(42, mock_action_counter, mock_board, mock_callback_collection)
-    mock_rule_2.apply.assert_called_once_with(42, mock_action_counter, mock_board, mock_callback_collection)
-    mock_rule_3.apply.assert_called_once_with(42, mock_action_counter, mock_board, mock_callback_collection)
+    mock_rule_1.apply.assert_called_once_with(42, mock_action_counter, mock_board, mock_callback_collection, mock_state)
+    mock_rule_2.apply.assert_called_once_with(42, mock_action_counter, mock_board, mock_callback_collection, mock_state)
+    mock_rule_3.apply.assert_called_once_with(42, mock_action_counter, mock_board, mock_callback_collection, mock_state)
 
     # and they are applied in order
     assert calls == ["rule_1", "rule_2", "rule_3"]
