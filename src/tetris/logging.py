@@ -25,7 +25,7 @@ def configure_logging(log_dir: Path = Path(__file__).parents[2] / "logs") -> Non
     info_handler.setFormatter(file_formatter)
     logging.getLogger().addHandler(info_handler)
 
-
-sys.excepthook = lambda exctype, value, traceback: logging.error(
-    "Uncaught exception:", exc_info=(exctype, value, traceback)
-)
+    # Make sure uncaught exceptions are logged
+    sys.excepthook = lambda exctype, value, traceback: logging.error(
+        "Uncaught exception:", exc_info=(exctype, value, traceback)
+    )
