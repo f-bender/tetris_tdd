@@ -20,7 +20,7 @@ class Gravity:
 
         board.set_from_array(self._apply_gravity(board.as_array()))
 
-    def _apply_gravity(self, array: NDArray[np.bool]) -> NDArray[np.bool]:
+    def _apply_gravity(self, array: NDArray[np.uint8]) -> NDArray[np.uint8]:
         """All falsy values 'float' to the top of each column, all truthy values 'fall' to the bottom of each column."""
         # Create an output array to store the sorted columns
         sorted_arr = np.copy(array)

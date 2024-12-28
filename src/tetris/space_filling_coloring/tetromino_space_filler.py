@@ -25,7 +25,7 @@ class NotFillableError(BaseTetrisError):
 
 class TetrominoSpaceFiller:
     TETROMINOS = tuple(
-        Block(block_type).actual_cells
+        Block(block_type).actual_cells.astype(bool)
         for block_type in (
             # J and Z are omitted since transposing, i.e. mirroring is done in the process of filling
             BlockType.T,

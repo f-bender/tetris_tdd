@@ -96,7 +96,7 @@ def array_hash(array: NDArray[np.bool]) -> int:
 
 
 def test_get_unique_rotations_transposes_for_L() -> None:  # noqa: N802
-    unique_views = TetrominoSpaceFiller._get_unique_rotations_transposes(Block(BlockType.L).actual_cells)
+    unique_views = TetrominoSpaceFiller._get_unique_rotations_transposes(Block(BlockType.L).actual_cells.astype(bool))
     assert len(unique_views) == 8  # noqa: PLR2004
     assert {array_hash(view) for view in unique_views} == {
         array_hash(np.array(view, dtype=bool))
@@ -142,13 +142,13 @@ def test_get_unique_rotations_transposes_for_L() -> None:  # noqa: N802
 
 
 def test_get_unique_rotations_transposes_for_O() -> None:  # noqa: N802
-    unique_views = TetrominoSpaceFiller._get_unique_rotations_transposes(Block(BlockType.O).actual_cells)
+    unique_views = TetrominoSpaceFiller._get_unique_rotations_transposes(Block(BlockType.O).actual_cells.astype(bool))
     assert len(unique_views) == 1
     assert {array_hash(view) for view in unique_views} == {array_hash(np.array([[1, 1], [1, 1]], dtype=bool))}
 
 
 def test_get_unique_rotations_transposes_for_I() -> None:  # noqa: N802
-    unique_views = TetrominoSpaceFiller._get_unique_rotations_transposes(Block(BlockType.I).actual_cells)
+    unique_views = TetrominoSpaceFiller._get_unique_rotations_transposes(Block(BlockType.I).actual_cells.astype(bool))
     assert len(unique_views) == 2  # noqa: PLR2004
     assert {array_hash(view) for view in unique_views} == {
         array_hash(np.array([[1, 1, 1, 1]], dtype=bool)),

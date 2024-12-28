@@ -2,7 +2,7 @@ import contextlib
 import random
 from collections.abc import Iterator
 from dataclasses import dataclass
-from enum import Enum, auto
+from enum import IntEnum
 from functools import cached_property
 from typing import Self
 
@@ -35,81 +35,102 @@ class BoundingBox:
         return iter((self.top_left.y, self.top_left.x, self.bottom_right.y, self.bottom_right.x))
 
 
-class BlockType(Enum):
-    T = auto()
-    O = auto()  # noqa: E741
-    I = auto()  # noqa: E741
-    L = auto()
-    S = auto()
-    J = auto()
-    Z = auto()
+class BlockType(IntEnum):
+    T = 1
+    O = 2  # noqa: E741
+    I = 3  # noqa: E741
+    L = 4
+    S = 5
+    J = 6
+    Z = 7
 
 
 class Block:
     def __init__(self, block_type: BlockType) -> None:
         match block_type:
             case BlockType.T:
-                self.cells = np.array(
-                    [
-                        [0, 0, 0],
-                        [1, 1, 1],
-                        [0, 1, 0],
-                    ],
-                    dtype=np.bool,
+                self.cells = (
+                    np.array(
+                        [
+                            [0, 0, 0],
+                            [1, 1, 1],
+                            [0, 1, 0],
+                        ],
+                        dtype=np.uint8,
+                    )
+                    * block_type
                 )
             case BlockType.O:
-                self.cells = np.array(
-                    [
-                        [1, 1],
-                        [1, 1],
-                    ],
-                    dtype=np.bool,
+                self.cells = (
+                    np.array(
+                        [
+                            [1, 1],
+                            [1, 1],
+                        ],
+                        dtype=np.uint8,
+                    )
+                    * block_type
                 )
             case BlockType.I:
-                self.cells = np.array(
-                    [
-                        [0, 0, 0, 0],
-                        [0, 0, 0, 0],
-                        [1, 1, 1, 1],
-                        [0, 0, 0, 0],
-                    ],
-                    dtype=np.bool,
+                self.cells = (
+                    np.array(
+                        [
+                            [0, 0, 0, 0],
+                            [0, 0, 0, 0],
+                            [1, 1, 1, 1],
+                            [0, 0, 0, 0],
+                        ],
+                        dtype=np.uint8,
+                    )
+                    * block_type
                 )
             case BlockType.L:
-                self.cells = np.array(
-                    [
-                        [0, 0, 0],
-                        [1, 1, 1],
-                        [1, 0, 0],
-                    ],
-                    dtype=np.bool,
+                self.cells = (
+                    np.array(
+                        [
+                            [0, 0, 0],
+                            [1, 1, 1],
+                            [1, 0, 0],
+                        ],
+                        dtype=np.uint8,
+                    )
+                    * block_type
                 )
             case BlockType.S:
-                self.cells = np.array(
-                    [
-                        [0, 0, 0],
-                        [0, 1, 1],
-                        [1, 1, 0],
-                    ],
-                    dtype=np.bool,
+                self.cells = (
+                    np.array(
+                        [
+                            [0, 0, 0],
+                            [0, 1, 1],
+                            [1, 1, 0],
+                        ],
+                        dtype=np.uint8,
+                    )
+                    * block_type
                 )
             case BlockType.J:
-                self.cells = np.array(
-                    [
-                        [0, 0, 0],
-                        [1, 1, 1],
-                        [0, 0, 1],
-                    ],
-                    dtype=np.bool,
+                self.cells = (
+                    np.array(
+                        [
+                            [0, 0, 0],
+                            [1, 1, 1],
+                            [0, 0, 1],
+                        ],
+                        dtype=np.uint8,
+                    )
+                    * block_type
                 )
             case BlockType.Z:
-                self.cells = np.array(
-                    [
-                        [0, 0, 0],
-                        [1, 1, 0],
-                        [0, 1, 1],
-                    ],
-                    dtype=np.bool,
+                self.cells = (
+                    np.array(
+                        [
+                            [0, 0, 0],
+                            [1, 1, 0],
+                            [0, 1, 1],
+                        ],
+                        dtype=np.uint8,
+                    )
+                    * block_type
                 )
             case _:
                 msg = f"Unknown block type: {block_type}"
@@ -152,7 +173,7 @@ class Block:
             del self.actual_bounding_box
 
     @property
-    def actual_cells(self) -> NDArray[np.bool]:
+    def actual_cells(self) -> NDArray[np.uint8]:
         """Returns the actual cells of the block."""
         return self.cells[
             self.actual_bounding_box.top_left.y : self.actual_bounding_box.bottom_right.y,

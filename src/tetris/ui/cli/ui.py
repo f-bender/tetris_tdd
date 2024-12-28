@@ -41,13 +41,19 @@ class CLI(UI):
 
         self._color_palette = color_palette or ColorPalette.from_rgb(
             outer_bg_progress=(127, 127, 127),
-            outer_bg_1=(200, 3, 10),
+            outer_bg_1=(46, 0, 2),
             outer_bg_2=(39, 85, 10),
             outer_bg_3=(123, 1, 6),
             outer_bg_4=(15, 33, 4),
-            board_bg=(80, 80, 80),
-            board_bg_alt=(60, 60, 60),
-            board_fg=(200, 200, 200),
+            board_bg=(50, 50, 50),
+            board_bg_alt=(30, 30, 30),
+            block_1=(160, 1, 241),
+            block_2=(248, 230, 8),
+            block_3=(1, 241, 242),
+            block_4=(239, 130, 1),
+            block_5=(2, 241, 2),
+            block_6=(35, 35, 255),
+            block_7=(240, 0, 1),
         )
         self._buffered_print = BufferedPrint()
         self._startup_animation_iter: (
@@ -130,7 +136,7 @@ class CLI(UI):
             ),
         )
 
-    def draw(self, board: NDArray[np.bool] | None = None) -> None:
+    def draw(self, board: NDArray[np.uint8] | None = None) -> None:
         if self._board_background is None:
             msg = "background not initialized, likely draw() was called before initialize()!"
             raise RuntimeError(msg)
@@ -145,7 +151,7 @@ class CLI(UI):
         image_buffer[self.FRAME_WIDTH : -self.FRAME_WIDTH, self.FRAME_WIDTH : -self.FRAME_WIDTH] = (
             self._board_background
             if board is None
-            else np.where(board, ColorPalette.index_of_color("board_fg"), self._board_background)
+            else np.where(board, board + ColorPalette.block_color_index_offset() - 1, self._board_background)
         )
 
         if self._last_image_buffer is None:

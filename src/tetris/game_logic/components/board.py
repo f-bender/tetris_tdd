@@ -30,13 +30,13 @@ class PositionedBlock:
 class Board:
     def __init__(self) -> None:
         # initialized in a degenerate state - don't call constructor but rather one of the creation classmethods
-        self._board: NDArray[np.bool] = np.zeros((0, 0), dtype=np.bool)
+        self._board: NDArray[np.uint8] = np.zeros((0, 0), dtype=np.uint8)
         self._active_block: PositionedBlock | None = None
 
     @classmethod
     def create_empty(cls, height: int, width: int) -> Self:
         board = cls()
-        board._board = np.zeros((height, width), dtype=np.bool)  # noqa: SLF001
+        board._board = np.zeros((height, width), dtype=np.uint8)  # noqa: SLF001
         return board
 
     @classmethod
@@ -61,17 +61,17 @@ class Board:
             _board.append([c == "X" for c in line])
 
         board = cls()
-        board._board = np.array(_board, dtype=np.bool)  # noqa: SLF001
+        board._board = np.array(_board, dtype=np.uint8)  # noqa: SLF001
         return board
 
-    def as_array(self) -> NDArray[np.bool]:
+    def as_array(self) -> NDArray[np.uint8]:
         return self._board_with_block()
 
-    def as_array_without_active_block(self) -> NDArray[np.bool]:
+    def as_array_without_active_block(self) -> NDArray[np.uint8]:
         return self._board.copy()
 
-    def set_from_array(self, array: NDArray[np.bool]) -> None:
-        new_board = array.astype(np.bool)
+    def set_from_array(self, array: NDArray[np.uint8]) -> None:
+        new_board = array.copy()
         if new_board.shape != self._board.shape:
             msg = "Array shape does not match board shape"
             raise ValueError(msg)
@@ -98,7 +98,7 @@ class Board:
         return self._active_block is not None
 
     def clear(self) -> None:
-        self._board = np.zeros_like(self._board, dtype=np.bool)
+        self._board = np.zeros_like(self._board, dtype=np.uint8)
 
     def spawn_random_block(self) -> None:
         self.spawn(Block.create_random())
@@ -161,14 +161,18 @@ class Board:
 
     @staticmethod
     def _positioned_block_overlaps_with_active_cells(
-        board: NDArray[np.bool], positioned_block: PositionedBlock
+        board: NDArray[np.uint8], positioned_block: PositionedBlock
     ) -> bool:
         top, left, bottom, right = positioned_block.actual_bounding_box
         # blocks are allowed to stretch beyond the top line; in this case the corresponding cells are not considered
         # part of the board
         top_cutoff = max(0, -top)
         return bool(
-            np.any(board[top + top_cutoff : bottom, left:right] & positioned_block.block.actual_cells[top_cutoff:, :])
+            np.any(
+                np.logical_and(
+                    board[top + top_cutoff : bottom, left:right], positioned_block.block.actual_cells[top_cutoff:, :]
+                )
+            )
         )
 
     def _move(self, x_offset: Literal[-1, 1]) -> None:
@@ -223,7 +227,7 @@ class Board:
 
         raise CannotNudgeError
 
-    def _board_with_block(self) -> NDArray[np.bool]:
+    def _board_with_block(self) -> NDArray[np.uint8]:
         if self._active_block is not None:
             board = self._board.copy()
             self._merge_active_block_into_board(self._active_block, board)
@@ -249,7 +253,7 @@ class Board:
         return list(np.where(np.all(self._board, axis=1))[0])
 
     @staticmethod
-    def _merge_active_block_into_board(positioned_block: PositionedBlock, board: NDArray[np.bool]) -> None:
+    def _merge_active_block_into_board(positioned_block: PositionedBlock, board: NDArray[np.uint8]) -> None:
         top, left, bottom, right = positioned_block.actual_bounding_box
 
         # blocks are allowed to stretch beyond the top line; in this case the corresponding cells are not considered
