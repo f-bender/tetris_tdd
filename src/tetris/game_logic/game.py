@@ -27,7 +27,7 @@ class Game:
     ) -> None:
         self._ui = ui
         self._board = board
-        self._ui.initialize(self._board.height, self._board.width)
+        self._ui.initialize(self._board.height, self._board.width, num_boards=2)
         self._controller = controller
         self._clock = clock
         self._frame_counter = 0
@@ -74,7 +74,7 @@ class Game:
 
         self._state.advance(self)
 
-        self._ui.draw(self._board.as_array())
+        self._ui.draw([self._board.as_array()] * 2)
         self._callback_collection.on_frame_end()
 
         self._frame_counter += 1

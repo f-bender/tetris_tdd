@@ -1,6 +1,8 @@
 import atexit
 import os
+from collections.abc import Iterable
 from dataclasses import dataclass
+from math import ceil
 from typing import TYPE_CHECKING, Self
 
 import numpy as np
@@ -35,10 +37,15 @@ class CLI(UI):
     PIXEL_WIDTH = 2  # how many terminal characters together form one pixel
     FRAME_WIDTH = 8  # width of the static frame around the board, in pixels
 
+    MAX_BOARDS_SINGLE_ROW = 3
+
     def __init__(self, color_palette: ColorPalette | None = None) -> None:
         self._last_image_buffer: NDArray[np.uint8] | None = None
         self._board_background: NDArray[np.uint8] | None = None
         self._outer_background: NDArray[np.uint8] | None = None
+
+        self._single_board_ui: _SingleBoardUI | None = None
+        self._board_ui_offsets: list[Vec] | None = None
 
         self._color_palette = color_palette or ColorPalette.from_rgb(
             outer_bg_progress=(127, 127, 127),
@@ -69,14 +76,59 @@ class CLI(UI):
         # + 1 to make the interface 0-based (index of top CLI row, and left CLI column is actually 1, not 0)
         return cursor.goto(vec.y + 1, vec.x * CLI.PIXEL_WIDTH + 1)
 
-    def initialize(self, board_height: int, board_width: int) -> None:
-        self._initialized_board_background(board_height, board_width)
+    def initialize(self, board_height: int, board_width: int, num_boards: int = 1) -> None:
+        if num_boards <= 0:
+            msg = "num_boards must be greater than 0"
+            raise ValueError(msg)
+
+        self._single_board_ui = _SingleBoardUI(self._create_board_background(board_height, board_width))
+        self._initialize_board_ui_offsets(num_boards)
         self._initialize_terminal()
 
-    def _initialized_board_background(self, board_height: int, board_width: int) -> None:
-        self._board_background = np.full((board_height, board_width), ColorPalette.index_of_color("board_bg"))
-        self._board_background[1::2, ::2] = ColorPalette.index_of_color("board_bg_alt")
-        self._board_background[::2, 1::2] = ColorPalette.index_of_color("board_bg_alt")
+    def _create_board_background(self, board_height: int, board_width: int) -> NDArray[np.uint8]:
+        board_background = np.full((board_height, board_width), ColorPalette.index_of_color("board_bg"), dtype=np.uint8)
+
+        board_background[1::2, ::2] = ColorPalette.index_of_color("board_bg_alt")
+        board_background[::2, 1::2] = ColorPalette.index_of_color("board_bg_alt")
+
+        return board_background
+
+    def _initialize_board_ui_offsets(self, num_boards: int) -> None:
+        assert self._single_board_ui is not None
+
+        num_rows = 1 if num_boards <= self.MAX_BOARDS_SINGLE_ROW else 2
+        num_cols = ceil(num_boards / num_rows)
+
+        board_ui_height, board_ui_width = self._single_board_ui.total_size
+        self._board_ui_offsets = [
+            Vec(
+                self.FRAME_WIDTH + y * (board_ui_height + self.FRAME_WIDTH),
+                self.FRAME_WIDTH + x * (board_ui_width + self.FRAME_WIDTH),
+            )
+            for y in range(num_rows)
+            for x in range(num_cols)
+            if y * num_cols + x < num_boards
+        ]
+
+    def _create_outer_background_mask(self) -> NDArray[np.bool]:
+        if self._board_ui_offsets is None or self._single_board_ui is None:
+            msg = "board UI not initialized, likely initialize() was not called before advance_startup()!"
+            raise RuntimeError(msg)
+
+        board_ui_height, board_ui_width = self._single_board_ui.total_size
+        total_height = max(offset.y for offset in self._board_ui_offsets) + board_ui_height + self.FRAME_WIDTH
+        total_width = max(offset.x for offset in self._board_ui_offsets) + board_ui_width + self.FRAME_WIDTH
+
+        outer_background_mask = np.ones((total_height, total_width), dtype=np.bool)
+
+        # cut out the board UIs from the outer background
+        for offset in self._board_ui_offsets:
+            outer_background_mask[
+                offset.y : offset.y + board_ui_height,
+                offset.x : offset.x + board_ui_width,
+            ] = ~self._single_board_ui.mask
+
+        return outer_background_mask
 
     def _initialize_terminal(self) -> None:
         atexit.register(self.terminate)
@@ -102,6 +154,8 @@ class CLI(UI):
         except StopIteration as e:
             filled_space, colored_space = e.value
             finished = True
+            # let the startup animation objects be garbage collected
+            self._startup_animation_iter = None
 
         self._outer_background = self._background_from_filled_colored(filled_space, colored_space)
 
@@ -111,16 +165,7 @@ class CLI(UI):
         if self._startup_animation_iter is not None:
             return
 
-        if self._board_background is None:
-            msg = "background not initialized, likely advance_startup() was called before initialize()!"
-            raise RuntimeError(msg)
-
-        board_height, board_width = self._board_background.shape
-
-        outer_background_mask = np.ones(
-            (board_height + self.FRAME_WIDTH * 2, board_width + self.FRAME_WIDTH * 2), dtype=np.bool
-        )
-        outer_background_mask[self.FRAME_WIDTH : -self.FRAME_WIDTH, self.FRAME_WIDTH : -self.FRAME_WIDTH] = False
+        outer_background_mask = self._create_outer_background_mask()
 
         self._startup_animation_iter = concurrent_fill_and_colorize.fill_and_colorize(
             outer_background_mask, minimum_separation_steps=15
@@ -139,9 +184,9 @@ class CLI(UI):
             ),
         )
 
-    def draw(self, board: NDArray[np.uint8] | None = None) -> None:
-        if self._board_background is None:
-            msg = "background not initialized, likely draw() was called before initialize()!"
+    def draw(self, boards: Iterable[NDArray[np.uint8]]) -> None:
+        if self._single_board_ui is None or self._board_ui_offsets is None:
+            msg = "board UI not initialized, likely draw() was called before initialize()!"
             raise RuntimeError(msg)
         if self._outer_background is None:
             msg = "outer background not initialized, likely draw() was called before advance_startup()!"
@@ -153,11 +198,12 @@ class CLI(UI):
         self._handle_terminal_size_change()
 
         image_buffer = self._outer_background.copy()
-        image_buffer[self.FRAME_WIDTH : -self.FRAME_WIDTH, self.FRAME_WIDTH : -self.FRAME_WIDTH] = (
-            self._board_background
-            if board is None
-            else np.where(board, board + ColorPalette.block_color_index_offset() - 1, self._board_background)
-        )
+
+        board_ui_height, board_ui_width = self._single_board_ui.total_size
+        for board, offset in zip(boards, self._board_ui_offsets, strict=True):
+            image_buffer[offset.y : offset.y + board_ui_height, offset.x : offset.x + board_ui_width] = (
+                self._single_board_ui.create_as_array(board)
+            )
 
         if self._last_image_buffer is None:
             self._draw_array(Vec(0, 0), image_buffer)
@@ -190,10 +236,30 @@ class CLI(UI):
 
     def _draw_array_row(self, top_left: Vec, array_row: NDArray[np.uint8]) -> None:
         print(
-            CLI._cursor_goto(top_left)
+            self._cursor_goto(top_left)
             + "".join(self._color_palette[color_index] + " " * CLI.PIXEL_WIDTH for color_index in array_row),
             end="",
         )
 
     def _draw_pixel(self, position: Vec, color_index: int) -> None:
         print(self._cursor_goto(position) + self._color_palette[color_index] + " " * CLI.PIXEL_WIDTH, end="")
+
+
+@dataclass(frozen=True, slots=True)
+class _SingleBoardUI:
+    board_background: NDArray[np.uint8]
+
+    @property
+    def board_size(self) -> tuple[int, int]:
+        return tuple(self.board_background.shape)
+
+    @property
+    def total_size(self) -> tuple[int, int]:
+        return self.board_size
+
+    @property
+    def mask(self) -> NDArray[np.bool]:
+        return np.ones_like(self.board_background, dtype=np.bool)
+
+    def create_as_array(self, board: NDArray[np.uint8]) -> NDArray[np.uint8]:
+        return np.where(board, board + ColorPalette.block_color_index_offset() - 1, self.board_background)
