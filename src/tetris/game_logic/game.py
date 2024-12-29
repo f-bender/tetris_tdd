@@ -96,7 +96,8 @@ class Game:
 
 
 class StartupState:
-    MAX_STEPS_PER_FRAME = 5
+    ACCELERATION_FACTOR = 0.1
+    ACCELERATION_ACTION = Action(down=True)
 
     def advance(self, game: Game) -> None:
         for i in count():
@@ -105,10 +106,8 @@ class StartupState:
                 game.state = PLAYING_STATE
                 break
 
-            if (
-                game.action_counter.held_since(Action(down=True)) == 0
-                or game.tick_is_overdue()
-                or i >= self.MAX_STEPS_PER_FRAME
+            if game.tick_is_overdue() or i >= self.ACCELERATION_FACTOR * game.action_counter.held_since(
+                self.ACCELERATION_ACTION
             ):
                 break
 
