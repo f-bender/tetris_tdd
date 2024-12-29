@@ -66,7 +66,12 @@ class LLMController(Controller):
             if self._board is None:
                 continue
 
-            commands_str = llm.send_message(str(self._board))
+            try:
+                commands_str = llm.send_message(str(self._board))
+            except Exception:
+                LOGGER.exception("Encountered exception while using LLM, will keep trying:")
+                continue
+
             self._last_response = commands_str
 
             if commands_str == "SKIP":
