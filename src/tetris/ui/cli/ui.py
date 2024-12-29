@@ -1,4 +1,5 @@
 import atexit
+import os
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Self
 
@@ -60,6 +61,8 @@ class CLI(UI):
             Generator[tuple[NDArray[np.int32], NDArray[np.uint8]], None, tuple[NDArray[np.int32], NDArray[np.uint8]]]
             | None
         ) = None
+
+        self._last_terminal_size = os.get_terminal_size()
 
     @staticmethod
     def _cursor_goto(vec: Vec) -> str:
@@ -147,6 +150,8 @@ class CLI(UI):
             msg = "buffered printing not active, likely draw() was called before initialize()!"
             raise RuntimeError(msg)
 
+        self._handle_terminal_size_change()
+
         image_buffer = self._outer_background.copy()
         image_buffer[self.FRAME_WIDTH : -self.FRAME_WIDTH, self.FRAME_WIDTH : -self.FRAME_WIDTH] = (
             self._board_background
@@ -164,6 +169,12 @@ class CLI(UI):
 
         self._buffered_print.print_and_restart_buffering()
         self._setup_cursor_for_normal_printing(image_height=len(image_buffer))
+
+    def _handle_terminal_size_change(self) -> None:
+        if (new_terminal_size := os.get_terminal_size()) != self._last_terminal_size:
+            # terminal size changed: redraw everything
+            self._last_image_buffer = None
+            self._last_terminal_size = new_terminal_size
 
     def _setup_cursor_for_normal_printing(self, image_height: int) -> None:
         """Move the cursor below the board, clear any colors, and erase anything below the board.
