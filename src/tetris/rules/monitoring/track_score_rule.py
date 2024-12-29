@@ -4,7 +4,7 @@ from tetris.game_logic.action_counter import ActionCounter
 from tetris.game_logic.components.board import Board
 from tetris.game_logic.interfaces.callback import Callback
 from tetris.game_logic.interfaces.callback_collection import CallbackCollection
-from tetris.rules.clear_full_lines_rule import LineClearMessage
+from tetris.rules.core.clear_full_lines_rule import LineClearMessage
 
 
 class TrackScoreRule(Callback):

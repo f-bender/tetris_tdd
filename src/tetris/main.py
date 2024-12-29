@@ -6,11 +6,11 @@ from tetris.game_logic.interfaces.callback_collection import CallbackCollection
 from tetris.game_logic.interfaces.rule_sequence import RuleSequence
 from tetris.game_logic.runtime import Runtime
 from tetris.logging_config import configure_logging
-from tetris.rules.clear_full_lines_rule import ClearFullLinesRule
-from tetris.rules.move_rotate_rules import MoveRule, RotateRule
-from tetris.rules.parry_rule import ParryRule
-from tetris.rules.spawn_drop_merge_rule import SpawnDropMergeRule
-from tetris.rules.track_score_rule import TrackScoreRule
+from tetris.rules.core.clear_full_lines_rule import ClearFullLinesRule
+from tetris.rules.core.move_rotate_rules import MoveRule, RotateRule
+from tetris.rules.core.spawn_drop_merge_rule import SpawnDropMergeRule
+from tetris.rules.monitoring.track_score_rule import TrackScoreRule
+from tetris.rules.special.parry_rule import ParryRule
 from tetris.ui.cli import CLI
 
 

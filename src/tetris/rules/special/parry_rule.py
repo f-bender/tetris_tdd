@@ -7,7 +7,7 @@ from tetris.game_logic.components.board import Board
 from tetris.game_logic.interfaces.callback import Callback
 from tetris.game_logic.interfaces.callback_collection import CallbackCollection
 from tetris.game_logic.interfaces.controller import Action
-from tetris.rules.spawn_drop_merge_rule import MergeMessage
+from tetris.rules.core.spawn_drop_merge_rule import MergeMessage
 
 
 class ParryRule(Callback):
