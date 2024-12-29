@@ -5,14 +5,26 @@ from tetris.ansi_extensions import color as colorx
 
 
 class ColorPalette(NamedTuple):
-    outer_bg_progress: str
-    outer_bg_1: str  # needs to be at index 1
-    outer_bg_2: str  # needs to be at index 2
-    outer_bg_3: str  # needs to be at index 3
-    outer_bg_4: str  # needs to be at index 4
+    # we allow 10 different shades to represent blocks that are placed but not yet (four-)colored
+    outer_bg_progress_1: str
+    outer_bg_progress_2: str
+    outer_bg_progress_3: str
+    outer_bg_progress_4: str
+    outer_bg_progress_5: str
+    outer_bg_progress_6: str
+    outer_bg_progress_7: str
+    outer_bg_progress_8: str
+    outer_bg_progress_9: str
+    outer_bg_progress_10: str
+    # the 4 colors shown as the result of the four-colorizer
+    outer_bg_1: str
+    outer_bg_2: str
+    outer_bg_3: str
+    outer_bg_4: str
+    # the 2 colors of the checkerboard-patterned board background
     board_bg: str
     board_bg_alt: str
-    # there are 7 different block types
+    # there are 7 different block types, each with a different color
     block_1: str
     block_2: str
     block_3: str
@@ -20,12 +32,22 @@ class ColorPalette(NamedTuple):
     block_5: str
     block_6: str
     block_7: str
+    # background that has not (yet) been filled or (four-)colored
     empty: str = colorx.bg.rgb_palette(0, 0, 0)
 
     @classmethod
     def from_rgb(  # noqa: PLR0913
         cls,
-        outer_bg_progress: tuple[int, int, int],
+        outer_bg_progress_1: tuple[int, int, int],
+        outer_bg_progress_2: tuple[int, int, int],
+        outer_bg_progress_3: tuple[int, int, int],
+        outer_bg_progress_4: tuple[int, int, int],
+        outer_bg_progress_5: tuple[int, int, int],
+        outer_bg_progress_6: tuple[int, int, int],
+        outer_bg_progress_7: tuple[int, int, int],
+        outer_bg_progress_8: tuple[int, int, int],
+        outer_bg_progress_9: tuple[int, int, int],
+        outer_bg_progress_10: tuple[int, int, int],
         outer_bg_1: tuple[int, int, int],
         outer_bg_2: tuple[int, int, int],
         outer_bg_3: tuple[int, int, int],
@@ -45,7 +67,16 @@ class ColorPalette(NamedTuple):
     ) -> Self:
         color_fn = colorx.bg.rgb_palette if mode == "palette" else colorx.bg.rgb_truecolor
         return cls(
-            outer_bg_progress=color_fn(*outer_bg_progress),
+            outer_bg_progress_1=color_fn(*outer_bg_progress_1),
+            outer_bg_progress_2=color_fn(*outer_bg_progress_2),
+            outer_bg_progress_3=color_fn(*outer_bg_progress_3),
+            outer_bg_progress_4=color_fn(*outer_bg_progress_4),
+            outer_bg_progress_5=color_fn(*outer_bg_progress_5),
+            outer_bg_progress_6=color_fn(*outer_bg_progress_6),
+            outer_bg_progress_7=color_fn(*outer_bg_progress_7),
+            outer_bg_progress_8=color_fn(*outer_bg_progress_8),
+            outer_bg_progress_9=color_fn(*outer_bg_progress_9),
+            outer_bg_progress_10=color_fn(*outer_bg_progress_10),
             outer_bg_1=color_fn(*outer_bg_1),
             outer_bg_2=color_fn(*outer_bg_2),
             outer_bg_3=color_fn(*outer_bg_3),
@@ -66,7 +97,16 @@ class ColorPalette(NamedTuple):
     def index_of_color(
         cls,
         color_name: Literal[
-            "outer_bg_progress",
+            "outer_bg_progress_1",
+            "outer_bg_progress_2",
+            "outer_bg_progress_3",
+            "outer_bg_progress_4",
+            "outer_bg_progress_5",
+            "outer_bg_progress_6",
+            "outer_bg_progress_7",
+            "outer_bg_progress_8",
+            "outer_bg_progress_9",
+            "outer_bg_progress_10",
             "outer_bg_1",
             "outer_bg_2",
             "outer_bg_3",
@@ -93,3 +133,13 @@ class ColorPalette(NamedTuple):
     @staticmethod
     def block_color_index_offset() -> int:
         return ColorPalette.index_of_color("block_1")
+
+    @cache
+    @staticmethod
+    def outer_bg_index_offset() -> int:
+        return ColorPalette.index_of_color("outer_bg_1")
+
+    @cache
+    @staticmethod
+    def outer_bg_progress_index_offset() -> int:
+        return ColorPalette.index_of_color("outer_bg_progress_1")

@@ -48,7 +48,7 @@ class CLI(UI):
         self._board_ui_offsets: list[Vec] | None = None
 
         self._color_palette = color_palette or ColorPalette.from_rgb(
-            outer_bg_progress=(127, 127, 127),
+            **{f"outer_bg_progress_{i}": (127 + 10 * (i - 5),) * 3 for i in range(1, 11)},  # type: ignore[arg-type]
             outer_bg_1=(46, 0, 2),
             outer_bg_2=(39, 85, 10),
             outer_bg_3=(123, 1, 6),
@@ -188,10 +188,10 @@ class CLI(UI):
     ) -> NDArray[np.uint8]:
         return np.where(
             colored_space > 0,
-            colored_space,
+            colored_space + ColorPalette.outer_bg_index_offset() - 1,
             np.where(
                 filled_space > 0,
-                self._color_palette.index_of_color("outer_bg_progress"),
+                filled_space % 10 + ColorPalette.outer_bg_progress_index_offset(),
                 self._color_palette.index_of_color("empty"),
             ),
         )
