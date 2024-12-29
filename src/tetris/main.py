@@ -6,7 +6,7 @@ from tetris.game_logic.components import Board
 from tetris.game_logic.game import Game
 from tetris.game_logic.interfaces.callback_collection import CallbackCollection
 from tetris.game_logic.interfaces.rule_sequence import RuleSequence
-from tetris.logging import configure_logging
+from tetris.logging_config import configure_logging
 from tetris.rules.clear_full_lines_rule import ClearFullLinesRule
 from tetris.rules.move_rotate_rules import MoveRule, RotateRule
 from tetris.rules.parry_rule import ParryRule
