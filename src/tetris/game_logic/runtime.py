@@ -2,23 +2,20 @@ from itertools import count
 from typing import Protocol
 
 from tetris.game_logic.action_counter import ActionCounter
-from tetris.game_logic.components.board import Board
 from tetris.game_logic.game import Game, GameOverError
 from tetris.game_logic.interfaces.callback_collection import CallbackCollection
 from tetris.game_logic.interfaces.clock import Clock
 from tetris.game_logic.interfaces.controller import Action, Controller
-from tetris.game_logic.interfaces.rule_sequence import RuleSequence
 from tetris.game_logic.interfaces.ui import UI
 
 
 class Runtime:
-    def __init__(  # noqa: PLR0913
+    def __init__(
         self,
         ui: UI,
         clock: Clock,
         games: list[Game],
         controller: Controller,  # for menu navigation or startup acceleration
-        rule_sequence: RuleSequence | None = None,
         callback_collection: CallbackCollection | None = None,
     ) -> None:
         if not games:
@@ -37,7 +34,6 @@ class Runtime:
         self._frame_counter = 0
         self._state: State = STARTUP_STATE
 
-        self._rule_sequence = rule_sequence or RuleSequence(())
         self._callback_collection = callback_collection or CallbackCollection(())
 
         self._controller = controller
@@ -79,17 +75,7 @@ class Runtime:
         self._callback_collection.on_frame_start()
 
         self._action_counter.update(action)
-
-        self._rule_sequence.apply(
-            self._frame_counter,
-            self._action_counter,
-            # hacky workaround to appease the interface;
-            # conceptually rules should have a different interface on the runtime level
-            # (if they should even exist here at all)
-            Board(),
-            self._callback_collection,
-        )
-        self._callback_collection.on_rules_applied()
+        self._callback_collection.on_action_counter_updated()
 
         self._state.advance(self)
 
