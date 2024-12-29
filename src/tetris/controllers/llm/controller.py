@@ -5,6 +5,7 @@ from itertools import chain
 from threading import Lock, Thread
 from typing import Protocol
 
+from tetris.clock.amortizing import AmortizingClock
 from tetris.game_logic.components.board import Board
 from tetris.game_logic.interfaces.controller import Action, Controller
 
@@ -12,6 +13,8 @@ LOGGER = logging.getLogger(__name__)
 
 
 class LLM(Protocol):
+    @property
+    def requests_per_minute_limit(self) -> float: ...
     def start_new_chat(self, system_prompt: str | None) -> None: ...
     def send_message(self, message: str) -> str: ...
 
@@ -57,7 +60,9 @@ class LLMController(Controller):
 
     def _continuously_ask_llm(self, llm: LLM) -> None:
         llm.start_new_chat(self.SYSTEM_PROMPT)
+        clock = AmortizingClock(fps=llm.requests_per_minute_limit / 60, window_size=10)
         while True:
+            clock.tick()
             if self._board is None:
                 continue
 
