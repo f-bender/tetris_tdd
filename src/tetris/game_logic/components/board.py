@@ -91,6 +91,10 @@ class Board:
     def width(self) -> int:
         return self._board.shape[1]
 
+    @property
+    def size(self) -> tuple[int, int]:
+        return tuple(self._board.shape)
+
     def __str__(self) -> str:
         return "\n".join("".join(("X" if c else ".") for c in line) for line in self._board_with_block())
 

@@ -17,7 +17,7 @@ class Action(NamedTuple):
 
 class Controller(ABC):
     @abstractmethod
-    def get_action(self, board: Board) -> Action: ...
+    def get_action(self, board: Board | None = None) -> Action: ...
 
     # the Game class uses this to display a message what button to press in order to trigger something (e.g. start a
     # new game on game over screen)

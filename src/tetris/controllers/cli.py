@@ -91,7 +91,7 @@ class CliController(Controller):
         self._button_listener = CliButtonListener()
         self._button_listener.start()
 
-    def get_action(self, board: Board) -> Action:
+    def get_action(self, board: Board | None = None) -> Action:
         match self._button_listener.get_held_char():
             case "a":
                 return Action(left=True)

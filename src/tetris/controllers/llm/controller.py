@@ -93,7 +93,7 @@ class LLMController(Controller):
         msg = f"Invalid action: {action}"
         raise ValueError(msg)
 
-    def get_action(self, board: Board) -> Action:
+    def get_action(self, board: Board | None = None) -> Action:
         self._board = board
         if self._last_response:
             print("LLM response:", self._last_response)  # noqa: T201

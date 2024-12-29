@@ -14,6 +14,10 @@ class CallbackCollection:
         for callback in self._callbacks:
             callback.custom_message(message)
 
+    def on_runtime_start(self) -> None:
+        for callback in self._callbacks:
+            callback.on_runtime_start()
+
     def on_game_start(self) -> None:
         for callback in self._callbacks:
             callback.on_game_start()

@@ -13,7 +13,7 @@ from tetris.rules.spawn_drop_merge_rule import SpawnDropMergeRule, SpawnStrategy
 
 
 class DummyController(Controller):
-    def get_action(self) -> Action:
+    def get_action(self, board: Board | None = None) -> Action:  # noqa: ARG002
         return Action()
 
 

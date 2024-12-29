@@ -33,7 +33,7 @@ class KeyboardController(Controller):
 
             raise ValueError(message)
 
-    def get_action(self, board: Board) -> Action:
+    def get_action(self, board: Board | None = None) -> Action:
         return Action(
             **{
                 action_name: any(keyboard.is_pressed(key) for key in key_list)

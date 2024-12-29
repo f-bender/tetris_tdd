@@ -5,7 +5,7 @@ from tetris.game_logic.action_counter import ActionCounter
 from tetris.game_logic.components.block import Block
 from tetris.game_logic.components.board import Board
 from tetris.game_logic.components.exceptions import CannotDropBlockError, CannotSpawnBlockError
-from tetris.game_logic.game import PLAYING_STATE, GameOverError, GameState
+from tetris.game_logic.game import GameOverError
 from tetris.game_logic.interfaces.callback import Callback
 from tetris.game_logic.interfaces.callback_collection import CallbackCollection
 from tetris.game_logic.interfaces.controller import Action
@@ -97,16 +97,12 @@ class SpawnDropMergeRule(Callback):
         action_counter: ActionCounter,
         board: Board,
         callback_collection: CallbackCollection,
-        state: GameState,
     ) -> None:
         """Do only one of the actions at a time: Either spawn a block, or drop the block, or merge it into the board.
 
         Block spawning happens `spawn_delay` frames after the last merge, regardless of the quick-drop-action.
         Block dropping and merging acts on the quick interval schedule in case the quick-drop-action is held.
         """
-        if state is not PLAYING_STATE:
-            return
-
         if not board.has_active_block():
             if not self._last_merge_frame or frame_counter - self._last_merge_frame >= self._spawn_delay:
                 self._spawn_strategy.apply(board)
