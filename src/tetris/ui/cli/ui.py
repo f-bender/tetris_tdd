@@ -128,6 +128,18 @@ class CLI(UI):
                 offset.x : offset.x + board_ui_width,
             ] = ~self._single_board_ui.mask
 
+        # make sure the size of the space to be filled is divisible by 4 (otherwise it can't be filed with tetrominos)
+        match int(np.sum(outer_background_mask) % 4):
+            case 1:
+                outer_background_mask[-1, -1] = False
+            case 2:
+                outer_background_mask[-1, -1] = False
+                outer_background_mask[0, 0] = False
+            case 3:
+                outer_background_mask[-1, -1] = False
+                outer_background_mask[-1, -2] = False
+                outer_background_mask[-2, -1] = False
+
         return outer_background_mask
 
     def _initialize_terminal(self) -> None:
