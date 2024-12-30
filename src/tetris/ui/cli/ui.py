@@ -62,6 +62,7 @@ class CLI(UI):
             block_5=(2, 241, 2),
             block_6=(51, 153, 255),
             block_7=(240, 0, 1),
+            block_neutral=(200, 200, 200),
         )
         self._buffered_print = BufferedPrint()
         self._startup_animation_iter: (

@@ -32,6 +32,7 @@ class ColorPalette(NamedTuple):
     block_5: str
     block_6: str
     block_7: str
+    block_neutral: str
     # background that has not (yet) been filled or (four-)colored
     empty: str = colorx.bg.rgb_palette(0, 0, 0)
 
@@ -61,6 +62,7 @@ class ColorPalette(NamedTuple):
         block_5: tuple[int, int, int],
         block_6: tuple[int, int, int],
         block_7: tuple[int, int, int],
+        block_neutral: tuple[int, int, int],
         empty: tuple[int, int, int] = (0, 0, 0),
         *,
         mode: Literal["palette", "truecolor"] = "truecolor",
@@ -90,6 +92,7 @@ class ColorPalette(NamedTuple):
             block_5=color_fn(*block_5),
             block_6=color_fn(*block_6),
             block_7=color_fn(*block_7),
+            block_neutral=color_fn(*block_neutral),
             empty=color_fn(*empty),
         )
 
@@ -120,6 +123,7 @@ class ColorPalette(NamedTuple):
             "block_5",
             "block_6",
             "block_7",
+            "block_neutral",
             "empty",
         ],
     ) -> int:

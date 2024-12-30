@@ -70,16 +70,24 @@ class Board:
     def as_array_without_active_block(self) -> NDArray[np.uint8]:
         return self._board.copy()
 
-    def set_from_array(self, array: NDArray[np.uint8]) -> None:
+    def set_from_array(
+        self, array: NDArray[np.uint8], active_block_displacement: tuple[int, int] | None = None
+    ) -> None:
         new_board = array.copy()
         if new_board.shape != self._board.shape:
             msg = "Array shape does not match board shape"
             raise ValueError(msg)
 
-        if self._active_block is not None and self._positioned_block_overlaps_with_active_cells(
-            new_board, self._active_block
-        ):
-            raise ActiveBlockOverlapError
+        if self._active_block is not None:
+            active_block = (
+                PositionedBlock(self._active_block.block, self._active_block.position + Vec(*active_block_displacement))
+                if active_block_displacement
+                else self._active_block
+            )
+            if self._positioned_block_overlaps_with_active_cells(new_board, active_block):
+                raise ActiveBlockOverlapError
+
+            self._active_block = active_block
 
         self._board = new_board
 
