@@ -1,7 +1,7 @@
 import contextlib
 from typing import TYPE_CHECKING
 
-from tetris.clock.amortizing import AmortizingClock
+from tetris.clock.simple import SimpleClock
 from tetris.controllers.gamepad import GamepadController
 from tetris.controllers.keyboard import KeyboardController
 from tetris.game_logic.components import Board
@@ -99,7 +99,7 @@ def _default_controllers() -> list[Controller]:
 
 def create_runtime(games: list[Game], fps: float = FPS) -> Runtime:
     ui = CLI()
-    clock = AmortizingClock(fps=fps, window_size=120)
+    clock = SimpleClock(fps=fps)
     return Runtime(
         ui,
         clock,
