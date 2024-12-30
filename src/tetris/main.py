@@ -1,4 +1,5 @@
 from tetris.clock.amortizing import AmortizingClock
+from tetris.controllers.gamepad import GamepadController
 from tetris.controllers.keyboard import KeyboardController
 from tetris.game_logic.components import Board
 from tetris.game_logic.game import Game
@@ -28,24 +29,13 @@ def main() -> None:
     t99_2.add_subscriber(t99_1)
 
     board = Board.create_empty(20, 10)
-    controller = KeyboardController(
-        action_to_keys={
-            "left": ["a"],
-            "right": ["d"],
-            "up": ["w"],
-            "down": ["s"],
-            "left_shoulder": ["q"],
-            "right_shoulder": ["e"],
-            "confirm": ["space"],
-            "cancel": ["ctrl"],
-        }
-    )
+    controller_1 = GamepadController()
     rule_sequence, callback_collection = get_rules_and_callbacks(t99_1, "Game 1")
 
-    game_1 = Game(board, controller, rule_sequence, callback_collection)
+    game_1 = Game(board, controller_1, rule_sequence, callback_collection)
 
     board = Board.create_empty(20, 10)
-    controller = KeyboardController(
+    controller_2 = KeyboardController(
         action_to_keys={
             "left": ["left"],
             "right": ["right"],
@@ -59,7 +49,7 @@ def main() -> None:
     )
     rule_sequence, callback_collection = get_rules_and_callbacks(t99_2, "Game 2")
 
-    game_2 = Game(board, controller, rule_sequence, callback_collection)
+    game_2 = Game(board, controller_2, rule_sequence, callback_collection)
 
     ui = CLI()
     clock = AmortizingClock(fps=FPS, window_size=120)

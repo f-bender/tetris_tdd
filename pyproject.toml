@@ -12,6 +12,7 @@ ansi = "^0.3.7"
 keyboard = "^0.13.5"
 scikit-image = "^0.24.0"
 google-generativeai = { version = "^0.8.3", optional = true }
+inputs = {version = "^0.5", optional = true}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.2"
@@ -19,6 +20,7 @@ pre-commit = "^3.8.0"
 
 [tool.poetry.extras]
 gemini = ["google-generativeai"]
+gamepad = ["inputs"]
 
 [tool.poetry.scripts]
 tetris = "tetris.main:main"

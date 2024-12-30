@@ -507,6 +507,17 @@ files = [
 ]
 
 [[package]]
+name = "inputs"
+version = "0.5"
+description = "Cross-platform Python support for keyboards, mice and gamepads."
+optional = true
+python-versions = "*"
+files = [
+    {file = "inputs-0.5-py2.py3-none-any.whl", hash = "sha256:13f894564e52134cf1e3862b1811da034875eb1f2b62e6021e3776e9669a96ec"},
+    {file = "inputs-0.5.tar.gz", hash = "sha256:a31d5b96a3525f1232f326be9e7ce8ccaf873c6b1fb84d9f3c9bc3d79b23eae4"},
+]
+
+[[package]]
 name = "keyboard"
 version = "0.13.5"
 description = "Hook and simulate keyboard events on Windows and Linux"
@@ -4155,9 +4166,10 @@ docs = ["furo (>=2023.7.26)", "proselint (>=0.13)", "sphinx (>=7.1.2,!=7.3)", "s
 test = ["covdefaults (>=2.3)", "coverage (>=7.2.7)", "coverage-enable-subprocess (>=1)", "flaky (>=3.7)", "packaging (>=23.1)", "pytest (>=7.4)", "pytest-env (>=0.8.2)", "pytest-freezer (>=0.4.8)", "pytest-mock (>=3.11.1)", "pytest-randomly (>=3.12)", "pytest-timeout (>=2.1)", "setuptools (>=68)", "time-machine (>=2.10)"]
 
 [extras]
+gamepad = ["inputs"]
 gemini = ["google-generativeai"]
 
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "6183f72cede55540d7efcaa33d87063917230a719612a3c02c06b8af681a6a43"
+content-hash = "1356430ddc229d010e94388dc62289582be929a6f936d05d6fb31adc45f805c4"
