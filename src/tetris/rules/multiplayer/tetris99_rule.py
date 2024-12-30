@@ -6,7 +6,6 @@ import numpy as np
 from tetris.game_logic.action_counter import ActionCounter
 from tetris.game_logic.components.board import Board
 from tetris.game_logic.game import GameOverError
-from tetris.game_logic.interfaces.callback_collection import CallbackCollection
 from tetris.game_logic.interfaces.rule import Publisher, Subscriber
 from tetris.rules.core.clear_full_lines_rule import LineClearMessage
 
@@ -58,7 +57,6 @@ class Tetris99Rule(Publisher, Subscriber):
         frame_counter: int,
         action_counter: ActionCounter,
         board: Board,
-        callback_collection: CallbackCollection,
     ) -> None:
         if self._num_recently_cleared_lines:
             self.notify_subscribers(

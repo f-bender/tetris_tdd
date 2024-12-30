@@ -1,6 +1,5 @@
 from tetris.game_logic.action_counter import ActionCounter
 from tetris.game_logic.components.board import Board
-from tetris.game_logic.interfaces.callback_collection import CallbackCollection
 from tetris.game_logic.interfaces.controller import Action
 
 
@@ -52,7 +51,6 @@ class MoveRule:
         frame_counter: int,
         action_counter: ActionCounter,
         board: Board,
-        callback_collection: CallbackCollection,
     ) -> None:
         if not board.has_active_block():
             return
@@ -79,7 +77,6 @@ class RotateRule:
         frame_counter: int,
         action_counter: ActionCounter,
         board: Board,
-        callback_collection: CallbackCollection,
     ) -> None:
         if not board.has_active_block():
             return

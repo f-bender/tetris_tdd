@@ -7,8 +7,8 @@ from tetris.game_logic.components.board import Board
 from tetris.game_logic.components.exceptions import CannotDropBlockError, CannotSpawnBlockError
 from tetris.game_logic.game import GameOverError
 from tetris.game_logic.interfaces.callback import Callback
-from tetris.game_logic.interfaces.callback_collection import CallbackCollection
 from tetris.game_logic.interfaces.controller import Action
+from tetris.game_logic.interfaces.rule import Publisher
 
 
 class SpawnStrategy(Protocol):
@@ -51,7 +51,7 @@ class MergeMessage(NamedTuple):
     quick: bool
 
 
-class SpawnDropMergeRule(Callback):
+class SpawnDropMergeRule(Callback, Publisher):
     def __init__(  # noqa: PLR0913
         self,
         normal_interval: int = 25,
@@ -74,6 +74,7 @@ class SpawnDropMergeRule(Callback):
             drop_strategy: Strategy for dropping the active block.
             merge_strategy: Strategy for merging the active block into the board.
         """
+        super().__init__()
         self._quick_interval_factor = quick_interval_factor
         self.set_interval(normal_interval)
 
@@ -96,7 +97,6 @@ class SpawnDropMergeRule(Callback):
         frame_counter: int,
         action_counter: ActionCounter,
         board: Board,
-        callback_collection: CallbackCollection,
     ) -> None:
         """Do only one of the actions at a time: Either spawn a block, or drop the block, or merge it into the board.
 
@@ -111,10 +111,10 @@ class SpawnDropMergeRule(Callback):
         if (quick_drop_held_since := action_counter.held_since(Action(down=True))) != 0:
             if self._is_quick_action_frame(quick_drop_held_since) and self._drop_or_merge(board):
                 self._last_merge_frame = frame_counter
-                callback_collection.custom_message(MergeMessage(quick=True))
+                self.notify_subscribers(MergeMessage(quick=True))
         elif self._is_normal_action_frame(frame_counter) and self._drop_or_merge(board):
             self._last_merge_frame = frame_counter
-            callback_collection.custom_message(MergeMessage(quick=False))
+            self.notify_subscribers(MergeMessage(quick=False))
 
     def _is_normal_action_frame(self, frame_counter: int) -> bool:
         return frame_counter % self._normal_interval == 0

@@ -1,9 +1,4 @@
-from typing import NamedTuple
-
-
 class Callback:
-    def custom_message(self, message: NamedTuple) -> None: ...
-
     def on_runtime_start(self) -> None: ...
     def on_game_start(self) -> None: ...
 

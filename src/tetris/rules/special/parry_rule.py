@@ -4,13 +4,12 @@ from tetris.board_manipulations.board_manipulation import BoardManipulation
 from tetris.board_manipulations.gravity import Gravity
 from tetris.game_logic.action_counter import ActionCounter
 from tetris.game_logic.components.board import Board
-from tetris.game_logic.interfaces.callback import Callback
-from tetris.game_logic.interfaces.callback_collection import CallbackCollection
 from tetris.game_logic.interfaces.controller import Action
+from tetris.game_logic.interfaces.rule import Subscriber
 from tetris.rules.core.spawn_drop_merge_rule import MergeMessage
 
 
-class ParryRule(Callback):
+class ParryRule(Subscriber):
     def __init__(self, leeway_frames: int = 1, reward_board_manipulation: BoardManipulation | None = None) -> None:
         self._just_merged = False
         self._last_merge_frame: int | None = 0
@@ -24,7 +23,6 @@ class ParryRule(Callback):
         frame_counter: int,
         action_counter: ActionCounter,
         board: Board,
-        callback_collection: CallbackCollection,
     ) -> None:
         if self._already_applied:
             return
@@ -48,7 +46,7 @@ class ParryRule(Callback):
     def _parry_press_started_within_leeway_frames(self, action_counter: ActionCounter) -> bool:
         return 0 < action_counter.held_since(Action(confirm=True)) <= self._leeway_frames + 1
 
-    def custom_message(self, message: NamedTuple) -> None:
+    def notify(self, message: NamedTuple) -> None:
         if isinstance(message, MergeMessage):
             self._just_merged = True
             self._already_applied = False

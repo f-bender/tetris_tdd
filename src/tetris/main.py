@@ -80,7 +80,11 @@ def get_rules_and_callbacks(
     parry_rule = ParryRule(leeway_frames=1)
     track_score_rule = TrackScoreRule(header=name)
     clear_full_lines_rule = ClearFullLinesRule()
+
     clear_full_lines_rule.add_subscriber(tetris99_rule)
+    clear_full_lines_rule.add_subscriber(track_score_rule)
+    spawn_drop_merge_rule.add_subscriber(parry_rule)
+
     rule_sequence = RuleSequence(
         (
             MoveRule(),
@@ -92,7 +96,7 @@ def get_rules_and_callbacks(
             tetris99_rule,
         ),
     )
-    callback_collection = CallbackCollection((spawn_drop_merge_rule, parry_rule, track_score_rule))
+    callback_collection = CallbackCollection((spawn_drop_merge_rule, track_score_rule))
     return rule_sequence, callback_collection
 
 

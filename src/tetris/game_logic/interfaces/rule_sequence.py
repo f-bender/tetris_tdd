@@ -2,7 +2,6 @@ from collections.abc import Sequence
 
 from tetris.game_logic.action_counter import ActionCounter
 from tetris.game_logic.components.board import Board
-from tetris.game_logic.interfaces.callback_collection import CallbackCollection
 from tetris.game_logic.interfaces.rule import Rule
 
 
@@ -17,7 +16,6 @@ class RuleSequence:
         frame_counter: int,
         action_counter: ActionCounter,
         board: Board,
-        callback_collection: CallbackCollection,
     ) -> None:
         for rule in self._rule_sequence:
-            rule.apply(frame_counter, action_counter, board, callback_collection)
+            rule.apply(frame_counter, action_counter, board)

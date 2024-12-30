@@ -44,5 +44,5 @@ class Game:
         self._action_counter.update(self._controller.get_action(self._board))
         self._callback_collection.on_action_counter_updated()
 
-        self._rule_sequence.apply(frame_counter, self._action_counter, self._board, self._callback_collection)
+        self._rule_sequence.apply(frame_counter, self._action_counter, self._board)
         self._callback_collection.on_rules_applied()
