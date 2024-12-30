@@ -13,8 +13,8 @@ class HeldInputPolicy:
                 being triggered.
             single_press_delay_frames: After the move input is initially pressed down, how many frames to wait before
                 the action is repeated with the repeat interval. This is to avoid unintended double-triggering of the
-                move action. If this value is lower than `repeat_interval_frames`, then there is no special delay, and
-                the delay between the first and second trigger is equal to `repeat_interval_frames`. This is the default
+                action. If this value is lower than `repeat_interval_frames`, then there is no special delay, and the
+                delay between the first and second trigger is equal to `repeat_interval_frames`. This is the default
                 behaviour.
         """
         self._repeat_interval_frames = repeat_interval_frames
