@@ -1,9 +1,13 @@
+import contextlib
+from typing import TYPE_CHECKING
+
 from tetris.clock.amortizing import AmortizingClock
 from tetris.controllers.gamepad import GamepadController
 from tetris.controllers.keyboard import KeyboardController
 from tetris.game_logic.components import Board
 from tetris.game_logic.game import Game
 from tetris.game_logic.interfaces.callback_collection import CallbackCollection
+from tetris.game_logic.interfaces.controller import Controller
 from tetris.game_logic.interfaces.rule_sequence import RuleSequence
 from tetris.game_logic.runtime import Runtime
 from tetris.logging_config import configure_logging
@@ -16,57 +20,97 @@ from tetris.rules.multiplayer.tetris99_rule import Tetris99Rule
 from tetris.rules.special.parry_rule import ParryRule
 from tetris.ui.cli import CLI
 
+if TYPE_CHECKING:
+    from tetris.game_logic.interfaces.rule import Rule
+
 FPS = 60
 
 
 def main() -> None:
     configure_logging()
 
-    t99_1 = Tetris99Rule(id=1, target_ids=[2])
-    t99_2 = Tetris99Rule(id=2, target_ids=[1])
-
-    t99_1.add_subscriber(t99_2)
-    t99_2.add_subscriber(t99_1)
-
-    board = Board.create_empty(20, 10)
-    controller_1 = GamepadController()
-    rule_sequence, callback_collection = get_rules_and_callbacks(t99_1, "Game 1")
-
-    game_1 = Game(board, controller_1, rule_sequence, callback_collection)
-
-    board = Board.create_empty(20, 10)
-    controller_2 = KeyboardController(
-        action_to_keys={
-            "left": ["left"],
-            "right": ["right"],
-            "up": ["up"],
-            "down": ["down"],
-            "left_shoulder": [],
-            "right_shoulder": [],
-            "confirm": ["enter", 82],  # numpad 0
-            "cancel": ["esc"],
-        }
-    )
-    rule_sequence, callback_collection = get_rules_and_callbacks(t99_2, "Game 2")
-
-    game_2 = Game(board, controller_2, rule_sequence, callback_collection)
-
-    ui = CLI()
-    clock = AmortizingClock(fps=FPS, window_size=120)
-    runtime = Runtime(
-        ui,
-        clock,
-        [game_1, game_2],
-        KeyboardController(),
-        callback_collection=CallbackCollection((TrackPerformanceCallback(fps=FPS),)),
-    )
+    games = create_games(num_games=3)
+    runtime = create_runtime(games)
 
     runtime.run()
 
 
-def get_rules_and_callbacks(
-    tetris99_rule: Tetris99Rule,
-    name: str | None = None,
+def create_games(
+    num_games: int = 1,
+    controllers: list[Controller] | None = None,
+    names: list[str] | None = None,
+    board_size: tuple[int, int] = (20, 10),
+) -> list[Game]:
+    if controllers is not None and len(controllers) != num_games:
+        msg = f"Number of controllers ({len(controllers)}) doesn't match number of games ({num_games})!"
+        raise ValueError(msg)
+
+    if names is not None and len(names) != num_games:
+        msg = f"Number of names ({len(names)}) doesn't match number of games ({num_games})!"
+        raise ValueError(msg)
+
+    if controllers is None:
+        default_controllers = _default_controllers()
+
+        if len(default_controllers) < num_games:
+            msg = f"Not enough controllers available: {len(default_controllers)} controllers, {num_games} games"
+            raise ValueError(msg)
+
+        controllers = default_controllers[:num_games]
+
+    if names is None:
+        names = [f"Player {i}" for i in range(1, num_games + 1)]
+
+    tetris_99_rules = [Tetris99Rule(id=i, target_ids=list(set(range(num_games)) - {i})) for i in range(num_games)]
+
+    for publisher in tetris_99_rules:
+        for observer in tetris_99_rules:
+            if publisher is not observer:
+                publisher.add_subscriber(observer)
+
+    games: list[Game] = []
+    for controller, name, tetris_99_rule in zip(controllers, names, tetris_99_rules, strict=True):
+        rule_sequence, callback_collection = _create_rules_and_callbacks(tetris_99_rule, name)
+        games.append(
+            Game(
+                board=Board.create_empty(*board_size),
+                controller=controller,
+                rule_sequence=rule_sequence,
+                callback_collection=callback_collection,
+            )
+        )
+
+    return games
+
+
+def _default_controllers() -> list[Controller]:
+    default_controllers: list[Controller] = [KeyboardController.arrow_keys()]
+
+    with contextlib.suppress(ImportError):
+        from inputs import devices
+
+        default_controllers.extend(GamepadController(gamepad_index=i) for i in range(len(devices.gamepads)))
+
+    default_controllers.append(KeyboardController.wasd())
+    default_controllers.append(KeyboardController.vim())
+
+    return default_controllers
+
+
+def create_runtime(games: list[Game], fps: float = FPS) -> Runtime:
+    ui = CLI()
+    clock = AmortizingClock(fps=fps, window_size=120)
+    return Runtime(
+        ui,
+        clock,
+        games,
+        KeyboardController(),
+        callback_collection=CallbackCollection((TrackPerformanceCallback(fps=fps),)),
+    )
+
+
+def _create_rules_and_callbacks(
+    tetris99_rule: Tetris99Rule | None = None, name: str | None = None
 ) -> tuple[RuleSequence, CallbackCollection]:
     """Get rules and callbacks relevant for one instance of a game.
 
@@ -79,22 +123,26 @@ def get_rules_and_callbacks(
     track_score_rule = TrackScoreRule(header=name)
     clear_full_lines_rule = ClearFullLinesRule()
 
-    clear_full_lines_rule.add_subscriber(tetris99_rule)
+    if tetris99_rule:
+        clear_full_lines_rule.add_subscriber(tetris99_rule)
+
     clear_full_lines_rule.add_subscriber(track_score_rule)
     spawn_drop_merge_rule.add_subscriber(parry_rule)
 
-    rule_sequence = RuleSequence(
-        (
-            MoveRule(),
-            RotateRule(),
-            spawn_drop_merge_rule,
-            parry_rule,
-            clear_full_lines_rule,
-            track_score_rule,
-            tetris99_rule,
-        ),
-    )
+    rules: list[Rule] = [
+        MoveRule(),
+        RotateRule(),
+        spawn_drop_merge_rule,
+        parry_rule,
+        clear_full_lines_rule,
+        track_score_rule,
+    ]
+    if tetris99_rule:
+        rules.append(tetris99_rule)
+
+    rule_sequence = RuleSequence(rules)
     callback_collection = CallbackCollection((spawn_drop_merge_rule, track_score_rule))
+
     return rule_sequence, callback_collection
 
 

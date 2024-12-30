@@ -1,4 +1,5 @@
 from collections.abc import Mapping
+from typing import Self
 
 import keyboard
 
@@ -32,6 +33,51 @@ class KeyboardController(Controller):
                 message += f"\nInvalid actions: {missing_actions}"
 
             raise ValueError(message)
+
+    @classmethod
+    def wasd(cls) -> Self:
+        return cls(
+            action_to_keys={
+                "left": ["a"],
+                "right": ["d"],
+                "up": ["w"],
+                "down": ["s"],
+                "left_shoulder": ["q"],
+                "right_shoulder": ["e"],
+                "confirm": ["space"],
+                "cancel": ["esc"],
+            }
+        )
+
+    @classmethod
+    def arrow_keys(cls) -> Self:
+        return cls(
+            action_to_keys={
+                "left": ["left"],
+                "right": ["right"],
+                "up": ["up"],
+                "down": ["down"],
+                "left_shoulder": [],
+                "right_shoulder": [],
+                "confirm": [82],  # numpad 0
+                "cancel": ["ctrl"],
+            }
+        )
+
+    @classmethod
+    def vim(cls) -> Self:
+        return cls(
+            action_to_keys={
+                "left": ["h"],
+                "right": ["l"],
+                "up": ["k"],
+                "down": ["j"],
+                "left_shoulder": ["i"],
+                "right_shoulder": ["o"],
+                "confirm": ["enter"],
+                "cancel": ["backspace"],
+            }
+        )
 
     def get_action(self, board: Board | None = None) -> Action:
         return Action(
