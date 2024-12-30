@@ -1,5 +1,5 @@
 try:
-    from inputs import get_gamepad
+    from inputs import devices
 except ImportError as e:
     msg = (
         "The Gamepad controller requires the optional `gamepad` dependency to be installed using "
@@ -7,22 +7,36 @@ except ImportError as e:
     )
     raise ImportError(msg) from e
 
-from threading import Lock, Thread
+import logging
+from threading import Thread
+from time import sleep
 
 from tetris.game_logic.components.board import Board
 from tetris.game_logic.interfaces.controller import Action, Controller
 
+LOGGER = logging.getLogger(__name__)
+
 
 class GamepadController(Controller):
-    def __init__(self) -> None:
-        Thread(target=self.continuously_poll_gamepad, daemon=True).start()
-        self._current_action = Action()
-        self._lock = Lock()
+    def __init__(self, gamepad_index: int = 0) -> None:
+        if gamepad_index >= (num_gamepads := len(devices.gamepads)):
+            msg = f"Invalid gamepad index '{gamepad_index}' - only {num_gamepads} gamepads connected!"
+            raise ValueError(msg)
+
+        self._gamepad_index = gamepad_index
         self._up = self._down = self._left = self._right = False
+
+        Thread(target=self.continuously_poll_gamepad, daemon=True).start()
 
     def continuously_poll_gamepad(self) -> None:
         while True:
-            events = get_gamepad()
+            try:
+                events = devices.gamepads[self._gamepad_index].read()
+            except Exception:
+                LOGGER.exception("Error while polling gamepad:")
+                sleep(1)
+                continue
+
             for event in events:
                 if event.code == "ABS_HAT0Y":
                     self._up = self._down = False
