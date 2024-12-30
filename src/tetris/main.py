@@ -9,10 +9,13 @@ from tetris.logging_config import configure_logging
 from tetris.rules.core.clear_full_lines_rule import ClearFullLinesRule
 from tetris.rules.core.move_rotate_rules import MoveRule, RotateRule
 from tetris.rules.core.spawn_drop_merge_rule import SpawnDropMergeRule
+from tetris.rules.monitoring.track_performance_rule import TrackPerformanceCallback
 from tetris.rules.monitoring.track_score_rule import TrackScoreRule
 from tetris.rules.multiplayer.tetris99_rule import Tetris99Rule
 from tetris.rules.special.parry_rule import ParryRule
 from tetris.ui.cli import CLI
+
+FPS = 60
 
 
 def main() -> None:
@@ -59,11 +62,16 @@ def main() -> None:
     game_2 = Game(board, controller, rule_sequence, callback_collection)
 
     ui = CLI()
-    clock = AmortizingClock(fps=60, window_size=120)
-    runtime = Runtime(ui, clock, [game_1, game_2], KeyboardController())
+    clock = AmortizingClock(fps=FPS, window_size=120)
+    runtime = Runtime(
+        ui,
+        clock,
+        [game_1, game_2],
+        KeyboardController(),
+        callback_collection=CallbackCollection((TrackPerformanceCallback(fps=FPS),)),
+    )
 
-    while True:
-        runtime.run()
+    runtime.run()
 
 
 def get_rules_and_callbacks(
