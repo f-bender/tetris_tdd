@@ -1,7 +1,6 @@
 from unittest.mock import Mock
 
-from tetris.game_logic.game import PLAYING_STATE
-from tetris.rules.spawn_drop_merge_rule import SpawnDropMergeRule
+from tetris.rules.core.spawn_drop_merge_rule import SpawnDropMergeRule
 
 
 def test_drop_triggered_on_correct_frames() -> None:
@@ -62,7 +61,6 @@ def assert_whether_drop_triggered_after(
         action_counter=Mock(held_since=Mock(return_value=quick_drop_held_since)),
         board=mock_board,
         callback_collection=Mock(),
-        state=PLAYING_STATE,
     )
     if should_trigger:
         mock_board.drop_active_block.assert_called()

@@ -4,8 +4,7 @@ from unittest.mock import Mock
 import pytest
 
 from tetris.game_logic.components.board import Board
-from tetris.game_logic.game import PLAYING_STATE
-from tetris.rules.clear_full_lines_rule import ClearFullLinesRule
+from tetris.rules.core.clear_full_lines_rule import ClearFullLinesRule
 
 
 @pytest.fixture(autouse=True)
@@ -15,7 +14,6 @@ def clear_full_lines_fn() -> Callable[[Board], None]:
         frame_counter=Mock(),
         action_counter=Mock(),
         callback_collection=Mock(),
-        state=PLAYING_STATE,
     )
 
 

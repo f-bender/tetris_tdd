@@ -8,8 +8,8 @@ from tetris.game_logic.components.board import Board
 from tetris.game_logic.game import Game, GameOverError
 from tetris.game_logic.interfaces.controller import Action, Controller
 from tetris.game_logic.interfaces.rule_sequence import RuleSequence
-from tetris.rules.move_rotate_rules import HeldInputPolicy, MoveRule, RotateRule
-from tetris.rules.spawn_drop_merge_rule import SpawnDropMergeRule, SpawnStrategyImpl
+from tetris.rules.core.move_rotate_rules import HeldInputPolicy, MoveRule, RotateRule
+from tetris.rules.core.spawn_drop_merge_rule import SpawnDropMergeRule, SpawnStrategyImpl
 
 
 class DummyController(Controller):
@@ -20,20 +20,10 @@ class DummyController(Controller):
 @pytest.fixture
 def dummy_game() -> Game:
     return Game(
-        ui=Mock(),
         board=Board.create_empty(20, 10),
         controller=DummyController(),
-        clock=Mock(),
         rule_sequence=RuleSequence([]),
     )
-
-
-def test_advance_frame_increases_fame_counter(dummy_game: Game) -> None:
-    dummy_game.advance_frame(Action())
-    assert dummy_game.frame_counter == 1
-
-    dummy_game.advance_frame(Action())
-    assert dummy_game.frame_counter == 2  # noqa: PLR2004
 
 
 def test_game_runs_as_expected() -> None:
@@ -72,15 +62,13 @@ def test_game_runs_as_expected() -> None:
         ],
     )
 
-    ui_mock = Mock(advance_startup=Mock(return_value=True))
+    controller_mock = Mock(get_action=Mock(side_effect=actions))
 
     trigger_every_frame_policy = HeldInputPolicy(repeat_interval_frames=1)
 
     game = Game(
-        ui=ui_mock,
         board=board,
-        controller=DummyController(),
-        clock=Mock(),
+        controller=controller_mock,
         rule_sequence=RuleSequence(
             [
                 # ensure every single input is counted, even on adjacent frames
@@ -552,21 +540,14 @@ def test_game_runs_as_expected() -> None:
         ],
     ]
 
-    game.advance_frame(Action())  # skip startup
-
-    for idx, (action, expected_board_state) in enumerate(zip(actions, expected_board_states, strict=False), start=2):
+    for idx, expected_board_state in enumerate(expected_board_states):
         # WHEN advancing the game frame by frame
-        game.advance_frame(action)
+        game.advance_frame(frame_counter=idx)
         print(f"Actual board after step {idx}:", str(board), sep="\n", end="\n\n")  # noqa: T201
 
         # THEN the board state is as expected on every frame
         assert str(board) == "\n".join(expected_board_state)
-        # THEN the UI been told to draw the game at every frame
-        assert ui_mock.draw.call_count == idx
 
     # THEN the game raises GameOver after the last game-ending board-state
     with pytest.raises(GameOverError):
-        game.advance_frame(Action())
-
-    # THEN the frame counter matches the number of frames/board states
-    assert game.frame_counter == len(expected_board_states) + 1
+        game.advance_frame(frame_counter=len(expected_board_states))
