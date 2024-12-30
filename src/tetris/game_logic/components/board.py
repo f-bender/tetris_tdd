@@ -176,6 +176,11 @@ class Board:
         board: NDArray[np.uint8], positioned_block: PositionedBlock
     ) -> bool:
         top, left, bottom, right = positioned_block.actual_bounding_box
+
+        if bottom <= 0:
+            # block is entirely above the top of the board
+            return False
+
         # blocks are allowed to stretch beyond the top line; in this case the corresponding cells are not considered
         # part of the board
         top_cutoff = max(0, -top)
@@ -267,6 +272,11 @@ class Board:
     @staticmethod
     def _merge_active_block_into_board(positioned_block: PositionedBlock, board: NDArray[np.uint8]) -> None:
         top, left, bottom, right = positioned_block.actual_bounding_box
+
+        if bottom <= 0:
+            # block is entirely above the top of the board - doing nothing is silly but this will be a Game Over very
+            # soon anyways
+            return
 
         # blocks are allowed to stretch beyond the top line; in this case the corresponding cells are not considered
         # part of the board
