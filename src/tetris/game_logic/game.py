@@ -39,8 +39,6 @@ class Game:
         self._callback_collection.on_game_start()
 
     def advance_frame(self, frame_counter: int) -> None:
-        self._callback_collection.on_frame_start()
-
         self._action_counter.update(self._controller.get_action(self._board))
         self._callback_collection.on_action_counter_updated()
 

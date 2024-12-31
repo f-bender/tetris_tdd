@@ -1,13 +1,11 @@
 from typing import NamedTuple
 
-from tetris.game_logic.action_counter import ActionCounter
-from tetris.game_logic.components.board import Board
 from tetris.game_logic.interfaces.callback import Callback
 from tetris.game_logic.interfaces.rule import Subscriber
 from tetris.rules.core.clear_full_lines_rule import LineClearMessage
 
 
-class TrackScoreRule(Callback, Subscriber):
+class TrackScoreCallback(Callback, Subscriber):
     def __init__(self, header: str | None = None) -> None:
         self._score = 0
         self._high_score = 0
@@ -21,12 +19,7 @@ class TrackScoreRule(Callback, Subscriber):
             self._score += len(message.cleared_lines)
             self._high_score = max(self._high_score, self._score)
 
-    def apply(
-        self,
-        frame_counter: int,
-        action_counter: ActionCounter,
-        board: Board,
-    ) -> None:
+    def on_frame_start(self) -> None:
         if self._header:
             print(self._header)  # noqa: T201
         print(f"Score: {self._score}")  # noqa: T201
