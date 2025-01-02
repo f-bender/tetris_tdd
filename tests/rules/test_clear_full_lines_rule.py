@@ -9,12 +9,7 @@ from tetris.rules.core.clear_full_lines_rule import ClearFullLinesRule
 
 @pytest.fixture(autouse=True)
 def clear_full_lines_fn() -> Callable[[Board], None]:
-    return lambda board: ClearFullLinesRule().apply(
-        board=board,
-        frame_counter=Mock(),
-        action_counter=Mock(),
-        callback_collection=Mock(),
-    )
+    return lambda board: ClearFullLinesRule().apply(board=board, frame_counter=Mock(), action_counter=Mock())
 
 
 def test_one_line_cleared(clear_full_lines_fn: Callable[[Board], None]) -> None:

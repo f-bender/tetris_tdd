@@ -60,7 +60,6 @@ def assert_whether_drop_triggered_after(
         frame_counter=frame_counter,
         action_counter=Mock(held_since=Mock(return_value=quick_drop_held_since)),
         board=mock_board,
-        callback_collection=Mock(),
     )
     if should_trigger:
         mock_board.drop_active_block.assert_called()
