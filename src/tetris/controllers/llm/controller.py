@@ -20,9 +20,17 @@ class LLM(Protocol):
 
 
 class LLMController(Controller):
+    MOVE_KEY = "move"
+    ROTATE_KEY = "rotate"
+
+    LEFT_KEY = "left"
+    RIGHT_KEY = "right"
+
     SYSTEM_PROMPT = (
+        # high level description
         "You are a Tetris AI. You will be given the current state of a Tetris board and must decide what "
-        f"move(s) to make next. The board will look something like this:\n\n{Board.from_string_representation('''
+        "move(s) to make next. The board will look something like this:\n\n"
+        f"{Board.from_string_representation('''
             ..........
             ..........
             ..XXX.....
@@ -35,18 +43,35 @@ class LLMController(Controller):
             .XXXXXXXXX
             XXXXXXXXX.
             XXXX...XXX
-        ''')}\n\n 'X' represents a block, '.' represents an empty space. You must return movement commands in the form "
-        "of <action><direction><count>, where <action> is one of 'M' (move) or 'R' (rotate), and <direction> is one of "
-        "'L' (left) or 'R' (right). For example, 'ML3' means 'move left 3 times'. You can provide multiple commands in "
-        "a single response, separated by commas. "
-        "For example, 'RL2,MR3' means 'rotate left 2 times, then move right 3 times'. "
+        ''')}\n\n"
+        "'X' represents a block, '.' represents an empty space. "
+        "Note that this representation also always includes the currently falling block which you have control over. "
+        "You must infer yourself where on the board this block is, and provide commands for this block going forward. "
+        # command description
+        "Your response must start with commands in the form of '<action> <direction> <count>', "
+        f"where <action> is one of '{MOVE_KEY}' (move) or '{ROTATE_KEY}' (rotate), "
+        f"and <direction> is one of '{LEFT_KEY}' (left) or '{RIGHT_KEY}' (right). "
+        f"For example, '{MOVE_KEY} {LEFT_KEY} 3' means 'move left 3 times'. "
+        "You can provide multiple commands in a single response, separated by commas. "
+        f"For example, '{ROTATE_KEY} {LEFT_KEY} 2, {MOVE_KEY} {RIGHT_KEY} 3' "
+        "means 'rotate left 2 times, then move right 3 times'. "
+        "Rotations happen in 90 degree increments, meaning that 2 rotations correspond to a 180 degree rotation. "
+        # add reasoning the the response
+        "After the commands, you should put a newline character and then provide reasoning for your decision "
+        "in the form of one or two sentences explaining why you chose the commands you did. "
+        # example for a valid response
+        "This would be an example for a valid response:\n\n"
+        f"{MOVE_KEY} {LEFT_KEY} 4, {ROTATE_KEY} {RIGHT_KEY} 1\n"
+        "I move left 4 times to line the block up vertically with the gap at the bottom of the board, and then "
+        "rotate right once to make the block have the correct orientation to fit in the gap. The block can then simply "
+        "drop into place.\n\n"
+        # "emotional manipulation", trying to motivate the AI to do well
         "You have to clear lines and get a score of at least 10, otherwise I will lose my job and be homeless! "
         "Don't let me down! "
-        "If you want to skip a turn, respond with 'SKIP'. "
-        "Your response should not contain ANYTHING other than these commands, "
-        "meaning it should not contain any spaces, newlines, or any other than the specified characters."
     )
-    COMMAND_PATTERN = re.compile(r"(?P<action>[MR])(?P<direction>[LR])(?P<count>\d+)")
+    COMMAND_PATTERN = re.compile(
+        rf"(?P<action>(?:{MOVE_KEY}|{ROTATE_KEY})) (?P<direction>(?:{LEFT_KEY}|{RIGHT_KEY})) (?P<count>\d+)"
+    )
 
     def __init__(self, llm: LLM) -> None:
         self._board: Board | None = None
@@ -74,11 +99,11 @@ class LLMController(Controller):
 
             self._last_response = commands_str
 
-            if commands_str == "SKIP":
-                continue
-
             parsed_actions = list(
-                chain.from_iterable(self.parse_command(command) for command in commands_str.split(","))
+                chain.from_iterable(
+                    self.parse_command(command.strip())
+                    for command in commands_str.split("\n", maxsplit=1)[0].split(",")
+                )
             )
 
             with self._action_queue_lock:
@@ -95,10 +120,12 @@ class LLMController(Controller):
         direction = match.group("direction")
         count = int(match.group("count"))
 
-        if action == "M":
-            return [Action(left=True) if direction == "L" else Action(right=True)] * count
-        if action == "R":
-            return [Action(left_shoulder=True) if direction == "L" else Action(right_shoulder=True)] * count
+        if action == LLMController.MOVE_KEY:
+            return [Action(left=True) if direction == LLMController.LEFT_KEY else Action(right=True)] * count
+        if action == LLMController.ROTATE_KEY:
+            return [
+                Action(left_shoulder=True) if direction == LLMController.LEFT_KEY else Action(right_shoulder=True)
+            ] * count
 
         msg = f"Invalid action: {action}"
         raise ValueError(msg)

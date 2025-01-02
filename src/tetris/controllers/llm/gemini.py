@@ -14,7 +14,24 @@ class Gemini:
     def __init__(
         self, api_key: str | None = None, model_name: str = "gemini-1.5-flash", requests_per_minute_limit: int = 15
     ) -> None:
-        genai.configure(api_key=api_key or os.environ["GEMINI_API_KEY"])
+        """Initialize the Gemini LLM.
+
+        For setting up an API key, see https://ai.google.dev/gemini-api/docs/api-key.
+        For a list of available models and their rate limits, see https://ai.google.dev/gemini-api/docs/models/gemini.
+
+        Args:
+            api_key: The API key to use for the Gemini API. If not provided, the `GEMINI_API_KEY` environment variable
+                will be used.
+            model_name: The name of the Gemini model to use. Defaults to "gemini-1.5-flash".
+            requests_per_minute_limit: The maximum number of requests per minute to make to the Gemini API. Defaults to
+                15.
+        """
+        api_key = api_key or os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            msg = "No API key provided and no `GEMINI_API_KEY` environment variable found!"
+            raise ValueError(msg)
+
+        genai.configure(api_key=api_key)
         self._chat: genai.ChatSession | None = None
         self._model = genai.GenerativeModel(model_name)
         self._requests_per_minute_limit = requests_per_minute_limit
