@@ -1,8 +1,7 @@
 import logging
 import re
-from collections import deque
-from itertools import chain
-from threading import Lock, Thread
+from queue import Queue
+from threading import Thread
 from typing import Protocol
 
 from tetris.clock.amortizing import AmortizingClock
@@ -78,9 +77,7 @@ class LLMController(Controller):
         self._active_frame = True
         self._last_response: str | None = None
 
-        self._action_queue: deque[Action] = deque()
-        self._action_queue_lock = Lock()
-
+        self._action_queue: Queue[Action] = Queue()
         Thread(target=self._continuously_ask_llm, args=(llm,), daemon=True).start()
 
     def _continuously_ask_llm(self, llm: LLM) -> None:
@@ -99,15 +96,9 @@ class LLMController(Controller):
 
             self._last_response = commands_str
 
-            parsed_actions = list(
-                chain.from_iterable(
-                    self.parse_command(command.strip())
-                    for command in commands_str.split("\n", maxsplit=1)[0].split(",")
-                )
-            )
-
-            with self._action_queue_lock:
-                self._action_queue.extend(parsed_actions)
+            for command in commands_str.split("\n", maxsplit=1)[0].split(","):
+                for parsed_action in self.parse_command(command.strip()):
+                    self._action_queue.put(parsed_action)
 
     @staticmethod
     def parse_command(command: str) -> list[Action]:
@@ -137,10 +128,9 @@ class LLMController(Controller):
 
         # skip every other frame such that each action is interpreted as a separate button press, instead of a single
         # button hold
-        if not self._active_frame or not self._action_queue:
+        if not self._active_frame or self._action_queue.empty():
             self._active_frame = True
             return Action()
 
         self._active_frame = False
-        with self._action_queue_lock:
-            return self._action_queue.popleft()
+        return self._action_queue.get()
