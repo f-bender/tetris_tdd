@@ -30,7 +30,7 @@ FPS = 60
 def main() -> None:
     configure_logging()
 
-    games, callbacks = create_games(num_games=3)
+    games, callbacks = create_games()
     runtime = create_runtime(games, callbacks)
 
     runtime.run()
@@ -42,6 +42,10 @@ def create_games(
     names: list[str] | None = None,
     board_size: tuple[int, int] = (20, 10),
 ) -> tuple[list[Game], list[Callback]]:
+    if num_games < 1:
+        msg = f"Number of games must be at least 1, got {num_games}."
+        raise ValueError(msg)
+
     if controllers is not None and len(controllers) != num_games:
         msg = f"Number of controllers ({len(controllers)}) doesn't match number of games ({num_games})!"
         raise ValueError(msg)
@@ -62,12 +66,7 @@ def create_games(
     if names is None:
         names = [f"Player {i}" for i in range(1, num_games + 1)]
 
-    tetris_99_rules = [Tetris99Rule(id=i, target_ids=list(set(range(num_games)) - {i})) for i in range(num_games)]
-
-    for publisher in tetris_99_rules:
-        for observer in tetris_99_rules:
-            if publisher is not observer:
-                publisher.add_subscriber(observer)
+    tetris_99_rules: list[Tetris99Rule] | list[None] = [None] if num_games == 1 else _create_tetris_99_rules(num_games)
 
     runtime_callbacks: list[Callback] = []
 
@@ -87,6 +86,21 @@ def create_games(
         )
 
     return games, runtime_callbacks
+
+
+def _create_tetris_99_rules(num_games: int) -> list[Tetris99Rule]:
+    if not num_games > 1:
+        msg = "Tetris 99 rules require at least 2 players."
+        raise ValueError(msg)
+
+    tetris_99_rules = [Tetris99Rule(id=i, target_ids=list(set(range(num_games)) - {i})) for i in range(num_games)]
+
+    for publisher in tetris_99_rules:
+        for observer in tetris_99_rules:
+            if publisher is not observer:
+                publisher.add_subscriber(observer)
+
+    return tetris_99_rules
 
 
 def _default_controllers() -> list[Controller]:

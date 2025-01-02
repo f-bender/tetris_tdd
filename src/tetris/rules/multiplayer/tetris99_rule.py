@@ -39,6 +39,11 @@ class Tetris99Message(NamedTuple):
 class Tetris99Rule(Publisher, Subscriber):
     def __init__(self, id: int, target_ids: list[int]) -> None:  # noqa: A002
         super().__init__()
+
+        if not target_ids:
+            msg = "At least one target_id must be provided."
+            raise ValueError(msg)
+
         self._id = id
         self._target_ids = target_ids
 
