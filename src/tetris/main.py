@@ -14,7 +14,8 @@ from tetris.game_logic.runtime import Runtime
 from tetris.logging_config import configure_logging
 from tetris.rules.core.clear_full_lines_rule import ClearFullLinesRule
 from tetris.rules.core.move_rotate_rules import MoveRule, RotateRule
-from tetris.rules.core.spawn_drop_merge_rule import SpawnDropMergeRule
+from tetris.rules.core.spawn_drop_merge.spawn_drop_merge_rule import SpawnDropMergeRule
+from tetris.rules.core.spawn_drop_merge.speed import LineClearSpeedupStrategy
 from tetris.rules.monitoring.track_performance_rule import TrackPerformanceCallback
 from tetris.rules.monitoring.track_score_rule import TrackScoreCallback
 from tetris.rules.multiplayer.tetris99_rule import Tetris99Rule
@@ -138,7 +139,9 @@ def _create_rules_and_callbacks(
         - a RuleSequence to be passed to the Game
         - a CallbackCollection to be passed to the Game
     """
-    spawn_drop_merge_rule = SpawnDropMergeRule()
+    spawn_drop_merge_rule = SpawnDropMergeRule(
+        speed_strategy=(line_clear_speedup_strategy := LineClearSpeedupStrategy())
+    )
     parry_rule = ParryRule(leeway_frames=1)
     clear_full_lines_rule = ClearFullLinesRule()
 
@@ -148,6 +151,7 @@ def _create_rules_and_callbacks(
     if track_score_callback:
         clear_full_lines_rule.add_subscriber(track_score_callback)
 
+    clear_full_lines_rule.add_subscriber(line_clear_speedup_strategy)
     spawn_drop_merge_rule.add_subscriber(parry_rule)
 
     rules: list[Rule] = [
@@ -161,7 +165,7 @@ def _create_rules_and_callbacks(
         rules.append(tetris99_rule)
     rule_sequence = RuleSequence(rules)
 
-    callbacks: list[Callback] = [spawn_drop_merge_rule]
+    callbacks: list[Callback] = [spawn_drop_merge_rule, line_clear_speedup_strategy]
     if track_score_callback:
         callbacks.append(track_score_callback)
     callback_collection = CallbackCollection(callbacks)

@@ -9,7 +9,9 @@ from tetris.game_logic.game import Game, GameOverError
 from tetris.game_logic.interfaces.controller import Action, Controller
 from tetris.game_logic.interfaces.rule_sequence import RuleSequence
 from tetris.rules.core.move_rotate_rules import HeldInputPolicy, MoveRule, RotateRule
-from tetris.rules.core.spawn_drop_merge_rule import SpawnDropMergeRule, SpawnStrategyImpl
+from tetris.rules.core.spawn_drop_merge.spawn import SpawnStrategyImpl
+from tetris.rules.core.spawn_drop_merge.spawn_drop_merge_rule import SpawnDropMergeRule
+from tetris.rules.core.spawn_drop_merge.speed import SpeedStrategy
 
 
 class DummyController(Controller):
@@ -75,7 +77,8 @@ def test_game_runs_as_expected() -> None:
                 MoveRule(held_input_policy=trigger_every_frame_policy),
                 RotateRule(held_input_policy=trigger_every_frame_policy),
                 SpawnDropMergeRule(
-                    normal_interval=1,
+                    speed_strategy=SpeedStrategy(base_interval=1),
+                    spawn_delay=1,
                     spawn_strategy=SpawnStrategyImpl(select_block_fn=Mock(side_effect=blocks_to_spawn)),
                 ),
             ],

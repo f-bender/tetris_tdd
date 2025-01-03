@@ -6,7 +6,7 @@ from tetris.game_logic.action_counter import ActionCounter
 from tetris.game_logic.components.board import Board
 from tetris.game_logic.interfaces.controller import Action
 from tetris.game_logic.interfaces.rule import Subscriber
-from tetris.rules.core.spawn_drop_merge_rule import MergeMessage
+from tetris.rules.core.spawn_drop_merge.spawn_drop_merge_rule import MergeMessage
 
 
 class ParryRule(Subscriber):
