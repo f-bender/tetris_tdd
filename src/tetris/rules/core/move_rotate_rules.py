@@ -42,8 +42,8 @@ class MoveRule:
                 fine-tuned for 60 FPS gameplay.
         """
         self._held_input_policy = held_input_policy or HeldInputPolicy(
-            repeat_interval_frames=4,
-            single_press_delay_frames=15,
+            repeat_interval_frames=3,
+            single_press_delay_frames=10,
         )
 
     def apply(
@@ -70,7 +70,7 @@ class RotateRule:
             held_input_policy: Policy when to trigger the move action based on how long the corresponding button has
                 been held for. The default value of repeat_interval_frames=20 is fine-tuned for 60 FPS gameplay.
         """
-        self._held_input_policy = held_input_policy or HeldInputPolicy(repeat_interval_frames=20)
+        self._held_input_policy = held_input_policy or HeldInputPolicy(repeat_interval_frames=15)
 
     def apply(
         self,
