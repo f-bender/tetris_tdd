@@ -15,6 +15,7 @@ from tetris.game_logic.runtime import Runtime
 from tetris.logging_config import configure_logging
 from tetris.rules.core.clear_full_lines_rule import ClearFullLinesRule
 from tetris.rules.core.move_rotate_rules import MoveRule, RotateRule
+from tetris.rules.core.spawn_drop_merge.spawn import SpawnStrategyImpl
 from tetris.rules.core.spawn_drop_merge.spawn_drop_merge_rule import SpawnDropMergeRule
 from tetris.rules.core.spawn_drop_merge.speed import LineClearSpeedupStrategy
 from tetris.rules.monitoring.track_performance_rule import TrackPerformanceCallback
@@ -90,7 +91,9 @@ def create_games(
         track_score_callback = TrackScoreCallback(header=name)
         runtime_callbacks.append(track_score_callback)
 
-        rule_sequence, callback_collection = _create_rules_and_callbacks(tetris_99_rule, track_score_callback)
+        rule_sequence, callback_collection = _create_rules_and_callbacks(
+            controller, tetris_99_rule, track_score_callback
+        )
         games.append(
             Game(
                 board=board,
@@ -145,7 +148,7 @@ def create_runtime(games: list[Game], callbacks: list[Callback] | None = None, f
 
 
 def _create_rules_and_callbacks(
-    tetris99_rule: Tetris99Rule | None = None, track_score_callback: TrackScoreCallback | None = None
+    x, tetris99_rule: Tetris99Rule | None = None, track_score_callback: TrackScoreCallback | None = None
 ) -> tuple[RuleSequence, CallbackCollection]:
     """Get rules and callbacks relevant for one instance of a game.
 
@@ -154,8 +157,10 @@ def _create_rules_and_callbacks(
         - a CallbackCollection to be passed to the Game
     """
     spawn_drop_merge_rule = SpawnDropMergeRule(
-        speed_strategy=(line_clear_speedup_strategy := LineClearSpeedupStrategy())
+        speed_strategy=(line_clear_speedup_strategy := LineClearSpeedupStrategy()),
+        spawn_strategy=(spawn_strategy := SpawnStrategyImpl()),
     )
+    spawn_strategy.add_subscriber(x)
     parry_rule = ParryRule(leeway_frames=1)
     clear_full_lines_rule = ClearFullLinesRule()
 

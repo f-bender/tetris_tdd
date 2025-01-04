@@ -1,6 +1,8 @@
 """An automated controller that uses a heuristic approach to try and fit the current block into the optimal position."""
 
 import logging
+import time
+from copy import deepcopy
 from threading import Lock, Thread
 from typing import Final, NamedTuple
 
@@ -8,6 +10,7 @@ import numpy as np
 
 from tetris.game_logic.components.block import Block, Vec
 from tetris.game_logic.components.board import Board, PositionedBlock
+from tetris.game_logic.components.exceptions import CannotDropBlockError
 from tetris.game_logic.interfaces.controller import Action, Controller
 from tetris.game_logic.interfaces.rule import Subscriber
 from tetris.rules.core.spawn_drop_merge.spawn import SpawnMessage
@@ -53,7 +56,7 @@ class HeuristicBotController(Controller, Subscriber):
         self._current_block: Block | None = None
         self._next_block: Block | None = None
 
-        self._plan_lock = Lock()
+        self._planning_lock = Lock()
         self._current_plan: Plan | None = None
         self._next_plan: Plan | None = None
         self._cancel_planning_flag: bool = False
@@ -66,7 +69,7 @@ class HeuristicBotController(Controller, Subscriber):
         if not isinstance(message, SpawnMessage):
             return
 
-        with self._plan_lock:
+        with self._planning_lock:
             self._current_block = message.block
             self._next_block = message.next_block
 
@@ -116,11 +119,39 @@ class HeuristicBotController(Controller, Subscriber):
     # Also, of course it has to take its before_board from the after_board of the _current_plan, and if the current_plan
     # is None, from the real board.
     def _continuously_plan(self) -> None:
+        while self._current_block is None or self._next_block is None:
+            # wait until the first block has spawned
+            time.sleep(0.01)
+
         expected_board_after_latest_plan = Board()
-        expected_board_after_latest_plan.set_from_other(self._real_board)
+        while True:
+            while self._next_plan is not None:
+                assert self._current_plan is not None
+                # all the planning has been done in time; wait for the next block to spawn, that will need to be planned
+                # for again
+                time.sleep(0.01)
+
+            with self._planning_lock:
+                if self._current_plan is None:
+                    block = self._current_block
+                    expected_board_before = deepcopy(self._real_board)
+                else:
+                    block = self._next_block
+                    expected_board_before = deepcopy(expected_board_after_latest_plan)
+
+            plan = self._create_plan(expected_board_before, block, expected_board_after_latest_plan)
+            if plan is None:
+                # planning was cancelled
+                continue
+
+            with self._planning_lock:
+                if self._current_plan is None:
+                    self._set_current_plan(plan)
+                else:
+                    self._next_plan = plan
 
     @staticmethod
-    def _create_plan(expected_board_before: Board, block: Block, expected_board_after: Board) -> Plan:
+    def _create_plan(expected_board_before: Board, block: Block, expected_board_after: Board) -> Plan | None:
         """Create a plan to fit a block into the optimal position given the board state.
 
         Args:
@@ -135,6 +166,17 @@ class HeuristicBotController(Controller, Subscriber):
                 rotation of the block).
         """
         # TODO: actual implementation
+        # TODO check self._cancel_planning_flag and quickly return None if it is set
+        pb = PositionedBlock(block, Vec(0, 0))
+        expected_board_after.set_from_other(expected_board_before)
+        expected_board_after.active_block = pb
+        try:
+            while True:
+                expected_board_after.drop_active_block()
+        except CannotDropBlockError:
+            expected_board_after.merge_active_block()
+            expected_board_after.clear_lines(expected_board_after.get_full_line_idxs())
+
         return Plan(expected_board_before, PositionedBlock(block, Vec(0, 0)))
 
     def get_action(self, board: Board | None = None) -> Action:
@@ -145,12 +187,14 @@ class HeuristicBotController(Controller, Subscriber):
         # the complicated part of the current plan has been executed, now simply quick-drop the block into place
         # (ignore self._active_frame; in this case, we want to hold the button)
         misalignment = self._positioned_blocks_misalignment(
-            self._current_plan.target_positioned_block,
             self._real_board.active_block,
+            self._current_plan.target_positioned_block,
         )
         if not misalignment:
             self._active_frame = True
-            return Action(down=True)
+            # only quickdrop if we have already computed the next plan; otherwise we want to buy some time for the next
+            # plan to be computed (i.e. slow drop)
+            return Action(down=self._next_plan is not None)
 
         # skip every other frame such that each action is interpreted as a separate button press, instead of a single
         # button hold
@@ -175,5 +219,5 @@ class HeuristicBotController(Controller, Subscriber):
         """
         return Misalignment(
             x=block_2.position.x - block_1.position.x,
-            rotation=np.array_equal(block_2.block.cells, block_1.block.cells),
+            rotation=not np.array_equal(block_2.block.cells, block_1.block.cells),
         )

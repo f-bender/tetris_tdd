@@ -116,6 +116,10 @@ class Board:
     def active_block(self) -> PositionedBlock | None:
         return self._active_block
 
+    @active_block.setter
+    def active_block(self, value: PositionedBlock | None) -> None:
+        self._active_block = value
+
     def __str__(self) -> str:
         return "\n".join("".join(("X" if c else ".") for c in line) for line in self._board_with_block())
 
