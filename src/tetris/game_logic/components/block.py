@@ -1,6 +1,7 @@
 import contextlib
 import random
 from collections.abc import Iterator
+from copy import deepcopy
 from dataclasses import dataclass
 from enum import IntEnum
 from functools import cached_property
@@ -190,6 +191,22 @@ class Block:
     def rotate_right(self) -> None:
         self.cells = np.rot90(self.cells, k=-1)
         self._invalidate_actual_bounding_box_cache()
+
+    def unique_rotations(self) -> list[Self]:
+        """Returns all unique rotations of the block."""
+        unique_rotations = [deepcopy(self)]
+
+        for _ in range(3):
+            new_rotation = deepcopy(unique_rotations[-1])
+            new_rotation.rotate_right()
+
+            if not any(
+                np.array_equal(registered_rotation.actual_cells, new_rotation.actual_cells)
+                for registered_rotation in unique_rotations
+            ):
+                unique_rotations.append(new_rotation)
+
+        return unique_rotations
 
     @classmethod
     def create_random(cls, rng: random.Random | None = None) -> Self:

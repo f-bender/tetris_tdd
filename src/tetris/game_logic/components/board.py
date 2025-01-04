@@ -64,6 +64,15 @@ class Board:
         board._board = np.array(_board, dtype=np.uint8)  # noqa: SLF001
         return board
 
+    def set_from_other(self, other: Self) -> None:
+        if self._board.shape == other._board.shape:  # noqa: SLF001
+            # if the shapes match, we can avoid new memory allocation and just fill the existing array
+            self._board[...] = other._board  # noqa: SLF001
+        else:
+            self._board = other._board.copy()  # noqa: SLF001
+
+        self._active_block = other._active_block  # noqa: SLF001
+
     def as_array(self) -> NDArray[np.uint8]:
         return self._board_with_block()
 
@@ -102,6 +111,10 @@ class Board:
     @property
     def size(self) -> tuple[int, int]:
         return tuple(self._board.shape)
+
+    @property
+    def active_block(self) -> PositionedBlock | None:
+        return self._active_block
 
     def __str__(self) -> str:
         return "\n".join("".join(("X" if c else ".") for c in line) for line in self._board_with_block())

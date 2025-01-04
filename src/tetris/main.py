@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 
 from tetris.clock.simple import SimpleClock
 from tetris.controllers.gamepad import GamepadController
+from tetris.controllers.heuristic_bot import HeuristicBotController
 from tetris.controllers.keyboard import KeyboardController
 from tetris.game_logic.components import Board
 from tetris.game_logic.game import Game
@@ -31,29 +32,40 @@ FPS = 60
 def main() -> None:
     configure_logging()
 
-    games, callbacks = create_games()
+    boards = create_boards()
+    controller = HeuristicBotController(boards[0])
+    games, callbacks = create_games(boards=boards, controllers=[controller])
     runtime = create_runtime(games, callbacks)
 
     runtime.run()
 
 
+def create_boards(num_boards: int = 1, size: tuple[int, int] = (20, 10)) -> list[Board]:
+    return [Board.create_empty(*size) for _ in range(num_boards)]
+
+
 def create_games(
-    num_games: int = 1,
+    num_games: int | None = None,
+    *,
     controllers: list[Controller] | None = None,
     names: list[str] | None = None,
-    board_size: tuple[int, int] = (20, 10),
+    boards: list[Board] | None = None,
 ) -> tuple[list[Game], list[Callback]]:
-    if num_games < 1:
-        msg = f"Number of games must be at least 1, got {num_games}."
+    lengths = {
+        length
+        for length in (
+            num_games,
+            len(controllers) if controllers is not None else None,
+            len(names) if names is not None else None,
+            len(boards) if boards is not None else None,
+        )
+        if length is not None
+    }
+    if len(lengths) > 1:
+        msg = "Mismatched lengths of arguments: num_games, controllers, names, boards"
         raise ValueError(msg)
 
-    if controllers is not None and len(controllers) != num_games:
-        msg = f"Number of controllers ({len(controllers)}) doesn't match number of games ({num_games})!"
-        raise ValueError(msg)
-
-    if names is not None and len(names) != num_games:
-        msg = f"Number of names ({len(names)}) doesn't match number of games ({num_games})!"
-        raise ValueError(msg)
+    num_games = 1 if len(lengths) == 0 else next(iter(lengths))
 
     if controllers is None:
         default_controllers = _default_controllers()
@@ -67,19 +79,21 @@ def create_games(
     if names is None:
         names = [f"Player {i}" for i in range(1, num_games + 1)]
 
+    boards = boards or create_boards(num_games)
+
     tetris_99_rules: list[Tetris99Rule] | list[None] = [None] if num_games == 1 else _create_tetris_99_rules(num_games)
 
     runtime_callbacks: list[Callback] = []
 
     games: list[Game] = []
-    for controller, name, tetris_99_rule in zip(controllers, names, tetris_99_rules, strict=True):
+    for controller, name, tetris_99_rule, board in zip(controllers, names, tetris_99_rules, boards, strict=True):
         track_score_callback = TrackScoreCallback(header=name)
         runtime_callbacks.append(track_score_callback)
 
         rule_sequence, callback_collection = _create_rules_and_callbacks(tetris_99_rule, track_score_callback)
         games.append(
             Game(
-                board=Board.create_empty(*board_size),
+                board=board,
                 controller=controller,
                 rule_sequence=rule_sequence,
                 callback_collection=callback_collection,

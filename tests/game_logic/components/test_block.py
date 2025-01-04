@@ -125,3 +125,13 @@ def test_block_rotation() -> None:
             ..X.
         """.replace(" ", "").strip()
     )
+
+
+def test_unique_rotations() -> None:
+    assert len(Block(BlockType.T).unique_rotations()) == 4  # noqa: PLR2004
+    assert len(Block(BlockType.O).unique_rotations()) == 1
+    assert len(Block(BlockType.I).unique_rotations()) == 2  # noqa: PLR2004
+    assert len(Block(BlockType.L).unique_rotations()) == 4  # noqa: PLR2004
+    assert len(Block(BlockType.S).unique_rotations()) == 2  # noqa: PLR2004
+    assert len(Block(BlockType.J).unique_rotations()) == 4  # noqa: PLR2004
+    assert len(Block(BlockType.Z).unique_rotations()) == 2  # noqa: PLR2004

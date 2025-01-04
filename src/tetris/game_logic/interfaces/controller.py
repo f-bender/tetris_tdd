@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import NamedTuple
+from typing import NamedTuple, Self
 
 from tetris.game_logic.components.board import Board
 
@@ -13,6 +13,9 @@ class Action(NamedTuple):
     right_shoulder: bool = False
     confirm: bool = False
     cancel: bool = False
+
+    def __or__(self, other: Self) -> "Action":
+        return Action(*(a or b for a, b in zip(self, other, strict=True)))
 
 
 class Controller(ABC):
