@@ -34,7 +34,7 @@ def main() -> None:
     configure_logging()
 
     boards = create_boards()
-    controller = HeuristicBotController(boards[0])
+    controller = HeuristicBotController(boards[0], fps=FPS)
     games, callbacks = create_games(boards=boards, controllers=[controller])
     runtime = create_runtime(games, callbacks)
 

@@ -93,7 +93,7 @@ class Board:
                 if active_block_displacement
                 else self._active_block
             )
-            if self._positioned_block_overlaps_with_active_cells(new_board, active_block):
+            if self.positioned_block_overlaps_with_active_cells(active_block, new_board):
                 raise ActiveBlockOverlapError
 
             self._active_block = active_block
@@ -165,7 +165,7 @@ class Board:
             msg = "Active block reached bottom of the board"
             raise CannotDropBlockError(msg)
 
-        if self._positioned_block_overlaps_with_active_cells(self._board, dropped_block):
+        if self.positioned_block_overlaps_with_active_cells(dropped_block, self._board):
             msg = "Active block has landed on an active cell"
             raise CannotDropBlockError(msg)
 
@@ -188,10 +188,14 @@ class Board:
         _, left, bottom, right = bbox
         return not (left < 0 or bottom > self.height or right > self.width)
 
-    @staticmethod
-    def _positioned_block_overlaps_with_active_cells(
-        board: NDArray[np.uint8], positioned_block: PositionedBlock
+    def positioned_block_overlaps_with_active_cells(
+        self,
+        positioned_block: PositionedBlock,
+        board: NDArray[np.uint8] | None = None,
     ) -> bool:
+        if board is None:
+            board = self._board
+
         top, left, bottom, right = positioned_block.actual_bounding_box
 
         if bottom <= 0:
@@ -239,7 +243,7 @@ class Board:
     def _positioned_block_is_in_valid_position(self, positioned_block: PositionedBlock) -> bool:
         return self._bbox_in_bounds(
             positioned_block.actual_bounding_box
-        ) and not self._positioned_block_overlaps_with_active_cells(self._board, positioned_block)
+        ) and not self.positioned_block_overlaps_with_active_cells(positioned_block, self._board)
 
     def _nudge_active_block_into_valid_position(self) -> None:
         if self._active_block is None:
