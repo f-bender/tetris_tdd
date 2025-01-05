@@ -79,7 +79,19 @@ class Loss(NamedTuple):
     @staticmethod
     def sum_adjacent_height_differences(board_array: NDArray[np.bool]) -> int:
         # get the highest active cell index for each column, compute adjacent differences, return their absolute sum
-        return np.sum(np.abs(np.diff(np.argmax(board_array, axis=0))))
+        # in case there are no active cells in a column, use the full height of the array as the height (i.e. consider
+        # the highest active cell to be below the bottom)
+        return np.sum(
+            np.abs(
+                np.diff(
+                    np.where(
+                        np.any(board_array, axis=0),
+                        np.argmax(board_array, axis=0),
+                        board_array.shape[0],
+                    )
+                )
+            )
+        )
 
 
 class Misalignment(NamedTuple):
