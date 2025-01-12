@@ -81,16 +81,12 @@ class SpeedStrategy(Callback):
 
     def should_trigger(self, frames_since_last_drop: int, *, quick_drop_held: bool) -> bool:
         if quick_drop_held:
-            should_trigger = frames_since_last_drop >= self._next_quick_interval_int
-
-            if should_trigger:
+            if should_trigger := frames_since_last_drop >= self._next_quick_interval_int:
                 self._next_quick_interval_int = next(self._quick_interval_iter)
 
             return should_trigger
 
-        should_trigger = frames_since_last_drop >= self._next_normal_interval_int
-
-        if should_trigger:
+        if should_trigger := frames_since_last_drop >= self._next_normal_interval_int:
             self._next_normal_interval_int = next(self._normal_interval_iter)
 
         return should_trigger

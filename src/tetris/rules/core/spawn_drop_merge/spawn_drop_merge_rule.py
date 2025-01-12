@@ -1,3 +1,4 @@
+from enum import Enum, auto
 from typing import NamedTuple
 
 from tetris.game_logic.action_counter import ActionCounter
@@ -12,11 +13,19 @@ from tetris.rules.core.spawn_drop_merge.spawn import SpawnStrategy, SpawnStrateg
 from tetris.rules.core.spawn_drop_merge.speed import SpeedStrategy
 
 
+class Speed(Enum):
+    NORMAL = auto()
+    QUICK = auto()
+    INSTANT = auto()
+
+
 class MergeMessage(NamedTuple):
-    quick: bool
+    speed: Speed
 
 
 class SpawnDropMergeRule(Callback, Publisher):
+    INSTANT_DROP_AND_MERGE_ACTION = Action(down=True, confirm=True)
+
     def __init__(
         self,
         *,
@@ -59,6 +68,8 @@ class SpawnDropMergeRule(Callback, Publisher):
     ) -> None:
         """Do only one of the actions at a time: Either spawn a block, or drop the block, or merge it into the board.
 
+        (Exception: INSTANT_DROP_AND_MERGE_ACTION allows instantly dropping *and* merging)
+
         Block spawning happens `spawn_delay` frames after the last merge, regardless of the quick-drop-action.
         Block dropping and merging acts on the quick interval schedule in case the quick-drop-action is held.
         """
@@ -70,17 +81,31 @@ class SpawnDropMergeRule(Callback, Publisher):
 
         quick_drop_held = action_counter.held_since(Action(down=True)) != 0
 
-        if self._speed_strategy.should_trigger(
+        if not (
+            instant_drop_and_merge := action_counter.held_since(self.INSTANT_DROP_AND_MERGE_ACTION) != 0
+        ) and not self._speed_strategy.should_trigger(
             frames_since_last_drop=frame_counter - self._last_drop_frame,
             quick_drop_held=quick_drop_held,
         ):
+            return
+
+        if instant_drop_and_merge:
+            self._instant_drop_and_merge(board)
+            merge = True
+        else:
             merge = self._drop_or_merge(board)
 
-            if merge:
-                self._last_merge_frame = frame_counter
-                self.notify_subscribers(MergeMessage(quick=quick_drop_held))
-            else:  # drop
-                self._last_drop_frame = frame_counter
+        if merge:
+            self._last_merge_frame = frame_counter
+            self.notify_subscribers(
+                MergeMessage(
+                    speed=Speed.INSTANT
+                    if instant_drop_and_merge
+                    else (Speed.QUICK if quick_drop_held else Speed.NORMAL)
+                )
+            )
+        else:  # drop
+            self._last_drop_frame = frame_counter
 
     def _drop_or_merge(self, board: Board) -> bool:
         """Returns bool whether a merge has happened."""
@@ -91,3 +116,11 @@ class SpawnDropMergeRule(Callback, Publisher):
             return True
         else:
             return False
+
+    def _instant_drop_and_merge(self, board: Board) -> None:
+        while True:
+            try:
+                self._drop_strategy.apply(board)
+            except CannotDropBlockError:
+                self._merge_strategy.apply(board)
+                break
