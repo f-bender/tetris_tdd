@@ -15,6 +15,7 @@ from tetris.game_logic.components.exceptions import CannotDropBlockError
 from tetris.game_logic.interfaces.controller import Action, Controller
 from tetris.game_logic.interfaces.rule import Subscriber
 from tetris.rules.core.spawn_drop_merge.spawn import SpawnMessage
+from tetris.rules.core.spawn_drop_merge.spawn_drop_merge_rule import SpawnDropMergeRule
 
 LOGGER = logging.getLogger(__name__)
 
@@ -34,22 +35,20 @@ class Loss(NamedTuple):
 
     # TODO:
     # - write tests for this class!
-    # - especially square (O) blocks seem to sometimes be placed at suboptimal spots, where a different spot would have
-    #   the same overhangs (none), the same sum of heights, but less adjacent height differences!
-    #   -> bug in sum_adjacent_height_differences? Or somewhere else?
-    # - punish very high stacks (< 4 cells below top of board)
-    # - avoid overhang with larger amount of empty cells below (-> avoid closing a high gap that multiple I-shapes
-    #   should go into)
-    #   -> probably simply count all empty cells that have an active cells above, AND all active cells that have an
-    #      empty cell below, and sum all that
-    # - avoid very large adjacent differences; rather have multiple small differences (<=2)
-    #   instead of one large one (>=3) (-> prefer gentler slopes)
     # - issue: if there is an overhang, it doesn't even want to put a vertical I there to clear 3 lines (because this
     #   still increase the number of overhaning blocks by 1); this is not ideal
-    # - avoid creating new overhangs - rather increase number of blocks on an existing overhang rather than creating
-    #   a new one -> count overhangs -> count every overhang separately, even multiple overhangs in the same column!
 
-    num_overhanging_cells: int
+    # mypy doesn't seem to understand that these are class variables
+    LARGE_ADJACENT_DIFF_THRESHOLD = 3  # type: ignore[misc]
+    VERY_CLOSE_TO_TOP_THRESHOLD = 5  # type: ignore[misc]
+    CLOSE_TO_TOP_THRESHOLD = 10  # type: ignore[misc]
+
+    num_cells_very_close_to_top: int
+    num_distinct_overhangs: int
+    num_rows_with_overhung_holes: int
+    num_overhanging_and_overhung_cells: int
+    num_cells_close_to_top: int
+    num_narrow_gaps: int
     sum_of_cell_heights: int
     sum_of_adjacent_height_differences: int
 
@@ -57,16 +56,67 @@ class Loss(NamedTuple):
     def from_board(cls, board: Board) -> Self:
         board_array = board.as_array_without_active_block().astype(bool)
 
-        return cls(
-            cls.count_overhanging_cells(board_array),
-            cls.sum_cell_heights(board_array),
-            cls.sum_adjacent_height_differences(board_array),
+        adjacent_height_differences = cls.adjacent_height_differences(board_array)
+
+        return cls(  # type: ignore[call-arg]
+            num_cells_very_close_to_top=cls.count_cells_close_to_top(board_array, cls.VERY_CLOSE_TO_TOP_THRESHOLD),
+            num_rows_with_overhung_holes=cls.count_rows_with_overhung_cells(board_array),
+            num_distinct_overhangs=cls.count_distinct_overhangs(board_array),
+            num_overhanging_and_overhung_cells=cls.count_overhanging_and_overhung_cells(board_array),
+            num_cells_close_to_top=cls.count_cells_close_to_top(board_array, cls.CLOSE_TO_TOP_THRESHOLD),
+            num_narrow_gaps=cls.count_narrow_gaps(adjacent_height_differences),
+            sum_of_cell_heights=cls.sum_cell_heights(board_array),
+            sum_of_adjacent_height_differences=np.sum(np.abs(adjacent_height_differences)),
         )
 
     @staticmethod
-    def count_overhanging_cells(board_array: NDArray[np.bool]) -> int:
-        # go through each column from bottom to top, find the first "False" (empty cell), and count all "True"s above
-        return sum(np.sum(column[np.argmax(~column) :]) for column in np.rot90(board_array, k=-1))
+    def count_cells_close_to_top(board_array: NDArray[np.bool], close_threshold: int) -> int:
+        # higher cells should be weighted higher - sum_cell_heights fits perfectly
+        return Loss.sum_cell_heights(board_array[:close_threshold])
+
+    @staticmethod
+    def count_rows_with_overhung_cells(board_array: NDArray[np.bool]) -> int:
+        return len(
+            {
+                empty_cell_idx
+                for column in np.rot90(board_array, k=1)
+                if np.any(column)
+                for empty_cell_idx in np.where(~column)[0]
+                if empty_cell_idx > np.argmax(column)
+            }
+        )
+
+    @staticmethod
+    def count_distinct_overhangs(board_array: NDArray[np.bool]) -> int:
+        return np.sum(np.diff(board_array.astype(np.int8), axis=0) == -1)
+
+    @staticmethod
+    def count_overhanging_and_overhung_cells(board_array: NDArray[np.bool]) -> int:
+        return sum(
+            # overhaning active cells
+            np.sum(column[np.argmin(column) :])
+            for column in np.rot90(board_array, k=-1)
+            if not np.all(column)
+        ) + sum(
+            # overhung empty cells
+            np.sum(~column[np.argmax(column) :])
+            for column in np.rot90(board_array, k=1)
+            if np.any(column)
+        )
+
+    @staticmethod
+    def count_narrow_gaps(adjacent_height_differences: NDArray[np.int_]) -> int:
+        """Number of gaps that can only be filled by I pieces."""
+        return (
+            np.sum(
+                np.logical_and(
+                    adjacent_height_differences[:-1] <= -Loss.LARGE_ADJACENT_DIFF_THRESHOLD,
+                    adjacent_height_differences[1:] >= Loss.LARGE_ADJACENT_DIFF_THRESHOLD,
+                )
+            )
+            + int(adjacent_height_differences[0] > Loss.LARGE_ADJACENT_DIFF_THRESHOLD)
+            + int(adjacent_height_differences[-1] < -Loss.LARGE_ADJACENT_DIFF_THRESHOLD)
+        )
 
     @staticmethod
     def sum_cell_heights(board_array: NDArray[np.bool]) -> int:
@@ -77,19 +127,15 @@ class Loss(NamedTuple):
         return int(y_indices.size * board_array.shape[0] - np.sum(y_indices))
 
     @staticmethod
-    def sum_adjacent_height_differences(board_array: NDArray[np.bool]) -> int:
-        # get the highest active cell index for each column, compute adjacent differences, return their absolute sum
+    def adjacent_height_differences(board_array: NDArray[np.bool]) -> NDArray[np.int_]:
+        # get the highest active cell index for each column, compute adjacent differences
         # in case there are no active cells in a column, use the full height of the array as the height (i.e. consider
         # the highest active cell to be below the bottom)
-        return np.sum(
-            np.abs(
-                np.diff(
-                    np.where(
-                        np.any(board_array, axis=0),
-                        np.argmax(board_array, axis=0),
-                        board_array.shape[0],
-                    )
-                )
+        return -np.diff(
+            np.where(
+                np.any(board_array, axis=0),
+                np.argmax(board_array, axis=0),
+                board_array.shape[0],
             )
         )
 
@@ -272,7 +318,7 @@ class HeuristicBotController(Controller, Subscriber):
             self._active_frame = True
             # only quickdrop if we have already computed the next plan; otherwise we want to buy some time for the next
             # plan to be computed (i.e. slow drop)
-            return Action(down=self._next_plan is not None)
+            return SpawnDropMergeRule.INSTANT_DROP_AND_MERGE_ACTION if self._next_plan is not None else Action()
 
         # skip every other frame such that each action is interpreted as a separate button press, instead of a single
         # button hold

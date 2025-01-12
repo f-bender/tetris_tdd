@@ -33,9 +33,9 @@ FPS = 60
 def main() -> None:
     configure_logging()
 
-    boards = create_boards()
-    controller = HeuristicBotController(boards[0], fps=FPS)
-    games, callbacks = create_games(boards=boards, controllers=[controller])
+    boards = create_boards(6)
+    controllers: list[Controller] = [HeuristicBotController(board, fps=FPS) for board in boards]
+    games, callbacks = create_games(boards=boards, controllers=controllers, use_tetris_99_rules=False)
     runtime = create_runtime(games, callbacks)
 
     runtime.run()
@@ -51,6 +51,7 @@ def create_games(
     controllers: list[Controller] | None = None,
     names: list[str] | None = None,
     boards: list[Board] | None = None,
+    use_tetris_99_rules: bool = True,
 ) -> tuple[list[Game], list[Callback]]:
     lengths = {
         length
@@ -82,7 +83,9 @@ def create_games(
 
     boards = boards or create_boards(num_games)
 
-    tetris_99_rules: list[Tetris99Rule] | list[None] = [None] if num_games == 1 else _create_tetris_99_rules(num_games)
+    tetris_99_rules: list[Tetris99Rule] | list[None] = (
+        _create_tetris_99_rules(num_games) if use_tetris_99_rules and num_games > 1 else [None] * num_games  # type: ignore[list-item]
+    )
 
     runtime_callbacks: list[Callback] = []
 
@@ -148,7 +151,9 @@ def create_runtime(games: list[Game], callbacks: list[Callback] | None = None, f
 
 
 def _create_rules_and_callbacks(
-    x, tetris99_rule: Tetris99Rule | None = None, track_score_callback: TrackScoreCallback | None = None
+    controller: Controller | None = None,
+    tetris99_rule: Tetris99Rule | None = None,
+    track_score_callback: TrackScoreCallback | None = None,
 ) -> tuple[RuleSequence, CallbackCollection]:
     """Get rules and callbacks relevant for one instance of a game.
 
@@ -160,7 +165,10 @@ def _create_rules_and_callbacks(
         speed_strategy=(line_clear_speedup_strategy := LineClearSpeedupStrategy()),
         spawn_strategy=(spawn_strategy := SpawnStrategyImpl()),
     )
-    spawn_strategy.add_subscriber(x)
+
+    if isinstance(controller, HeuristicBotController):
+        spawn_strategy.add_subscriber(controller)
+
     parry_rule = ParryRule(leeway_frames=1)
     clear_full_lines_rule = ClearFullLinesRule()
 
