@@ -28,6 +28,10 @@ class Game:
         self._callback_collection.on_game_start()
 
     @property
+    def frame_counter(self) -> int:
+        return self._frame_counter
+
+    @property
     def action_counter(self) -> ActionCounter:
         return self._action_counter
 

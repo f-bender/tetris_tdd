@@ -33,21 +33,16 @@ class Loss(NamedTuple):
     of equality are subsequent elements checked.
     """
 
-    # TODO:
-    # - write tests for this class!
-    # - issue: if there is an overhang, it doesn't even want to put a vertical I there to clear 3 lines (because this
-    #   still increase the number of overhaning blocks by 1); this is not ideal
-
     # mypy doesn't seem to understand that these are class variables
     LARGE_ADJACENT_DIFF_THRESHOLD = 3  # type: ignore[misc]
     VERY_CLOSE_TO_TOP_THRESHOLD = 5  # type: ignore[misc]
     CLOSE_TO_TOP_THRESHOLD = 10  # type: ignore[misc]
 
-    num_cells_very_close_to_top: int
+    sum_of_cell_heights_very_close_to_top: int
     num_distinct_overhangs: int
     num_rows_with_overhung_holes: int
     num_overhanging_and_overhung_cells: int
-    num_cells_close_to_top: int
+    sum_of_cell_heights_close_to_top: int
     num_narrow_gaps: int
     sum_of_cell_heights: int
     sum_of_adjacent_height_differences: int
@@ -59,18 +54,20 @@ class Loss(NamedTuple):
         adjacent_height_differences = cls.adjacent_height_differences(board_array)
 
         return cls(  # type: ignore[call-arg]
-            num_cells_very_close_to_top=cls.count_cells_close_to_top(board_array, cls.VERY_CLOSE_TO_TOP_THRESHOLD),
+            sum_of_cell_heights_very_close_to_top=cls.sum_cell_heights_close_to_top(
+                board_array, cls.VERY_CLOSE_TO_TOP_THRESHOLD
+            ),
             num_rows_with_overhung_holes=cls.count_rows_with_overhung_cells(board_array),
             num_distinct_overhangs=cls.count_distinct_overhangs(board_array),
             num_overhanging_and_overhung_cells=cls.count_overhanging_and_overhung_cells(board_array),
-            num_cells_close_to_top=cls.count_cells_close_to_top(board_array, cls.CLOSE_TO_TOP_THRESHOLD),
+            sum_of_cell_heights_close_to_top=cls.sum_cell_heights_close_to_top(board_array, cls.CLOSE_TO_TOP_THRESHOLD),
             num_narrow_gaps=cls.count_narrow_gaps(adjacent_height_differences),
             sum_of_cell_heights=cls.sum_cell_heights(board_array),
             sum_of_adjacent_height_differences=np.sum(np.abs(adjacent_height_differences)),
         )
 
     @staticmethod
-    def count_cells_close_to_top(board_array: NDArray[np.bool], close_threshold: int) -> int:
+    def sum_cell_heights_close_to_top(board_array: NDArray[np.bool], close_threshold: int) -> int:
         # higher cells should be weighted higher - sum_cell_heights fits perfectly
         return Loss.sum_cell_heights(board_array[:close_threshold])
 
@@ -114,8 +111,8 @@ class Loss(NamedTuple):
                     adjacent_height_differences[1:] >= Loss.LARGE_ADJACENT_DIFF_THRESHOLD,
                 )
             )
-            + int(adjacent_height_differences[0] > Loss.LARGE_ADJACENT_DIFF_THRESHOLD)
-            + int(adjacent_height_differences[-1] < -Loss.LARGE_ADJACENT_DIFF_THRESHOLD)
+            + int(adjacent_height_differences[0] >= Loss.LARGE_ADJACENT_DIFF_THRESHOLD)
+            + int(adjacent_height_differences[-1] <= -Loss.LARGE_ADJACENT_DIFF_THRESHOLD)
         )
 
     @staticmethod

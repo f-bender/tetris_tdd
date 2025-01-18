@@ -200,11 +200,7 @@ class FourColorizer:
             self._single_option_blocks = single_option_blocks_copy
 
     def _generate_coloring(self) -> Iterator[bool]:
-        """TODO.
-
-        Yields:
-            Bool, whether a block was placed or not.
-        """
+        """Yields a bool, whether a block was colorized or not."""
         with self._single_option_block_restorer():
             while (block_to_colorize := self._get_next_block_to_colorize()) is None:
                 yield False
@@ -215,11 +211,7 @@ class FourColorizer:
             yield from self._generate_coloring_for_block(block_to_colorize)
 
     def _generate_coloring_for_block(self, block_to_colorize: int) -> Iterator[bool]:  # noqa: C901, PLR0912
-        """TODO.
-
-        Yields:
-            Bool, whether a block was placed or not.
-        """
+        """Yields a bool, whether a block was colorized or not."""
         neighboring_colors, neighboring_uncolored_blocks = self._get_neighboring_colors_and_uncolored_blocks(
             block_to_colorize
         )

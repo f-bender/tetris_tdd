@@ -62,7 +62,9 @@ def assert_whether_drop_triggered_after(
     mock_board = Mock(has_active_block=Mock(return_value=True))
     drop_rule.apply(
         frame_counter=frame_counter,
-        action_counter=Mock(held_since=Mock(return_value=quick_drop_held_since)),
+        action_counter=Mock(
+            held_since=lambda action: quick_drop_held_since if action == SpawnDropMergeRule.QUICK_DROP_ACTION else 0
+        ),
         board=mock_board,
     )
     if should_trigger:

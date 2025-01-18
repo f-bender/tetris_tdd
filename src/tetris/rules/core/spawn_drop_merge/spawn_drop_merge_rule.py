@@ -25,6 +25,7 @@ class MergeMessage(NamedTuple):
 
 class SpawnDropMergeRule(Callback, Publisher):
     INSTANT_DROP_AND_MERGE_ACTION = Action(down=True, confirm=True)
+    QUICK_DROP_ACTION = Action(down=True)
 
     def __init__(
         self,
@@ -79,7 +80,7 @@ class SpawnDropMergeRule(Callback, Publisher):
                 self._last_drop_frame = frame_counter
             return
 
-        quick_drop_held = action_counter.held_since(Action(down=True)) != 0
+        quick_drop_held = action_counter.held_since(self.QUICK_DROP_ACTION) != 0
 
         if not (
             instant_drop_and_merge := action_counter.held_since(self.INSTANT_DROP_AND_MERGE_ACTION) != 0

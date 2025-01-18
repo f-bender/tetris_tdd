@@ -545,12 +545,13 @@ def test_game_runs_as_expected() -> None:
 
     for idx, expected_board_state in enumerate(expected_board_states):
         # WHEN advancing the game frame by frame
-        game.advance_frame(frame_counter=idx)
+        game.advance_frame()
         print(f"Actual board after step {idx}:", str(board), sep="\n", end="\n\n")  # noqa: T201
 
         # THEN the board state is as expected on every frame
         assert str(board) == "\n".join(expected_board_state)
+        assert game.frame_counter == idx + 1
 
     # THEN the game raises GameOver after the last game-ending board-state
     with pytest.raises(GameOverError):
-        game.advance_frame(frame_counter=len(expected_board_states))
+        game.advance_frame()
