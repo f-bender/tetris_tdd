@@ -121,7 +121,7 @@ class PlayingState:
 
         for game in runtime.games:
             try:
-                game.advance_frame(runtime.frame_counter)
+                game.advance_frame()
             except GameOverError:
                 game.reset()
 
