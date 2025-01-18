@@ -6,11 +6,19 @@ import keyboard
 from tetris.game_logic.components.board import Board
 from tetris.game_logic.interfaces.controller import Action, Controller
 
-type Key = str | int
 
+class KeyboardKeyboardController(Controller):
+    def __init__(self, action_to_keys: Mapping[str, list[str | int]] | None = None) -> None:
+        """Initialize the KeyboardKeyboardController.
 
-class KeyboardController(Controller):
-    def __init__(self, action_to_keys: Mapping[str, list[Key]] | None = None) -> None:
+        Args:
+            action_to_keys: Mapping from action names (see class Action) to lists of key representations for the keys
+                that all should be able to trigger the respective action.
+                Key representations can be int or str, see keyboard module for details on valid values.
+
+        Raises:
+            ValueError: If not all actions are covered by action_to_keys, or it contains an invalid action name.
+        """
         self._action_to_keys = action_to_keys or {
             "left": ["a", "left", "h"],
             "right": ["d", "right", "l"],
@@ -18,7 +26,11 @@ class KeyboardController(Controller):
             "down": ["s", "down", "j"],
             "left_shoulder": ["q", "i"],
             "right_shoulder": ["e", "o"],
-            "confirm": ["enter", "space", 82],  # numpad 0
+            "confirm": [
+                "enter",
+                "space",
+                82,  # scan code: numpad 0
+            ],
             "cancel": ["esc", "ctrl"],
         }
 

@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 from tetris.clock.simple import SimpleClock
 from tetris.controllers.gamepad import GamepadController
 from tetris.controllers.heuristic_bot import HeuristicBotController
-from tetris.controllers.keyboard import KeyboardController
+from tetris.controllers.pynput_keyboard import PynputKeyboardController
 from tetris.game_logic.components import Board
 from tetris.game_logic.game import Game
 from tetris.game_logic.interfaces.callback import Callback
@@ -33,9 +33,8 @@ FPS = 60
 def main() -> None:
     configure_logging()
 
-    boards = create_boards(6)
-    controllers: list[Controller] = [HeuristicBotController(board, fps=FPS) for board in boards]
-    games, callbacks = create_games(boards=boards, controllers=controllers, use_tetris_99_rules=False)
+    boards = create_boards()
+    games, callbacks = create_games(boards=boards, controllers=[PynputKeyboardController()], use_tetris_99_rules=False)
     runtime = create_runtime(games, callbacks)
 
     runtime.run()
@@ -125,15 +124,15 @@ def _create_tetris_99_rules(num_games: int) -> list[Tetris99Rule]:
 
 
 def _default_controllers() -> list[Controller]:
-    default_controllers: list[Controller] = [KeyboardController.arrow_keys()]
+    default_controllers: list[Controller] = [PynputKeyboardController.arrow_keys()]
 
     with contextlib.suppress(ImportError):
         from inputs import devices
 
         default_controllers.extend(GamepadController(gamepad_index=i) for i in range(len(devices.gamepads)))
 
-    default_controllers.append(KeyboardController.wasd())
-    default_controllers.append(KeyboardController.vim())
+    default_controllers.append(PynputKeyboardController.wasd())
+    default_controllers.append(PynputKeyboardController.vim())
 
     return default_controllers
 
@@ -145,7 +144,7 @@ def create_runtime(games: list[Game], callbacks: list[Callback] | None = None, f
         ui,
         clock,
         games,
-        KeyboardController(),
+        PynputKeyboardController(),
         callback_collection=CallbackCollection((TrackPerformanceCallback(fps=fps), *(callbacks or []))),
     )
 
