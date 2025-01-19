@@ -32,20 +32,12 @@ class Runtime:
         self._ui.initialize(*board_size, num_boards=len(games))
         self._clock = clock
         self._frame_counter = 0
-        self._state: State = STARTUP_STATE
+        self.state: State = STARTUP_STATE
 
-        self._callback_collection = callback_collection or CallbackCollection(())
+        self.callback_collection = callback_collection or CallbackCollection(())
 
         self._controller = controller
         self._action_counter = ActionCounter()
-
-    @property
-    def state(self) -> "State":
-        return self._state
-
-    @state.setter
-    def state(self, state: "State") -> None:
-        self._state = state
 
     @property
     def action_counter(self) -> ActionCounter:
@@ -66,21 +58,21 @@ class Runtime:
             game.reset()
 
     def run(self) -> None:
-        self._callback_collection.on_runtime_start()
+        self.callback_collection.on_runtime_start()
         while True:
             self._clock.tick()
             self.advance_frame(self._controller.get_action())
 
     def advance_frame(self, action: Action) -> None:
-        self._callback_collection.on_frame_start()
+        self.callback_collection.on_frame_start()
 
         self._action_counter.update(action)
-        self._callback_collection.on_action_counter_updated()
+        self.callback_collection.on_action_counter_updated()
 
-        self._state.advance(self)
+        self.state.advance(self)
 
         self._ui.draw(game.board.as_array() for game in self._games)
-        self._callback_collection.on_frame_end()
+        self.callback_collection.on_frame_end()
 
         self._frame_counter += 1
 

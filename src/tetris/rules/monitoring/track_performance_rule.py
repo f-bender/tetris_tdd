@@ -7,8 +7,13 @@ class TrackPerformanceCallback(Callback):
     BAR_WIDTH = 100
 
     def __init__(self, fps: float = 60) -> None:
+        super().__init__()
+
         self._last_frame_start: float | None = None
         self._frame_budget = 1 / fps
+
+    def should_be_called_by(self, game_index: int) -> bool:
+        return game_index == -1  # runtime
 
     def on_frame_start(self) -> None:
         self._last_frame_start = time.perf_counter()

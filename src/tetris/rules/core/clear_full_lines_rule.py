@@ -2,7 +2,7 @@ from typing import NamedTuple
 
 from tetris.game_logic.action_counter import ActionCounter
 from tetris.game_logic.components.board import Board
-from tetris.game_logic.interfaces.rule import Publisher
+from tetris.game_logic.interfaces.pub_sub import Publisher
 
 
 class LineClearMessage(NamedTuple):

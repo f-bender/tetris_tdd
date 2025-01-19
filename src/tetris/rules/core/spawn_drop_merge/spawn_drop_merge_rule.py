@@ -6,11 +6,11 @@ from tetris.game_logic.components.board import Board
 from tetris.game_logic.components.exceptions import CannotDropBlockError
 from tetris.game_logic.interfaces.callback import Callback
 from tetris.game_logic.interfaces.controller import Action
-from tetris.game_logic.interfaces.rule import Publisher
+from tetris.game_logic.interfaces.pub_sub import Publisher
 from tetris.rules.core.spawn_drop_merge.drop import DropStrategy, DropStrategyImpl
 from tetris.rules.core.spawn_drop_merge.merge import MergeStrategy, MergeStrategyImpl
 from tetris.rules.core.spawn_drop_merge.spawn import SpawnStrategy, SpawnStrategyImpl
-from tetris.rules.core.spawn_drop_merge.speed import SpeedStrategy
+from tetris.rules.core.spawn_drop_merge.speed import SpeedStrategy, SpeedStrategyImpl
 
 
 class Speed(Enum):
@@ -52,7 +52,7 @@ class SpawnDropMergeRule(Callback, Publisher):
         self._spawn_strategy = spawn_strategy or SpawnStrategyImpl()
         self._drop_strategy = drop_strategy or DropStrategyImpl()
         self._merge_strategy = merge_strategy or MergeStrategyImpl()
-        self._speed_strategy = speed_strategy or SpeedStrategy()
+        self._speed_strategy = speed_strategy or SpeedStrategyImpl()
 
         self._last_merge_frame: int | None = None
         self._last_drop_frame: int = 0

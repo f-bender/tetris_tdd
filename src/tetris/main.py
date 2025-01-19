@@ -7,17 +7,17 @@ from tetris.controllers.heuristic_bot import HeuristicBotController
 from tetris.controllers.pynput_keyboard import PynputKeyboardController
 from tetris.game_logic.components import Board
 from tetris.game_logic.game import Game
-from tetris.game_logic.interfaces.callback import Callback
+from tetris.game_logic.interfaces import global_current_game_index
+from tetris.game_logic.interfaces.callback import ALL_CALLBACKS, Callback
 from tetris.game_logic.interfaces.callback_collection import CallbackCollection
 from tetris.game_logic.interfaces.controller import Controller
+from tetris.game_logic.interfaces.pub_sub import ALL_PUBLISHERS, ALL_SUBSCRIBERS, Publisher, Subscriber
 from tetris.game_logic.interfaces.rule_sequence import RuleSequence
 from tetris.game_logic.runtime import Runtime
 from tetris.logging_config import configure_logging
 from tetris.rules.core.clear_full_lines_rule import ClearFullLinesRule
 from tetris.rules.core.move_rotate_rules import MoveRule, RotateRule
-from tetris.rules.core.spawn_drop_merge.spawn import SpawnStrategyImpl
 from tetris.rules.core.spawn_drop_merge.spawn_drop_merge_rule import SpawnDropMergeRule
-from tetris.rules.core.spawn_drop_merge.speed import LineClearSpeedupStrategy
 from tetris.rules.monitoring.track_performance_rule import TrackPerformanceCallback
 from tetris.rules.monitoring.track_score_rule import TrackScoreCallback
 from tetris.rules.multiplayer.tetris99_rule import Tetris99Rule
@@ -27,31 +27,30 @@ from tetris.ui.cli import CLI
 if TYPE_CHECKING:
     from tetris.game_logic.interfaces.rule import Rule
 
-FPS = 60
-
 
 def main() -> None:
     configure_logging()
 
-    boards = create_boards()
-    games, callbacks = create_games(boards=boards, controllers=[PynputKeyboardController()], use_tetris_99_rules=False)
-    runtime = create_runtime(games, callbacks)
+    boards = _create_boards(6)
+    games = _create_games(
+        boards=boards, controllers=[HeuristicBotController(board) for board in boards], use_tetris_99_rules=False
+    )
+    runtime = _create_runtime(games)
+
+    _wire_up_pubs_subs()
+    _wire_up_callbacks(runtime, games)
 
     runtime.run()
 
 
-def create_boards(num_boards: int = 1, size: tuple[int, int] = (20, 10)) -> list[Board]:
-    return [Board.create_empty(*size) for _ in range(num_boards)]
-
-
-def create_games(
+def _create_games(
     num_games: int | None = None,
     *,
     controllers: list[Controller] | None = None,
     names: list[str] | None = None,
     boards: list[Board] | None = None,
     use_tetris_99_rules: bool = True,
-) -> tuple[list[Game], list[Callback]]:
+) -> list[Game]:
     lengths = {
         length
         for length in (
@@ -80,47 +79,23 @@ def create_games(
     if names is None:
         names = [f"Player {i}" for i in range(1, num_games + 1)]
 
-    boards = boards or create_boards(num_games)
-
-    tetris_99_rules: list[Tetris99Rule] | list[None] = (
-        _create_tetris_99_rules(num_games) if use_tetris_99_rules and num_games > 1 else [None] * num_games  # type: ignore[list-item]
-    )
-
-    runtime_callbacks: list[Callback] = []
+    boards = boards or _create_boards(num_games)
 
     games: list[Game] = []
-    for controller, name, tetris_99_rule, board in zip(controllers, names, tetris_99_rules, boards, strict=True):
-        track_score_callback = TrackScoreCallback(header=name)
-        runtime_callbacks.append(track_score_callback)
 
-        rule_sequence, callback_collection = _create_rules_and_callbacks(
-            controller, tetris_99_rule, track_score_callback
-        )
-        games.append(
-            Game(
-                board=board,
-                controller=controller,
-                rule_sequence=rule_sequence,
-                callback_collection=callback_collection,
-            )
-        )
+    for idx, (controller, name, board) in enumerate(zip(controllers, names, boards, strict=True)):
+        global_current_game_index.current_game_index = idx
 
-    return games, runtime_callbacks
+        TrackScoreCallback(header=name)  # not useless; will be added to ALL_CALLBACKS
 
+        if isinstance(controller, Callback | Subscriber | Publisher):
+            controller.game_index = idx
 
-def _create_tetris_99_rules(num_games: int) -> list[Tetris99Rule]:
-    if not num_games > 1:
-        msg = "Tetris 99 rules require at least 2 players."
-        raise ValueError(msg)
+        rule_sequence = _create_rules_and_callbacks(num_games=num_games, create_tetris_99_rule=use_tetris_99_rules)
 
-    tetris_99_rules = [Tetris99Rule(id=i, target_ids=list(set(range(num_games)) - {i})) for i in range(num_games)]
+        games.append(Game(board=board, controller=controller, rule_sequence=rule_sequence))
 
-    for publisher in tetris_99_rules:
-        for observer in tetris_99_rules:
-            if publisher is not observer:
-                publisher.add_subscriber(observer)
-
-    return tetris_99_rules
+    return games
 
 
 def _default_controllers() -> list[Controller]:
@@ -137,66 +112,69 @@ def _default_controllers() -> list[Controller]:
     return default_controllers
 
 
-def create_runtime(games: list[Game], callbacks: list[Callback] | None = None, fps: float = FPS) -> Runtime:
-    ui = CLI()
-    clock = SimpleClock(fps=fps)
-    return Runtime(
-        ui,
-        clock,
-        games,
-        PynputKeyboardController(),
-        callback_collection=CallbackCollection((TrackPerformanceCallback(fps=fps), *(callbacks or []))),
-    )
+def _create_boards(num_boards: int = 1, size: tuple[int, int] = (20, 10)) -> list[Board]:
+    return [Board.create_empty(*size) for _ in range(num_boards)]
 
 
-def _create_rules_and_callbacks(
-    controller: Controller | None = None,
-    tetris99_rule: Tetris99Rule | None = None,
-    track_score_callback: TrackScoreCallback | None = None,
-) -> tuple[RuleSequence, CallbackCollection]:
-    """Get rules and callbacks relevant for one instance of a game.
+def _create_rules_and_callbacks(num_games: int, *, create_tetris_99_rule: bool = True) -> RuleSequence:
+    """Get rules relevant for one instance of a game.
+
+    Optionally also create (but don't return) callbacks to be added to game's/runtime's callback collection by wire-up
+    function.
+
+    Args:
+        num_games: Total number of games being created overall.
+        create_tetris_99_rule: Whether to create a Tetris99Rule in case there are multiple games.
+
 
     Returns:
-        - a RuleSequence to be passed to the Game
-        - a CallbackCollection to be passed to the Game
+        A RuleSequence to be passed to the Game.
     """
-    spawn_drop_merge_rule = SpawnDropMergeRule(
-        speed_strategy=(line_clear_speedup_strategy := LineClearSpeedupStrategy()),
-        spawn_strategy=(spawn_strategy := SpawnStrategyImpl()),
-    )
-
-    if isinstance(controller, HeuristicBotController):
-        spawn_strategy.add_subscriber(controller)
-
-    parry_rule = ParryRule(leeway_frames=1)
-    clear_full_lines_rule = ClearFullLinesRule()
-
-    if tetris99_rule:
-        clear_full_lines_rule.add_subscriber(tetris99_rule)
-
-    if track_score_callback:
-        clear_full_lines_rule.add_subscriber(track_score_callback)
-
-    clear_full_lines_rule.add_subscriber(line_clear_speedup_strategy)
-    spawn_drop_merge_rule.add_subscriber(parry_rule)
-
     rules: list[Rule] = [
         MoveRule(),
         RotateRule(),
-        spawn_drop_merge_rule,
-        parry_rule,
-        clear_full_lines_rule,
+        SpawnDropMergeRule(),
+        ParryRule(),
+        ClearFullLinesRule(),
     ]
-    if tetris99_rule:
-        rules.append(tetris99_rule)
-    rule_sequence = RuleSequence(rules)
 
-    callbacks: list[Callback] = [spawn_drop_merge_rule, line_clear_speedup_strategy]
-    if track_score_callback:
-        callbacks.append(track_score_callback)
-    callback_collection = CallbackCollection(callbacks)
+    if create_tetris_99_rule and num_games > 1:
+        rules.append(
+            Tetris99Rule(target_idxs=list(set(range(num_games)) - {global_current_game_index.current_game_index}))
+        )
 
-    return rule_sequence, callback_collection
+    return RuleSequence(rules)
+
+
+def _create_runtime(games: list[Game], *, controller: Controller | None = None, fps: float = 60) -> Runtime:
+    global_current_game_index.current_game_index = -1  # -1 represents the runtime
+
+    TrackPerformanceCallback(fps)  # not useless; will be added to ALL_CALLBACKS
+
+    return Runtime(ui=CLI(), clock=SimpleClock(fps), games=games, controller=controller or PynputKeyboardController())
+
+
+def _wire_up_pubs_subs() -> None:
+    for subscriber in ALL_SUBSCRIBERS:
+        subscriptions: list[Publisher] = []
+
+        for publisher in ALL_PUBLISHERS:
+            if subscriber.should_be_subscribed_to(publisher):
+                publisher.add_subscriber(subscriber)
+                subscriptions.append(publisher)
+
+        subscriber.verify_subscriptions(subscriptions)
+
+
+def _wire_up_callbacks(runtime: Runtime, games: list[Game]) -> None:
+    runtime.callback_collection = CallbackCollection(
+        tuple(callback for callback in ALL_CALLBACKS if callback.should_be_called_by(-1))
+    )
+
+    for idx, game in enumerate(games):
+        game.callback_collection = CallbackCollection(
+            tuple(callback for callback in ALL_CALLBACKS if callback.should_be_called_by(idx))
+        )
 
 
 if __name__ == "__main__":

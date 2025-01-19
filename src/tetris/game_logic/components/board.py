@@ -31,7 +31,7 @@ class Board:
     def __init__(self) -> None:
         # initialized in a degenerate state - don't call constructor but rather one of the creation classmethods
         self._board: NDArray[np.uint8] = np.zeros((0, 0), dtype=np.uint8)
-        self._active_block: PositionedBlock | None = None
+        self.active_block: PositionedBlock | None = None
 
     @classmethod
     def create_empty(cls, height: int, width: int) -> Self:
@@ -71,7 +71,7 @@ class Board:
         else:
             self._board = other._board.copy()  # noqa: SLF001
 
-        self._active_block = other._active_block  # noqa: SLF001
+        self.active_block = other.active_block
 
     def as_array(self) -> NDArray[np.uint8]:
         return self._board_with_block()
@@ -87,16 +87,16 @@ class Board:
             msg = "Array shape does not match board shape"
             raise ValueError(msg)
 
-        if self._active_block is not None:
+        if self.active_block is not None:
             active_block = (
-                PositionedBlock(self._active_block.block, self._active_block.position + Vec(*active_block_displacement))
+                PositionedBlock(self.active_block.block, self.active_block.position + Vec(*active_block_displacement))
                 if active_block_displacement
-                else self._active_block
+                else self.active_block
             )
             if self.positioned_block_overlaps_with_active_cells(active_block, new_board):
                 raise ActiveBlockOverlapError
 
-            self._active_block = active_block
+            self.active_block = active_block
 
         self._board = new_board
 
@@ -112,19 +112,11 @@ class Board:
     def size(self) -> tuple[int, int]:
         return tuple(self._board.shape)
 
-    @property
-    def active_block(self) -> PositionedBlock | None:
-        return self._active_block
-
-    @active_block.setter
-    def active_block(self, value: PositionedBlock | None) -> None:
-        self._active_block = value
-
     def __str__(self) -> str:
         return "\n".join("".join(("X" if c else ".") for c in line) for line in self._board_with_block())
 
     def has_active_block(self) -> bool:
-        return self._active_block is not None
+        return self.active_block is not None
 
     def clear(self) -> None:
         self._board = np.zeros_like(self._board, dtype=np.uint8)
@@ -134,13 +126,13 @@ class Board:
 
     def spawn(self, block: Block, position: Vec | None = None) -> None:
         position = position or self._top_middle_position(block)
-        self._active_block = PositionedBlock(block, position)
+        self.active_block = PositionedBlock(block, position)
 
-        if not self._positioned_block_is_in_valid_position(self._active_block):
+        if not self._positioned_block_is_in_valid_position(self.active_block):
             try:
                 self._nudge_active_block_into_valid_position()
             except CannotNudgeError as e:
-                self._active_block = None
+                self.active_block = None
                 raise CannotSpawnBlockError from e
 
     def try_move_active_block_left(self) -> None:
@@ -156,10 +148,10 @@ class Board:
         self._rotate("right")
 
     def drop_active_block(self) -> None:
-        if self._active_block is None:
+        if self.active_block is None:
             raise NoActiveBlockError
 
-        dropped_block = PositionedBlock(self._active_block.block, self._active_block.position + Vec(1, 0))
+        dropped_block = PositionedBlock(self.active_block.block, self.active_block.position + Vec(1, 0))
 
         if not self._bbox_in_bounds(dropped_block.actual_bounding_box):
             msg = "Active block reached bottom of the board"
@@ -169,14 +161,14 @@ class Board:
             msg = "Active block has landed on an active cell"
             raise CannotDropBlockError(msg)
 
-        self._active_block = dropped_block
+        self.active_block = dropped_block
 
     def merge_active_block(self) -> None:
-        if self._active_block is None:
+        if self.active_block is None:
             raise NoActiveBlockError
 
-        self._merge_active_block_into_board(self._active_block, self._board)
-        self._active_block = None
+        self._merge_active_block_into_board(self.active_block, self._board)
+        self.active_block = None
 
     def _top_middle_position(self, block: Block) -> Vec:
         y_offset = block.actual_bounding_box.top_left.y
@@ -214,31 +206,31 @@ class Board:
         )
 
     def _move(self, x_offset: Literal[-1, 1]) -> None:
-        if self._active_block is None:
+        if self.active_block is None:
             raise NoActiveBlockError
 
-        moved_block = PositionedBlock(self._active_block.block, self._active_block.position + Vec(0, x_offset))
+        moved_block = PositionedBlock(self.active_block.block, self.active_block.position + Vec(0, x_offset))
 
         if self._positioned_block_is_in_valid_position(moved_block):
-            self._active_block = moved_block
+            self.active_block = moved_block
 
     def _rotate(self, direction: Literal["left", "right"]) -> None:
-        if self._active_block is None:
+        if self.active_block is None:
             raise NoActiveBlockError
 
         if direction == "left":
-            self._active_block.block.rotate_left()
+            self.active_block.block.rotate_left()
         else:
-            self._active_block.block.rotate_right()
+            self.active_block.block.rotate_right()
 
-        if not self._positioned_block_is_in_valid_position(self._active_block):
+        if not self._positioned_block_is_in_valid_position(self.active_block):
             try:
                 self._nudge_active_block_into_valid_position()
             except CannotNudgeError:
                 if direction == "left":
-                    self._active_block.block.rotate_right()
+                    self.active_block.block.rotate_right()
                 else:
-                    self._active_block.block.rotate_left()
+                    self.active_block.block.rotate_left()
 
     def _positioned_block_is_in_valid_position(self, positioned_block: PositionedBlock) -> bool:
         return self._bbox_in_bounds(
@@ -246,7 +238,7 @@ class Board:
         ) and not self.positioned_block_overlaps_with_active_cells(positioned_block, self._board)
 
     def _nudge_active_block_into_valid_position(self) -> None:
-        if self._active_block is None:
+        if self.active_block is None:
             raise NoActiveBlockError
 
         # RULES:
@@ -254,21 +246,21 @@ class Board:
         # we can nudge the block at most by half its sidelength
         # we must nudge the least possible amount
 
-        max_nudge = self._active_block.block.sidelength // 2
+        max_nudge = self.active_block.block.sidelength // 2
 
         for x_offset in sorted(range(-max_nudge, max_nudge + 1), key=abs):
-            nudged_block = PositionedBlock(self._active_block.block, self._active_block.position + Vec(0, x_offset))
+            nudged_block = PositionedBlock(self.active_block.block, self.active_block.position + Vec(0, x_offset))
 
             if self._positioned_block_is_in_valid_position(nudged_block):
-                self._active_block = nudged_block
+                self.active_block = nudged_block
                 return
 
         raise CannotNudgeError
 
     def _board_with_block(self) -> NDArray[np.uint8]:
-        if self._active_block is not None:
+        if self.active_block is not None:
             board = self._board.copy()
-            self._merge_active_block_into_board(self._active_block, board)
+            self._merge_active_block_into_board(self.active_block, board)
             return board
 
         return self._board

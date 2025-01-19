@@ -5,7 +5,7 @@ from tetris.game_logic.components.block import Block
 from tetris.game_logic.components.board import Board
 from tetris.game_logic.components.exceptions import CannotSpawnBlockError
 from tetris.game_logic.game import GameOverError
-from tetris.game_logic.interfaces.rule import Publisher
+from tetris.game_logic.interfaces.pub_sub import Publisher
 
 
 class SpawnStrategy(Protocol):

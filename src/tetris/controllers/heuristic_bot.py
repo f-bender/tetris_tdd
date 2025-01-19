@@ -13,8 +13,8 @@ from tetris.game_logic.components.block import Block, Vec
 from tetris.game_logic.components.board import Board, PositionedBlock
 from tetris.game_logic.components.exceptions import CannotDropBlockError
 from tetris.game_logic.interfaces.controller import Action, Controller
-from tetris.game_logic.interfaces.rule import Subscriber
-from tetris.rules.core.spawn_drop_merge.spawn import SpawnMessage
+from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
+from tetris.rules.core.spawn_drop_merge.spawn import SpawnMessage, SpawnStrategyImpl
 from tetris.rules.core.spawn_drop_merge.spawn_drop_merge_rule import SpawnDropMergeRule
 
 LOGGER = logging.getLogger(__name__)
@@ -154,6 +154,7 @@ class HeuristicBotController(Controller, Subscriber):
             fps: Frames per second that the game will run with. Used as the polling rate of the planning thread. (I.e.
                 how frequently to check whether it's time to make the next plan.)
         """
+        super().__init__()
         self._real_board: Final = board
 
         self._current_block: Block | None = None
@@ -168,6 +169,14 @@ class HeuristicBotController(Controller, Subscriber):
 
         self._fps = fps
         Thread(target=self._continuously_plan, daemon=True).start()
+
+    def should_be_subscribed_to(self, publisher: Publisher) -> bool:
+        return isinstance(publisher, SpawnStrategyImpl) and publisher.game_index == self.game_index
+
+    def verify_subscriptions(self, publishers: list[Publisher]) -> None:
+        if len(publishers) != 1:
+            msg = f"{type(self).__name__} of game {self.game_index} has {len(publishers)} subscriptions: {publishers}"
+            raise RuntimeError(msg)
 
     def notify(self, message: NamedTuple) -> None:
         if not isinstance(message, SpawnMessage):

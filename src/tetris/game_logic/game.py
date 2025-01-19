@@ -22,10 +22,10 @@ class Game:
         self._controller = controller
         self._action_counter = ActionCounter()
         self._rule_sequence = rule_sequence
-        self._callback_collection = callback_collection or CallbackCollection(())
+        self.callback_collection = callback_collection or CallbackCollection(())
 
         self._frame_counter = 0
-        self._callback_collection.on_game_start()
+        self.callback_collection.on_game_start()
 
     @property
     def frame_counter(self) -> int:
@@ -42,13 +42,13 @@ class Game:
     def reset(self) -> None:
         self._board.clear()
         self._frame_counter = 0
-        self._callback_collection.on_game_start()
+        self.callback_collection.on_game_start()
 
     def advance_frame(self) -> None:
         self._frame_counter += 1
 
         self._action_counter.update(self._controller.get_action(self._board))
-        self._callback_collection.on_action_counter_updated()
+        self.callback_collection.on_action_counter_updated()
 
         self._rule_sequence.apply(self._frame_counter, self._action_counter, self._board)
-        self._callback_collection.on_rules_applied()
+        self.callback_collection.on_rules_applied()
