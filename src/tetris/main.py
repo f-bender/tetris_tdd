@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 from tetris.clock.simple import SimpleClock
 from tetris.controllers.gamepad import GamepadController
 from tetris.controllers.heuristic_bot import HeuristicBotController
-from tetris.controllers.pynput_keyboard import PynputKeyboardController
+from tetris.controllers.keyboard.pynput import PynputKeyboardController
 from tetris.game_logic.components import Board
 from tetris.game_logic.game import Game
 from tetris.game_logic.interfaces import global_current_game_index
