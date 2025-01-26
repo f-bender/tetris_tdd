@@ -86,7 +86,8 @@ def _create_games(
     for idx, (controller, name, board) in enumerate(zip(controllers, names, boards, strict=True)):
         global_current_game_index.current_game_index = idx
 
-        TrackScoreCallback(header=name)  # not useless; will be added to ALL_CALLBACKS
+        # not useless; will be added to ALL_CALLBACKS and eventually to runtime's callback collection
+        TrackScoreCallback(header=name)
 
         if isinstance(controller, Callback | Subscriber | Publisher):
             controller.game_index = idx

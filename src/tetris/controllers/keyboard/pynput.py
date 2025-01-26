@@ -34,7 +34,7 @@ class PynputKeyboardController(Controller):
                 "space",
                 96,  # vk: numpad 0
             ],
-            "cancel": ["esc", "ctrl"],
+            "cancel": ["esc"],
         }
 
         if (mapped_actions := set(action_to_keys.keys())) != (all_actions := set(Action._fields)):

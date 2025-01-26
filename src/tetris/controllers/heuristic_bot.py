@@ -201,7 +201,7 @@ class HeuristicBotController(Controller, Subscriber):
                 # let the planning thread know to start planning again by setting _next_plan to None
                 self._next_plan = None
             else:
-                # planning has not finished in time; we are currently in the process of creating the current plan
+                # planning ahead has not finished in time; we are currently in the process of creating the current plan
                 # let the planning thread know to directly set _current_plan (by having it be None)
                 self._current_plan = None
                 LOGGER.warning("Didn't finish planning for this block before it was spawned")
@@ -239,9 +239,11 @@ class HeuristicBotController(Controller, Subscriber):
 
             with self._planning_lock:
                 if self._current_plan is None:
+                    # plan for the current block
                     block = self._current_block
                     expected_board_before = deepcopy(self._real_board)
                 else:
+                    # plan for the current block exists already: plan ahead for the next block
                     block = self._next_block
                     expected_board_before = deepcopy(expected_board_after_latest_plan)
 
@@ -252,6 +254,11 @@ class HeuristicBotController(Controller, Subscriber):
 
             with self._planning_lock:
                 if self._current_plan is None:
+                    # EITHER
+                    # we were planning for the current block from the start
+                    # OR
+                    # while we were planning ahead for the next block, the current block was merged, so the block we
+                    # have planned for is now the current block
                     self._set_current_plan(plan)
                 else:
                     self._next_plan = plan
@@ -314,8 +321,8 @@ class HeuristicBotController(Controller, Subscriber):
             self._active_frame = True
             return Action()
 
-        # the complicated part of the current plan has been executed, now simply quick-drop the block into place
-        # (ignore self._active_frame; in this case, we want to hold the button)
+        # if no misalignment: the complicated part of the current plan has been executed, now simply quick-drop the
+        # block into place (ignore self._active_frame; we can quick-drop immediately in a single frame)
         misalignment = self._positioned_blocks_misalignment(
             self._real_board.active_block,
             self._current_plan.target_positioned_block,

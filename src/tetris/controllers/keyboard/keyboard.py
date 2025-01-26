@@ -31,7 +31,7 @@ class KeyboardKeyboardController(Controller):
                 "space",
                 82,  # scan code: numpad 0
             ],
-            "cancel": ["esc", "ctrl"],
+            "cancel": ["esc"],
         }
 
         if (mapped_actions := set(self._action_to_keys.keys())) != (all_actions := set(Action._fields)):
