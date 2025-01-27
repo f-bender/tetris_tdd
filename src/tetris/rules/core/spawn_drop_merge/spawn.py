@@ -1,7 +1,9 @@
-from collections.abc import Callable
+import random
+from collections.abc import Callable, Iterator
+from functools import partial
 from typing import NamedTuple, Protocol
 
-from tetris.game_logic.components.block import Block
+from tetris.game_logic.components.block import Block, BlockType
 from tetris.game_logic.components.board import Board
 from tetris.game_logic.components.exceptions import CannotSpawnBlockError
 from tetris.game_logic.game import GameOverError
@@ -37,3 +39,21 @@ class SpawnStrategyImpl(Publisher):
         self.notify_subscribers(SpawnMessage(block=self._next_block, next_block=next_block))
 
         self._next_block = next_block
+
+    @classmethod
+    def from_shuffled_bag(cls, bag: list[Block] | None = None, seed: int | None = None) -> "SpawnStrategyImpl":
+        bag = bag or [Block(block_type) for block_type in BlockType]
+        rng = random.Random(seed)
+
+        def block_iter() -> Iterator[Block]:
+            while True:
+                rng.shuffle(bag)
+                yield from bag
+
+        block_iterator = block_iter()
+
+        return cls(select_block_fn=lambda: next(block_iterator))
+
+    @classmethod
+    def truly_random(cls, seed: int | None = None) -> "SpawnStrategyImpl":
+        return cls(select_block_fn=partial(Block.create_random, rng=random.Random(seed)))
