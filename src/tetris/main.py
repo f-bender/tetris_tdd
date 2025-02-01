@@ -148,7 +148,7 @@ def _create_rules_and_callbacks(num_games: int, *, create_tetris_99_rule: bool =
 
 
 def _create_runtime(games: list[Game], *, controller: Controller | None = None, fps: float = 60) -> Runtime:
-    global_current_game_index.current_game_index = -1  # -1 represents the runtime
+    global_current_game_index.current_game_index = global_current_game_index.RUNTIME_INDEX
 
     TrackPerformanceCallback(fps)  # not useless; will be added to ALL_CALLBACKS
 
@@ -169,7 +169,11 @@ def _wire_up_pubs_subs() -> None:
 
 def _wire_up_callbacks(runtime: Runtime, games: list[Game]) -> None:
     runtime.callback_collection = CallbackCollection(
-        tuple(callback for callback in ALL_CALLBACKS if callback.should_be_called_by(-1))
+        tuple(
+            callback
+            for callback in ALL_CALLBACKS
+            if callback.should_be_called_by(global_current_game_index.RUNTIME_INDEX)
+        )
     )
 
     for idx, game in enumerate(games):

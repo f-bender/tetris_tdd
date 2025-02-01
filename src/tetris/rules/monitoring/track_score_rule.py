@@ -1,6 +1,7 @@
 from typing import NamedTuple
 
 from tetris.game_logic.interfaces.callback import Callback
+from tetris.game_logic.interfaces.global_current_game_index import RUNTIME_INDEX
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.rules.core.clear_full_lines_rule import ClearFullLinesRule, LineClearMessage
 
@@ -15,7 +16,7 @@ class TrackScoreCallback(Callback, Subscriber):
 
     def should_be_called_by(self, game_index: int) -> bool:
         return game_index in (
-            -1,  # runtime: for on_frame_start
+            RUNTIME_INDEX,  # runtime: for on_frame_start
             self.game_index,  # own game: for on_game_start
         )
 
