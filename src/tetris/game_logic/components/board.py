@@ -76,8 +76,8 @@ class Board:
     def as_array(self) -> NDArray[np.uint8]:
         return self._board_with_block()
 
-    def as_array_without_active_block(self) -> NDArray[np.uint8]:
-        return self._board.copy()
+    def array_view_without_active_block(self) -> NDArray[np.uint8]:
+        return self._board
 
     def set_from_array(
         self, array: NDArray[np.uint8], active_block_displacement: tuple[int, int] | None = None

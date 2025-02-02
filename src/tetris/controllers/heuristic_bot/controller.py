@@ -4,11 +4,11 @@ import logging
 import time
 from copy import deepcopy
 from threading import Lock, Thread
-from typing import Final, NamedTuple, Self
+from typing import Final, NamedTuple
 
 import numpy as np
-from numpy.typing import NDArray
 
+from tetris.controllers.heuristic_bot.heuristic import Heuristic
 from tetris.game_logic.components.block import Block, Vec
 from tetris.game_logic.components.board import Board, PositionedBlock
 from tetris.game_logic.components.exceptions import CannotDropBlockError
@@ -25,118 +25,6 @@ class Plan(NamedTuple):
     target_positioned_block: PositionedBlock
 
 
-class Loss(NamedTuple):
-    """Measure of how bad a board is.
-
-    `<` , `>` should be used to compare losses.
-    This will use the tuple implementation, meaning that the first element is the most important, and only in case
-    of equality are subsequent elements checked.
-    """
-
-    # mypy doesn't seem to understand that these are class variables
-    LARGE_ADJACENT_DIFF_THRESHOLD = 3  # type: ignore[misc]
-    VERY_CLOSE_TO_TOP_THRESHOLD = 5  # type: ignore[misc]
-    CLOSE_TO_TOP_THRESHOLD = 10  # type: ignore[misc]
-
-    sum_of_cell_heights_very_close_to_top: int
-    num_distinct_overhangs: int
-    num_rows_with_overhung_holes: int
-    num_overhanging_and_overhung_cells: int
-    sum_of_cell_heights_close_to_top: int
-    num_narrow_gaps: int
-    sum_of_cell_heights: int
-    sum_of_adjacent_height_differences: int
-
-    @classmethod
-    def from_board(cls, board: Board) -> Self:
-        board_array = board.as_array_without_active_block().astype(bool)
-
-        adjacent_height_differences = cls.adjacent_height_differences(board_array)
-
-        return cls(  # type: ignore[call-arg]
-            sum_of_cell_heights_very_close_to_top=cls.sum_cell_heights_close_to_top(
-                board_array, cls.VERY_CLOSE_TO_TOP_THRESHOLD
-            ),
-            num_rows_with_overhung_holes=cls.count_rows_with_overhung_cells(board_array),
-            num_distinct_overhangs=cls.count_distinct_overhangs(board_array),
-            num_overhanging_and_overhung_cells=cls.count_overhanging_and_overhung_cells(board_array),
-            sum_of_cell_heights_close_to_top=cls.sum_cell_heights_close_to_top(board_array, cls.CLOSE_TO_TOP_THRESHOLD),
-            num_narrow_gaps=cls.count_narrow_gaps(adjacent_height_differences),
-            sum_of_cell_heights=cls.sum_cell_heights(board_array),
-            sum_of_adjacent_height_differences=np.sum(np.abs(adjacent_height_differences)),
-        )
-
-    @staticmethod
-    def sum_cell_heights_close_to_top(board_array: NDArray[np.bool], close_threshold: int) -> int:
-        # higher cells should be weighted higher - sum_cell_heights fits perfectly
-        return Loss.sum_cell_heights(board_array[:close_threshold])
-
-    @staticmethod
-    def count_rows_with_overhung_cells(board_array: NDArray[np.bool]) -> int:
-        return len(
-            {
-                empty_cell_idx
-                for column in np.rot90(board_array, k=1)
-                if np.any(column)
-                for empty_cell_idx in np.where(~column)[0]
-                if empty_cell_idx > np.argmax(column)
-            }
-        )
-
-    @staticmethod
-    def count_distinct_overhangs(board_array: NDArray[np.bool]) -> int:
-        return np.sum(np.diff(board_array.astype(np.int8), axis=0) == -1)
-
-    @staticmethod
-    def count_overhanging_and_overhung_cells(board_array: NDArray[np.bool]) -> int:
-        return sum(
-            # overhaning active cells
-            np.sum(column[np.argmin(column) :])
-            for column in np.rot90(board_array, k=-1)
-            if not np.all(column)
-        ) + sum(
-            # overhung empty cells
-            np.sum(~column[np.argmax(column) :])
-            for column in np.rot90(board_array, k=1)
-            if np.any(column)
-        )
-
-    @staticmethod
-    def count_narrow_gaps(adjacent_height_differences: NDArray[np.int_]) -> int:
-        """Number of gaps that can only be filled by I pieces."""
-        return (
-            np.sum(
-                np.logical_and(
-                    adjacent_height_differences[:-1] <= -Loss.LARGE_ADJACENT_DIFF_THRESHOLD,
-                    adjacent_height_differences[1:] >= Loss.LARGE_ADJACENT_DIFF_THRESHOLD,
-                )
-            )
-            + int(adjacent_height_differences[0] >= Loss.LARGE_ADJACENT_DIFF_THRESHOLD)
-            + int(adjacent_height_differences[-1] <= -Loss.LARGE_ADJACENT_DIFF_THRESHOLD)
-        )
-
-    @staticmethod
-    def sum_cell_heights(board_array: NDArray[np.bool]) -> int:
-        # get the y indices of all active cells and compute their sum
-        # the result is the summed distance of the active cells to the top of the board, so subtract the result from the
-        # board height multiplied by the number of active cells to get the summed cell heights counting from the bottom
-        y_indices = np.nonzero(board_array)[0]
-        return int(y_indices.size * board_array.shape[0] - np.sum(y_indices))
-
-    @staticmethod
-    def adjacent_height_differences(board_array: NDArray[np.bool]) -> NDArray[np.int_]:
-        # get the highest active cell index for each column, compute adjacent differences
-        # in case there are no active cells in a column, use the full height of the array as the height (i.e. consider
-        # the highest active cell to be below the bottom)
-        return -np.diff(
-            np.where(
-                np.any(board_array, axis=0),
-                np.argmax(board_array, axis=0),
-                board_array.shape[0],
-            )
-        )
-
-
 class Misalignment(NamedTuple):
     x: int
     rotation: bool
@@ -146,16 +34,37 @@ class Misalignment(NamedTuple):
 
 
 class HeuristicBotController(Controller, Subscriber):
-    def __init__(self, board: Board, fps: float = 60) -> None:
-        """Initializes the bot controller.
+    # we assume that the block will spawn in the top _SPAWN_ROWS rows, meaning that we are guaranteed to be able to
+    # execute a plan immediately after spawning if these rows are empty
+    _SPAWN_ROWS = 2
+
+    def __init__(
+        self,
+        board: Board,
+        heuristic: Heuristic | None = None,
+        *,
+        lightning_mode: bool = False,
+        fps: float = 60,
+    ) -> None:
+        """Initialize the bot controller.
 
         Args:
             board: The board that is actually being played on.
+            heuristic: The heuristic to use for evaluating the board state. If None, the default heuristic is used.
+            lightning_mode: For fastest possible simulation of bot gameplay, without regard for frame time constraints.
+                When active, the bot will eagerly plan where to put a block immediately after it has spawned, with
+                the get_action method. It will then instantly place the block at the target position instead of
+                performing the actions to get it there, basically "cheating" the controller system by directly
+                manipulating the active block on the board.
+                Otherwise, when inactive, a thread is started which computes plans concurrently without blocking
+                gameplay, and get_action executes a plan by selecting appropriate actions one by one, and is guaranteed
+                to return very quickly (the default).
             fps: Frames per second that the game will run with. Used as the polling rate of the planning thread. (I.e.
                 how frequently to check whether it's time to make the next plan.)
         """
         super().__init__()
         self._real_board: Final = board
+        self.heuristic = heuristic or Heuristic()  # type: ignore[call-arg]
 
         self._current_block: Block | None = None
         self._next_block: Block | None = None
@@ -167,8 +76,11 @@ class HeuristicBotController(Controller, Subscriber):
 
         self._active_frame: bool = True
 
+        self._lightning_mode = lightning_mode
         self._fps = fps
-        Thread(target=self._continuously_plan, daemon=True).start()
+
+        if not self._lightning_mode:
+            Thread(target=self._continuously_plan, daemon=True).start()
 
     def should_be_subscribed_to(self, publisher: Publisher) -> bool:
         return isinstance(publisher, SpawnStrategyImpl) and publisher.game_index == self.game_index
@@ -182,6 +94,9 @@ class HeuristicBotController(Controller, Subscriber):
         if not isinstance(message, SpawnMessage):
             return
 
+        # TODO: probably compute plan here in case of lightning mode, de-cluttering get_action
+        # directly manipulate board here already, then in get_action just ALWAYS return INSTANT_DROP_AND_MERGE_ACTION?
+
         with self._planning_lock:
             self._current_block = message.block
             self._next_block = message.next_block
@@ -191,7 +106,8 @@ class HeuristicBotController(Controller, Subscriber):
                 # we have crossed over to a new block, but still don't have a plan for the previous one; tell the
                 # planning thread to cancel the planning for the previous block (and start planning for the new one)
                 self._cancel_planning_flag = True
-                LOGGER.warning("Previous block was merged before plan for it could even be created")
+                if not self._lightning_mode:
+                    LOGGER.warning("Previous block was merged before plan for it could even be created")
             elif self._next_plan:
                 assert self._current_plan
                 # planning has finished in time; we know that we are not currently in the process of creating a plan
@@ -204,7 +120,8 @@ class HeuristicBotController(Controller, Subscriber):
                 # planning ahead has not finished in time; we are currently in the process of creating the current plan
                 # let the planning thread know to directly set _current_plan (by having it be None)
                 self._current_plan = None
-                LOGGER.warning("Didn't finish planning for this block before it was spawned")
+                if not self._lightning_mode:
+                    LOGGER.warning("Didn't finish planning for this block before it was spawned")
 
     def _set_current_plan(self, plan: Plan) -> None:
         """Set the current plan to the given plan, triggering the execution of the plan in get_action.
@@ -213,8 +130,8 @@ class HeuristicBotController(Controller, Subscriber):
         If this is not the case, the current and next plans are both set to None, and the bot replans from scratch.
         """
         if np.array_equal(
-            plan.expected_board_before.as_array_without_active_block(),
-            self._real_board.as_array_without_active_block(),
+            plan.expected_board_before.array_view_without_active_block(),
+            self._real_board.array_view_without_active_block(),
         ):
             # start executing the plan (in get_action) by setting _current_plan to the next plan
             self._current_plan = plan
@@ -263,14 +180,16 @@ class HeuristicBotController(Controller, Subscriber):
                 else:
                     self._next_plan = plan
 
-    def _create_plan(self, expected_board_before: Board, block: Block, expected_board_after: Board) -> Plan | None:
+    def _create_plan(
+        self, expected_board_before: Board, block: Block, expected_board_after: Board | None = None
+    ) -> Plan | None:
         """Create a plan to fit a block into the optimal position given the board state.
 
         Args:
             expected_board_before: The board state based on which the plan should be created.
             block: The block that a plan should be created for.
             expected_board_after: Output argument that will be set to the expected board state after the plan has been
-                executed.
+                executed, if provided.
 
         Returns:
             Plan: The plan to fit the block into the optimal position, consisting of the expected board state before the
@@ -278,7 +197,7 @@ class HeuristicBotController(Controller, Subscriber):
                 rotation of the block).
         """
         internal_planning_board = Board()
-        min_loss: Loss | None = None
+        min_loss: float | None = None
         min_loss_positioned_block: PositionedBlock | None = None
 
         for rotated_block in block.unique_rotations():
@@ -305,11 +224,12 @@ class HeuristicBotController(Controller, Subscriber):
                         internal_planning_board.clear_lines(internal_planning_board.get_full_line_idxs())
                         break
 
-                loss = Loss.from_board(internal_planning_board)
+                loss = self.heuristic.loss(internal_planning_board)
                 if min_loss is None or loss < min_loss:
                     min_loss = loss
                     min_loss_positioned_block = positioned_block
-                    expected_board_after.set_from_other(internal_planning_board)
+                    if expected_board_after is not None:
+                        expected_board_after.set_from_other(internal_planning_board)
 
         if min_loss_positioned_block is None:
             return None
@@ -317,6 +237,21 @@ class HeuristicBotController(Controller, Subscriber):
         return Plan(expected_board_before, min_loss_positioned_block)
 
     def get_action(self, board: Board | None = None) -> Action:
+        if self._lightning_mode and self._current_block is not None and self._current_plan is None:
+            self._current_plan = self._create_plan(self._real_board, self._current_block)
+
+        if (
+            self._lightning_mode
+            and self._current_plan
+            and not np.any(self._real_board.array_view_without_active_block()[: self._SPAWN_ROWS])
+            and self._real_board.has_active_block()
+        ):
+            # "cheat" by instantly placing the block at the target position instead of performing the actions to get it
+            # there
+            # do this only if the top 2 rows are empty, to avoid cheating ourselves out of a non-navigable situation
+            self._real_board.active_block = self._current_plan.target_positioned_block
+            return SpawnDropMergeRule.INSTANT_DROP_AND_MERGE_ACTION
+
         if self._current_plan is None or self._real_board.active_block is None:
             self._active_frame = True
             return Action()
@@ -331,7 +266,11 @@ class HeuristicBotController(Controller, Subscriber):
             self._active_frame = True
             # only quickdrop if we have already computed the next plan; otherwise we want to buy some time for the next
             # plan to be computed (i.e. slow drop)
-            return SpawnDropMergeRule.INSTANT_DROP_AND_MERGE_ACTION if self._next_plan is not None else Action()
+            return (
+                SpawnDropMergeRule.INSTANT_DROP_AND_MERGE_ACTION
+                if self._next_plan is not None or self._lightning_mode
+                else Action()
+            )
 
         # skip every other frame such that each action is interpreted as a separate button press, instead of a single
         # button hold

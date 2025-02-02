@@ -14,6 +14,10 @@ class TrackScoreCallback(Callback, Subscriber):
         self._high_score = 0
         self._header = header
 
+    @property
+    def score(self) -> int:
+        return self._score
+
     def should_be_called_by(self, game_index: int) -> bool:
         return game_index in (
             RUNTIME_INDEX,  # runtime: for on_frame_start

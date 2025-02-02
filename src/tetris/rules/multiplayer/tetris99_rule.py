@@ -17,7 +17,7 @@ class PlaceLinesManipulation:
         self._num_lines = num_lines
 
     def manipulate(self, board: Board) -> None:
-        board_array = board.as_array_without_active_block()
+        board_array = board.array_view_without_active_block().copy()
 
         if np.any(board_array[: self._num_lines]):
             raise GameOverError

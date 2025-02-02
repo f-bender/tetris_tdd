@@ -1,4 +1,5 @@
 import atexit
+import logging
 import os
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -23,6 +24,8 @@ if TYPE_CHECKING:
 
 # NOTE: long-term, this should be split up into a general, reusable part, and a tetris-specific part
 
+LOGGER = logging.getLogger(__name__)
+
 
 @dataclass(frozen=True, slots=True)
 class Vec:
@@ -39,7 +42,7 @@ class CLI(UI):
 
     MAX_BOARDS_SINGLE_ROW = 3
 
-    def __init__(self, color_palette: ColorPalette | None = None) -> None:
+    def __init__(self, color_palette: ColorPalette | None = None, target_aspect_ratio: float = 16 / 9) -> None:
         self._last_image_buffer: NDArray[np.uint8] | None = None
         self._board_background: NDArray[np.uint8] | None = None
         self._outer_background: NDArray[np.uint8] | None = None
@@ -70,6 +73,8 @@ class CLI(UI):
             | None
         ) = None
 
+        self._target_aspect_ratio = target_aspect_ratio
+
         self._last_terminal_size = os.get_terminal_size()
 
     @staticmethod
@@ -77,7 +82,7 @@ class CLI(UI):
         # + 1 to make the interface 0-based (index of top CLI row, and left CLI column is actually 1, not 0)
         return cursor.goto(vec.y + 1, vec.x * CLI.PIXEL_WIDTH + 1)
 
-    def initialize(self, board_height: int, board_width: int, num_boards: int = 1) -> None:
+    def initialize(self, board_height: int, board_width: int, num_boards: int) -> None:
         if num_boards <= 0:
             msg = "num_boards must be greater than 0"
             raise ValueError(msg)
@@ -97,10 +102,10 @@ class CLI(UI):
     def _initialize_board_ui_offsets(self, num_boards: int) -> None:
         assert self._single_board_ui is not None
 
-        num_rows = 1 if num_boards <= self.MAX_BOARDS_SINGLE_ROW else 2
-        num_cols = ceil(num_boards / num_rows)
-
         board_ui_height, board_ui_width = self._single_board_ui.total_size
+
+        num_rows, num_cols = self._compute_num_rows_cols(num_boards)
+
         self._board_ui_offsets = [
             Vec(
                 self.FRAME_WIDTH + y * (board_ui_height + self.FRAME_WIDTH),
@@ -142,6 +147,33 @@ class CLI(UI):
                 outer_background_mask[-2, -1] = False
 
         return outer_background_mask
+
+    def _compute_num_rows_cols(self, num_boards: int) -> tuple[int, int]:
+        assert self._single_board_ui is not None
+
+        board_height, board_width = self._single_board_ui.board_size
+        height_added_per_board = board_height + self.FRAME_WIDTH
+        width_added_per_board = board_width + self.FRAME_WIDTH
+
+        # solution from WolframAlpha, prompted with
+        # `(c * w + f) / (r * h + f) = a, r * c = n, solve for r, c`
+        # where c: num_cols, w: width_added_per_board, f: frame_width, r: num_rows, h: height_added_per_board,
+        #       a: target_aspect_ratio, n: num_boards
+        # (`ceil` added myself to make it integers)
+        num_cols = ceil(
+            (
+                (
+                    (self._target_aspect_ratio - 1) ** 2 * self.FRAME_WIDTH**2
+                    + 4 * self._target_aspect_ratio * height_added_per_board * num_boards * width_added_per_board
+                )
+                ** 0.5
+                + (self._target_aspect_ratio - 1) * self.FRAME_WIDTH
+            )
+            / (2 * width_added_per_board)
+        )
+        num_rows = ceil(num_boards / num_cols)
+
+        return num_rows, num_cols
 
     def _initialize_terminal(self) -> None:
         atexit.register(self.terminate)
@@ -201,12 +233,16 @@ class CLI(UI):
         if self._single_board_ui is None or self._board_ui_offsets is None:
             msg = "board UI not initialized, likely draw() was called before initialize()!"
             raise RuntimeError(msg)
-        if self._outer_background is None:
-            msg = "outer background not initialized, likely draw() was called before advance_startup()!"
-            raise RuntimeError(msg)
         if not self._buffered_print.is_active():
             msg = "buffered printing not active, likely draw() was called before initialize()!"
             raise RuntimeError(msg)
+
+        if self._outer_background is None:
+            LOGGER.warning(
+                "Outer background not initialized, likely draw() was called before advance_startup()! "
+                "Using an empty background."
+            )
+            self._outer_background = self._create_outer_background_mask().astype(np.uint8)
 
         self._handle_terminal_size_change()
 

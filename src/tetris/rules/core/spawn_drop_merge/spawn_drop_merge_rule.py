@@ -49,10 +49,10 @@ class SpawnDropMergeRule(Callback, Publisher):
 
         self._spawn_delay = spawn_delay
 
-        self._spawn_strategy = spawn_strategy or SpawnStrategyImpl()
-        self._drop_strategy = drop_strategy or DropStrategyImpl()
-        self._merge_strategy = merge_strategy or MergeStrategyImpl()
-        self._speed_strategy = speed_strategy or LineClearSpeedUp(SpeedStrategyImpl())
+        self.spawn_strategy = spawn_strategy or SpawnStrategyImpl()
+        self.drop_strategy = drop_strategy or DropStrategyImpl()
+        self.merge_strategy = merge_strategy or MergeStrategyImpl()
+        self.speed_strategy = speed_strategy or LineClearSpeedUp(SpeedStrategyImpl())
 
         self._last_merge_frame: int | None = None
         self._last_drop_frame: int = 0
@@ -76,7 +76,7 @@ class SpawnDropMergeRule(Callback, Publisher):
         """
         if not board.has_active_block():
             if not self._last_merge_frame or frame_counter - self._last_merge_frame >= self._spawn_delay:
-                self._spawn_strategy.apply(board)
+                self.spawn_strategy.apply(board)
                 self._last_drop_frame = frame_counter
             return
 
@@ -84,7 +84,7 @@ class SpawnDropMergeRule(Callback, Publisher):
 
         if not (
             instant_drop_and_merge := action_counter.held_since(self.INSTANT_DROP_AND_MERGE_ACTION) != 0
-        ) and not self._speed_strategy.should_trigger(
+        ) and not self.speed_strategy.should_trigger(
             frames_since_last_drop=frame_counter - self._last_drop_frame,
             quick_drop_held=quick_drop_held,
         ):
@@ -111,9 +111,9 @@ class SpawnDropMergeRule(Callback, Publisher):
     def _drop_or_merge(self, board: Board) -> bool:
         """Returns bool whether a merge has happened."""
         try:
-            self._drop_strategy.apply(board)
+            self.drop_strategy.apply(board)
         except CannotDropBlockError:
-            self._merge_strategy.apply(board)
+            self.merge_strategy.apply(board)
             return True
         else:
             return False
@@ -121,7 +121,7 @@ class SpawnDropMergeRule(Callback, Publisher):
     def _instant_drop_and_merge(self, board: Board) -> None:
         while True:
             try:
-                self._drop_strategy.apply(board)
+                self.drop_strategy.apply(board)
             except CannotDropBlockError:
-                self._merge_strategy.apply(board)
+                self.merge_strategy.apply(board)
                 break

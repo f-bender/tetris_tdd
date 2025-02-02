@@ -1,9 +1,10 @@
 import contextlib
+from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
 from tetris.clock.simple import SimpleClock
 from tetris.controllers.gamepad import GamepadController
-from tetris.controllers.heuristic_bot import HeuristicBotController
+from tetris.controllers.heuristic_bot.controller import HeuristicBotController
 from tetris.controllers.keyboard.pynput import PynputKeyboardController
 from tetris.game_logic.components import Board
 from tetris.game_logic.game import Game
@@ -127,7 +128,6 @@ def _create_rules_and_callbacks(num_games: int, *, create_tetris_99_rule: bool =
         num_games: Total number of games being created overall.
         create_tetris_99_rule: Whether to create a Tetris99Rule in case there are multiple games.
 
-
     Returns:
         A RuleSequence to be passed to the Game.
     """
@@ -155,6 +155,8 @@ def _create_runtime(games: list[Game], *, controller: Controller | None = None, 
     return Runtime(ui=CLI(), clock=SimpleClock(fps), games=games, controller=controller or PynputKeyboardController())
 
 
+# TODO: create dependency manager class to handle this (make dependency manager instance global, and have pub/sub lists
+# be attributes of it)
 def _wire_up_pubs_subs() -> None:
     for subscriber in ALL_SUBSCRIBERS:
         subscriptions: list[Publisher] = []
@@ -167,7 +169,7 @@ def _wire_up_pubs_subs() -> None:
         subscriber.verify_subscriptions(subscriptions)
 
 
-def _wire_up_callbacks(runtime: Runtime, games: list[Game]) -> None:
+def _wire_up_callbacks(runtime: Runtime, games: Iterable[Game]) -> None:
     runtime.callback_collection = CallbackCollection(
         tuple(
             callback
