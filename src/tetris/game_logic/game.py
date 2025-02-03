@@ -15,13 +15,13 @@ class Game:
         self,
         board: Board,
         controller: Controller,
-        rule_sequence: RuleSequence,
+        rule_sequence: RuleSequence | None = None,
         callback_collection: CallbackCollection | None = None,
     ) -> None:
         self._board = board
         self._controller = controller
         self._action_counter = ActionCounter()
-        self._rule_sequence = rule_sequence
+        self._rule_sequence = rule_sequence or RuleSequence.standard()
         self.callback_collection = callback_collection or CallbackCollection(())
 
         self._frame_counter = 0
