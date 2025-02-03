@@ -105,6 +105,9 @@ class SpawnDropMergeRule(Callback, Publisher):
                     else (Speed.QUICK if quick_drop_held else Speed.NORMAL)
                 )
             )
+            if self._spawn_delay == 0:
+                # special case of zero spawn delay: spawn the next block immediately after merging
+                self.spawn_strategy.apply(board)
         else:  # drop
             self._last_drop_frame = frame_counter
 
