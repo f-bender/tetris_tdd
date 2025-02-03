@@ -49,10 +49,10 @@ class GeneticAlgorithm[T]:
         self._population = survivors
 
         for i in cycle(range(len(survivors))):
-            self._population.append(self._mutator(survivors[i]))
-
             if len(self._population) >= population_size:
                 break
+
+            self._population.append(self._mutator(survivors[i]))
 
     def _select_survivors(self, fitnesses: list[float]) -> list[T]:
         """Select survivors from a sorted population using weighted sampling.
@@ -66,7 +66,7 @@ class GeneticAlgorithm[T]:
                 `round(survival_rate * len(self._population))` individuals survive.
         """
         population_size = len(self._population)
-        num_survivors = round(population_size * self._survival_rate)
+        num_survivors = min(max(1, round(population_size * self._survival_rate)), population_size)
 
         # individuals with higher fitness have a higher weight (chance of surviving)
         weights = np.array(fitnesses) ** self._elitism_factor
