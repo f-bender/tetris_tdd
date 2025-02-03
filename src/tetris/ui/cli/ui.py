@@ -72,6 +72,7 @@ class CLI(UI):
             Generator[tuple[NDArray[np.int32], NDArray[np.uint8]], None, tuple[NDArray[np.int32], NDArray[np.uint8]]]
             | None
         ) = None
+        self._startup_finished: bool = False
 
         self._target_aspect_ratio = target_aspect_ratio
 
@@ -190,21 +191,23 @@ class CLI(UI):
 
     def advance_startup(self) -> bool:
         """Advance the startup animation by one step. Returns True if the animation is finished."""
+        if self._startup_finished:
+            return True
+
         self._ensure_startup_animation_iter_initialized()
         assert self._startup_animation_iter is not None
 
-        finished = False
         try:
             filled_space, colored_space = next(self._startup_animation_iter)
         except StopIteration as e:
             filled_space, colored_space = e.value
-            finished = True
+            self._startup_finished = True
             # let the startup animation objects be garbage collected
             self._startup_animation_iter = None
 
         self._outer_background = self._background_from_filled_colored(filled_space, colored_space)
 
-        return finished
+        return self._startup_finished
 
     def _ensure_startup_animation_iter_initialized(self) -> None:
         if self._startup_animation_iter is not None:

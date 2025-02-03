@@ -126,6 +126,7 @@ class HeuristicGym:
                     num_alive_games -= 1
 
             if self._ui:
+                self._ui.advance_startup()
                 self._ui.draw(game.board.as_array() for game in self._games)
 
             if num_alive_games == 0:
