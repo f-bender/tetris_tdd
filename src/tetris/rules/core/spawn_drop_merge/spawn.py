@@ -1,22 +1,18 @@
 import random
 from collections.abc import Callable, Iterator
 from functools import partial
-from typing import NamedTuple, Protocol
+from typing import Protocol
 
 from tetris.game_logic.components.block import Block, BlockType
 from tetris.game_logic.components.board import Board
 from tetris.game_logic.components.exceptions import CannotSpawnBlockError
 from tetris.game_logic.game import GameOverError
 from tetris.game_logic.interfaces.pub_sub import Publisher
+from tetris.rules.core.messages import SpawnMessage
 
 
 class SpawnStrategy(Protocol):
     def apply(self, board: Board) -> None: ...
-
-
-class SpawnMessage(NamedTuple):
-    block: Block
-    next_block: Block
 
 
 class SpawnStrategyImpl(Publisher):

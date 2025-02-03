@@ -1,26 +1,14 @@
-from enum import Enum, auto
-from typing import NamedTuple
-
 from tetris.game_logic.action_counter import ActionCounter
 from tetris.game_logic.components.board import Board
 from tetris.game_logic.components.exceptions import CannotDropBlockError
 from tetris.game_logic.interfaces.callback import Callback
 from tetris.game_logic.interfaces.controller import Action
 from tetris.game_logic.interfaces.pub_sub import Publisher
+from tetris.rules.core.messages import InstantSpawnMessage, MergeMessage, Speed
 from tetris.rules.core.spawn_drop_merge.drop import DropStrategy, DropStrategyImpl
 from tetris.rules.core.spawn_drop_merge.merge import MergeStrategy, MergeStrategyImpl
 from tetris.rules.core.spawn_drop_merge.spawn import SpawnStrategy, SpawnStrategyImpl
 from tetris.rules.core.spawn_drop_merge.speed import LineClearSpeedUp, SpeedStrategy, SpeedStrategyImpl
-
-
-class Speed(Enum):
-    NORMAL = auto()
-    QUICK = auto()
-    INSTANT = auto()
-
-
-class MergeMessage(NamedTuple):
-    speed: Speed
 
 
 class SpawnDropMergeRule(Callback, Publisher):
@@ -107,6 +95,8 @@ class SpawnDropMergeRule(Callback, Publisher):
             )
             if self._spawn_delay == 0:
                 # special case of zero spawn delay: spawn the next block immediately after merging
+                # give subscribers a chance to act before, in this special case
+                self.notify_subscribers(InstantSpawnMessage(board))
                 self.spawn_strategy.apply(board)
         else:  # drop
             self._last_drop_frame = frame_counter

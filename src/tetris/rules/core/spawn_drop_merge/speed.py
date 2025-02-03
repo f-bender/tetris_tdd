@@ -4,7 +4,8 @@ from typing import NamedTuple, Protocol, Self
 
 from tetris.game_logic.interfaces.callback import Callback
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
-from tetris.rules.core.clear_full_lines_rule import ClearFullLinesRule, LineClearMessage
+from tetris.rules.core.clear_full_lines_rule import ClearFullLinesRule
+from tetris.rules.core.messages import LineClearMessage
 
 
 class IntIterWithFloatAverage(Iterator[int]):
