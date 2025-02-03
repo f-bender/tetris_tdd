@@ -76,8 +76,10 @@ class HeuristicBotController(Controller, Subscriber):
 
         self._active_frame: bool = True
 
-        self._lightning_mode = lightning_mode
         self._fps = fps
+
+        self._lightning_mode = lightning_mode
+        self._ready_for_instand_drop_and_merge = False
 
         if not self._lightning_mode:
             Thread(target=self._continuously_plan, daemon=True).start()
@@ -94,20 +96,32 @@ class HeuristicBotController(Controller, Subscriber):
         if not isinstance(message, SpawnMessage):
             return
 
-        # TODO: probably compute plan here in case of lightning mode, de-cluttering get_action
-        # directly manipulate board here already, then in get_action just ALWAYS return INSTANT_DROP_AND_MERGE_ACTION?
+        if self._lightning_mode:
+            self._handle_block_spawn_lightning(message.block)
+        else:
+            self._handle_block_spawn_non_lightning(current_block=message.block, next_block=message.next_block)
 
+    def _handle_block_spawn_lightning(self, current_block: Block) -> None:
+        self._current_plan = self._create_plan(self._real_board, current_block)
+
+        if self._current_plan and not np.any(self._real_board.array_view_without_active_block()[: self._SPAWN_ROWS]):
+            # "cheat" by instantly placing the block at the target position instead of performing the actions to get
+            # it there
+            # do this only if the top 2 rows are empty, to avoid cheating our way out of a non-navigable situation
+            self._real_board.active_block = self._current_plan.target_positioned_block
+            self._ready_for_instand_drop_and_merge = True
+
+    def _handle_block_spawn_non_lightning(self, current_block: Block, next_block: Block) -> None:
         with self._planning_lock:
-            self._current_block = message.block
-            self._next_block = message.next_block
+            self._current_block = current_block
+            self._next_block = next_block
 
             if not self._current_plan:
                 assert not self._next_plan
                 # we have crossed over to a new block, but still don't have a plan for the previous one; tell the
                 # planning thread to cancel the planning for the previous block (and start planning for the new one)
                 self._cancel_planning_flag = True
-                if not self._lightning_mode:
-                    LOGGER.warning("Previous block was merged before plan for it could even be created")
+                LOGGER.warning("Previous block was merged before plan for it could even be created")
             elif self._next_plan:
                 assert self._current_plan
                 # planning has finished in time; we know that we are not currently in the process of creating a plan
@@ -120,8 +134,7 @@ class HeuristicBotController(Controller, Subscriber):
                 # planning ahead has not finished in time; we are currently in the process of creating the current plan
                 # let the planning thread know to directly set _current_plan (by having it be None)
                 self._current_plan = None
-                if not self._lightning_mode:
-                    LOGGER.warning("Didn't finish planning for this block before it was spawned")
+                LOGGER.warning("Didn't finish planning for this block before it was spawned")
 
     def _set_current_plan(self, plan: Plan) -> None:
         """Set the current plan to the given plan, triggering the execution of the plan in get_action.
@@ -237,19 +250,9 @@ class HeuristicBotController(Controller, Subscriber):
         return Plan(expected_board_before, min_loss_positioned_block)
 
     def get_action(self, board: Board | None = None) -> Action:
-        if self._lightning_mode and self._current_block is not None and self._current_plan is None:
-            self._current_plan = self._create_plan(self._real_board, self._current_block)
-
-        if (
-            self._lightning_mode
-            and self._current_plan
-            and not np.any(self._real_board.array_view_without_active_block()[: self._SPAWN_ROWS])
-            and self._real_board.has_active_block()
-        ):
-            # "cheat" by instantly placing the block at the target position instead of performing the actions to get it
-            # there
-            # do this only if the top 2 rows are empty, to avoid cheating ourselves out of a non-navigable situation
-            self._real_board.active_block = self._current_plan.target_positioned_block
+        if self._ready_for_instand_drop_and_merge:
+            # lightning mode has set up the block for us, so we can instantly drop and merge it
+            self._ready_for_instand_drop_and_merge = False
             return SpawnDropMergeRule.INSTANT_DROP_AND_MERGE_ACTION
 
         if self._current_plan is None or self._real_board.active_block is None:
