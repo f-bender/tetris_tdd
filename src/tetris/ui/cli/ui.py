@@ -270,6 +270,7 @@ class CLI(UI):
             # terminal size changed: redraw everything
             self._last_image_buffer = None
             self._last_terminal_size = new_terminal_size
+            print(cursor.erase(""), end="")
 
     def _setup_cursor_for_normal_printing(self, image_height: int) -> None:
         """Move the cursor below the board, clear any colors, and erase anything below the board.
