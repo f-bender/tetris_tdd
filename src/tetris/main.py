@@ -3,7 +3,6 @@ from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
 from tetris.clock.simple import SimpleClock
-from tetris.controllers.gamepad import GamepadController
 from tetris.controllers.heuristic_bot.controller import HeuristicBotController
 from tetris.controllers.keyboard.pynput import PynputKeyboardController
 from tetris.game_logic.components import Board
@@ -105,6 +104,8 @@ def _default_controllers() -> list[Controller]:
 
     with contextlib.suppress(ImportError):
         from inputs import devices
+
+        from tetris.controllers.gamepad import GamepadController
 
         default_controllers.extend(GamepadController(gamepad_index=i) for i in range(len(devices.gamepads)))
 
