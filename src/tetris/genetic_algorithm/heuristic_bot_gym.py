@@ -75,7 +75,7 @@ class HeuristicGym:
                             RotateRule(),
                             SpawnDropMergeRule(
                                 spawn_strategy=spawn_strategy,
-                                speed_strategy=SpeedStrategyImpl(base_interval=1),
+                                speed_strategy=SpeedStrategyImpl(base_interval=10),
                                 spawn_delay=0,
                             ),
                             ClearFullLinesRule(),
