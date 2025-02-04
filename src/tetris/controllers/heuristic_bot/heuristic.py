@@ -18,7 +18,8 @@ class Heuristic(NamedTuple):
     sum_of_cell_heights_close_to_top_weight: float = 0.2194666215297296
     num_distinct_overhangs_weight: float = 3.8655963791975814
     num_rows_with_overhung_holes_weight: float = 4.842373676164849
-    num_overhanging_and_overhung_cells_weight: float = 0.10762127391171512
+    num_overhung_cells_weight: float = 0.10762127391171512
+    num_overhanging_cells_weight: float = 0.10762127391171512
     num_narrow_gaps_weight: float = 3.243331719348859
     sum_of_cell_heights_weight: float = 0.055269909402115645
     sum_of_adjacent_height_differences_weight: float = 1.4710964800855681
@@ -36,7 +37,8 @@ class Heuristic(NamedTuple):
             + (self.sum_of_cell_heights_close_to_top_weight   * self.sum_cell_heights_close_to_top(board_array, self.close_to_top_threshold))  # noqa: E501
             + (self.num_distinct_overhangs_weight             * self.count_rows_with_overhung_cells(board_array))
             + (self.num_rows_with_overhung_holes_weight       * self.count_distinct_overhangs(board_array))
-            + (self.num_overhanging_and_overhung_cells_weight * self.count_overhanging_and_overhung_cells(board_array))
+            + (self.num_overhung_cells_weight                 * self.count_overhung_cells(board_array))
+            + (self.num_overhanging_cells_weight              * self.count_overhanging_cells(board_array))
             + (self.num_narrow_gaps_weight                    * self.count_narrow_gaps(adjacent_height_differences))
             + (self.sum_of_cell_heights_weight                * self.sum_cell_heights(board_array))
             + (self.sum_of_adjacent_height_differences_weight * np.sum(np.abs(adjacent_height_differences)))
@@ -65,18 +67,14 @@ class Heuristic(NamedTuple):
         return np.sum(np.diff(board_array.astype(np.int8), axis=0) == -1)
 
     @staticmethod
-    def count_overhanging_and_overhung_cells(board_array: NDArray[np.bool]) -> int:
-        return sum(
-            # overhaning active cells
-            np.sum(column[np.argmin(column) :])
-            for column in np.rot90(board_array, k=-1)
-            if not np.all(column)
-        ) + sum(
-            # overhung empty cells
-            np.sum(~column[np.argmax(column) :])
-            for column in np.rot90(board_array, k=1)
-            if np.any(column)
-        )
+    def count_overhung_cells(board_array: NDArray[np.bool]) -> int:
+        # empty cells that are below at least one active cell
+        return sum(np.sum(~column[np.argmax(column) :]) for column in np.rot90(board_array, k=1) if np.any(column))
+
+    @staticmethod
+    def count_overhanging_cells(board_array: NDArray[np.bool]) -> int:
+        # active cells that are above at least one empty cell
+        return sum(np.sum(column[np.argmin(column) :]) for column in np.rot90(board_array, k=-1) if not np.all(column))
 
     @staticmethod
     def count_narrow_gaps(adjacent_height_differences: NDArray[np.int_]) -> int:
@@ -133,8 +131,13 @@ def mutated_heuristic(heuristic: Heuristic, mutation_rate: float = 1.0) -> Heuri
             mutation_rate=mutation_rate,
             rng=rng,
         ),
-        num_overhanging_and_overhung_cells_weight=_mutate_weight(
-            weight=heuristic.num_overhanging_and_overhung_cells_weight,
+        num_overhung_cells_weight=_mutate_weight(
+            weight=heuristic.num_overhung_cells_weight,
+            mutation_rate=mutation_rate,
+            rng=rng,
+        ),
+        num_overhanging_cells_weight=_mutate_weight(
+            weight=heuristic.num_overhanging_cells_weight,
             mutation_rate=mutation_rate,
             rng=rng,
         ),
