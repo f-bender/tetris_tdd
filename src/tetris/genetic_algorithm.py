@@ -69,7 +69,11 @@ class GeneticAlgorithm[T]:
         num_survivors = min(max(1, round(population_size * self._survival_rate)), population_size)
 
         # individuals with higher fitness have a higher weight (chance of surviving)
-        weights = np.array(fitnesses) ** self._elitism_factor
+        weights = np.array(fitnesses, dtype=float)
+        # ensure all weights are > 0
+        weights -= min(np.min(weights) - 1e-10, 0)
+        weights **= self._elitism_factor
+
         probabilities = weights / weights.sum()
 
         selected_indices = np.random.default_rng().choice(
