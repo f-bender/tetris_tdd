@@ -257,6 +257,8 @@ class CLI(UI):
 
         board_ui_height, board_ui_width = self._single_board_ui.total_size
         for board, offset in zip(boards, self._board_ui_offsets, strict=True):
+            if board is None:
+                continue
             image_buffer[offset.y : offset.y + board_ui_height, offset.x : offset.x + board_ui_width] = (
                 self._single_board_ui.create_as_array(board)
             )

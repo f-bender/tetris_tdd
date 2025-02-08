@@ -54,9 +54,9 @@ class HeuristicGym:
 
     @staticmethod
     def _default_evaluator() -> Evaluator:
-        from tetris.heuristic_bot_gym.evaluators.synchronous import SyncEvaluator
+        from tetris.heuristic_bot_gym.evaluators.parallel_o3_mini_refined import ParallelEvaluator
 
-        return SyncEvaluator()
+        return ParallelEvaluator()
 
     def run(self, initial_population: Sequence[Heuristic] | None = None, num_generations: int | None = None) -> None:
         initial_population = list(initial_population) if initial_population is not None else [Heuristic()]  # type: ignore[call-arg]
