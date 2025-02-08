@@ -28,6 +28,8 @@ LOGGER = logging.getLogger(__name__)
 
 
 def main() -> None:
+    logging_config.configure_logging()
+
     HeuristicGym(50, ui=CLI()).run()
 
 
@@ -60,7 +62,10 @@ class HeuristicGym:
         self._score_trackers: list[TrackScoreCallback] = []
         self._spawn_strategies: list[SpawnStrategyImpl] = []
 
-        for idx in range(population_size):
+        self._create_games(num_games=population_size, board_size=board_size)
+
+    def _create_games(self, num_games: int, board_size: tuple[int, int]) -> None:
+        for idx in range(num_games):
             DEPENDENCY_MANAGER.current_game_index = idx
 
             board = Board.create_empty(*board_size)
@@ -93,7 +98,7 @@ class HeuristicGym:
 
         DEPENDENCY_MANAGER.wire_up(games=self._games)
 
-    def run(self, initial_population: list[Heuristic] | None = None) -> None:
+    def run(self, initial_population: list[Heuristic] | None = None, num_generations: int | None = None) -> None:
         initial_population = (
             initial_population or ([Heuristic()] + [self._mutator(Heuristic()) for _ in range(len(self._games) - 1)])  # type: ignore[call-arg]
         )
@@ -103,7 +108,7 @@ class HeuristicGym:
             population_evaluator=self._evaluate_heuristics,
             mutator=self._mutator,
             post_evaluation_callback=self._post_evaluation_callback,
-        ).run()
+        ).run(num_generations)
 
     def _evaluate_heuristics(self, heuristics: list[Heuristic]) -> list[float]:
         for controller, heuristic in zip(self._heuristic_bot_controllers, heuristics, strict=True):
@@ -154,13 +159,13 @@ class HeuristicGym:
         )
 
         LOGGER.info("Sorted fitnesses: %s", sorted_fitnesses)
-        LOGGER.info("Best heuristic '%r' has fitness '%f'", sorted_population[0], sorted_fitnesses[0])
+        LOGGER.info("Best heuristic '%r' scored %d", sorted_population[0], sorted_fitnesses[0])
 
         LOGGER.debug("Top heuristics: %r", sorted_population[:10])
 
         if self._checkpoint_dir:
             self._save_checkpoint(
-                population,
+                sorted_population,
                 (
                     self._checkpoint_dir
                     / datetime.now(UTC).strftime(f"%Y-%m-%d_%H-%M-%S_fitness-{sorted_fitnesses[0]}.pkl")
@@ -217,5 +222,4 @@ class HeuristicGym:
 
 
 if __name__ == "__main__":
-    logging_config.configure_logging()
     main()
