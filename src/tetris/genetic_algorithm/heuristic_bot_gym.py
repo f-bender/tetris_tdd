@@ -98,8 +98,7 @@ class HeuristicGym:
 
     def run(self, initial_population: list[Heuristic] | None = None) -> None:
         initial_population = (
-            initial_population
-            or ([Heuristic()] + [mutated_heuristic(Heuristic()) for _ in range(len(self._games) - 1)])  # type: ignore[call-arg]
+            initial_population or ([Heuristic()] + [self._mutator(Heuristic()) for _ in range(len(self._games) - 1)])  # type: ignore[call-arg]
         )
 
         GeneticAlgorithm(
@@ -109,7 +108,7 @@ class HeuristicGym:
             post_evaluation_callback=self._post_evaluation_callback,
         ).run()
 
-    def _evaluate_heuristics(self, heuristics: list[Heuristic]) -> list[float]:  # noqa: C901
+    def _evaluate_heuristics(self, heuristics: list[Heuristic]) -> list[float]:
         for controller, heuristic in zip(self._heuristic_bot_controllers, heuristics, strict=True):
             controller.heuristic = heuristic
 
@@ -120,11 +119,13 @@ class HeuristicGym:
         for spawn_strategy in self._spawn_strategies:
             spawn_strategy.select_block_fn = SpawnStrategyImpl.truly_random_select_fn(seed)
 
-        # TODO: extract the following core into separate method
+        self._run_games()
 
+        return [tracker.score for tracker in self._score_trackers]
+
+    def _run_games(self) -> None:
         num_alive_games = len(self._games)
-        # TODO instead of counting number of frames, count and limit number of blocks spawned
-        # (need to listen (subscribe) to the spawn rules for that)
+
         for i in range(self._max_evaluation_frames):
             if i % 1000 == 0:
                 LOGGER.debug("Frame %d", i)
@@ -144,8 +145,6 @@ class HeuristicGym:
 
             if num_alive_games == 0:
                 break
-
-        return [tracker.score for tracker in self._score_trackers]
 
     def _post_evaluation_callback(self, population: list[Heuristic], fitnesses: list[float]) -> None:
         sorted_population, sorted_fitnesses = zip(
