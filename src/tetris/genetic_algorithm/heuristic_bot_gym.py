@@ -1,6 +1,10 @@
 import logging
+import pickle
 import random
 from collections.abc import Callable, Iterable
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import BinaryIO
 
 from tetris import logging_config
 from tetris.controllers.heuristic_bot.controller import HeuristicBotController
@@ -32,7 +36,7 @@ def main() -> None:
 # TODO make this flexible enough that my multiprocessing idea works with it as well
 # or, you know, identify the multiple responsibilities and split them up
 class HeuristicGym:
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         population_size: int = 100,
         *,
@@ -40,6 +44,7 @@ class HeuristicGym:
         max_evaluation_frames: int = 100_000,
         board_size: tuple[int, int] = (20, 10),
         mutator: Callable[[Heuristic], Heuristic] = mutated_heuristic,
+        checkpoint_dir: Path | None = Path(__file__).parent / ".checkpoints",
     ) -> None:
         self._ui = ui
         if self._ui:
@@ -47,6 +52,9 @@ class HeuristicGym:
 
         self._max_evaluation_frames = max_evaluation_frames
         self._mutator = mutator
+        self._checkpoint_dir = checkpoint_dir
+        if self._checkpoint_dir:
+            self._checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
         self._heuristic_bot_controllers: list[HeuristicBotController] = []
         self._games: list[Game] = []
@@ -88,9 +96,14 @@ class HeuristicGym:
         _wire_up_pubs_subs()
         _wire_up_callbacks(self._games)
 
-    def run(self) -> None:
+    def run(self, initial_population: list[Heuristic] | None = None) -> None:
+        initial_population = (
+            initial_population
+            or ([Heuristic()] + [mutated_heuristic(Heuristic()) for _ in range(len(self._games) - 1)])  # type: ignore[call-arg]
+        )
+
         GeneticAlgorithm(
-            initial_population=[Heuristic()] + [mutated_heuristic(Heuristic()) for _ in range(len(self._games) - 1)],  # type: ignore[call-arg]
+            initial_population=initial_population,
             population_evaluator=self._evaluate_heuristics,
             mutator=self._mutator,
             post_evaluation_callback=self._post_evaluation_callback,
@@ -148,6 +161,63 @@ class HeuristicGym:
         LOGGER.info("Best heuristic '%r' has fitness '%f'", sorted_population[0], sorted_fitnesses[0])
 
         LOGGER.debug("Top heuristics: %r", sorted_population[:10])
+
+        if self._checkpoint_dir:
+            self._save_checkpoint(
+                population,
+                (
+                    self._checkpoint_dir
+                    / datetime.now(UTC).strftime(f"%Y-%m-%d_%H-%M-%S_fitness-{sorted_fitnesses[0]}.pkl")
+                ).open("wb"),
+            )
+
+    def _save_checkpoint(self, population: list[Heuristic], file: BinaryIO) -> None:
+        pickle.dump(
+            {
+                "population": population,
+                "max_evaluation_frames": self._max_evaluation_frames,
+                "mutator": self._mutator,
+                "board_size": self._games[0].board.size,
+            },
+            file,
+        )
+
+    @classmethod
+    def continue_from_latest_checkpoint(
+        cls, checkpoint_dir: Path = Path(__file__).parent / ".checkpoints", ui: UI | None = None
+    ) -> None:
+        checkpoint_files_sorted = sorted(checkpoint_dir.iterdir(), key=lambda file: file.stat().st_mtime, reverse=True)
+        latest_checkpoint_file = next(
+            (checkpoint_file for checkpoint_file in checkpoint_files_sorted if checkpoint_file.is_file()), None
+        )
+
+        if latest_checkpoint_file is None:
+            msg = f"checkpoint_dir '{checkpoint_dir}' contains no checkpoint files!"
+            raise ValueError(msg)
+        logging.debug(latest_checkpoint_file)
+
+        cls.continue_from_checkpoint(latest_checkpoint_file.open("rb"), ui=ui, checkpoint_dir=checkpoint_dir)
+
+    @classmethod
+    def continue_from_checkpoint(
+        cls,
+        checkpoint_file: BinaryIO,
+        ui: UI | None = None,
+        checkpoint_dir: Path | None = Path(__file__).parent / ".checkpoints",
+    ) -> None:
+        # make sure to only load from trusted sources
+        checkpoint = pickle.load(checkpoint_file)  # noqa: S301
+
+        gym = cls(
+            population_size=len(checkpoint["population"]),
+            max_evaluation_frames=checkpoint["max_evaluation_frames"],
+            board_size=checkpoint["board_size"],
+            mutator=checkpoint["mutator"],
+            ui=ui,
+            checkpoint_dir=checkpoint_dir,
+        )
+
+        gym.run(initial_population=checkpoint["population"])
 
 
 def _wire_up_pubs_subs() -> None:

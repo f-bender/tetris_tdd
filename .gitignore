@@ -2,3 +2,4 @@ __pycache__/
 .vscode/
 fuzz_test_errors.txt
 logs/
+.checkpoints/
