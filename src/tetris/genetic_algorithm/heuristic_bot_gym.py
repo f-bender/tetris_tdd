@@ -4,12 +4,13 @@ import random
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import BinaryIO
+from typing import Any, BinaryIO
 
 from tetris import logging_config
 from tetris.controllers.heuristic_bot.controller import HeuristicBotController
 from tetris.controllers.heuristic_bot.heuristic import Heuristic, mutated_heuristic
 from tetris.game_logic.components import Board
+from tetris.game_logic.components.block import Block
 from tetris.game_logic.game import Game, GameOverError
 from tetris.game_logic.interfaces.callback_collection import CallbackCollection
 from tetris.game_logic.interfaces.dependency_manager import DEPENDENCY_MANAGER
@@ -44,6 +45,7 @@ class HeuristicGym:
         max_evaluation_frames: int = 100_000,
         board_size: tuple[int, int] = (20, 10),
         mutator: Callable[[Heuristic], Heuristic] = mutated_heuristic,
+        block_selection_fn_from_seed: Callable[[int], Callable[[], Block]] = SpawnStrategyImpl.truly_random_select_fn,
         checkpoint_dir: Path | None = Path(__file__).parent / ".checkpoints",
     ) -> None:
         self._ui = ui
@@ -52,6 +54,7 @@ class HeuristicGym:
 
         self._max_evaluation_frames = max_evaluation_frames
         self._mutator = mutator
+        self._block_selection_fn_from_seed = block_selection_fn_from_seed
         self._checkpoint_dir = checkpoint_dir
         if self._checkpoint_dir:
             self._checkpoint_dir.mkdir(parents=True, exist_ok=True)
@@ -119,7 +122,7 @@ class HeuristicGym:
 
         seed = random.randrange(2**32)
         for spawn_strategy in self._spawn_strategies:
-            spawn_strategy.select_block_fn = SpawnStrategyImpl.truly_random_select_fn(seed)
+            spawn_strategy.select_block_fn = self._block_selection_fn_from_seed(seed)
 
         self._run_games()
 
@@ -178,6 +181,7 @@ class HeuristicGym:
                 "population": population,
                 "max_evaluation_frames": self._max_evaluation_frames,
                 "mutator": self._mutator,
+                "block_selection_fn_from_seed": self._block_selection_fn_from_seed,
                 "board_size": self._games[0].board.size,
             },
             file,
@@ -207,18 +211,11 @@ class HeuristicGym:
         checkpoint_dir: Path | None = Path(__file__).parent / ".checkpoints",
     ) -> None:
         # make sure to only load from trusted sources
-        checkpoint = pickle.load(checkpoint_file)  # noqa: S301
+        checkpoint: dict[str, Any] = pickle.load(checkpoint_file)  # noqa: S301
+        population: list[Heuristic] = checkpoint.pop("population")
 
-        gym = cls(
-            population_size=len(checkpoint["population"]),
-            max_evaluation_frames=checkpoint["max_evaluation_frames"],
-            board_size=checkpoint["board_size"],
-            mutator=checkpoint["mutator"],
-            ui=ui,
-            checkpoint_dir=checkpoint_dir,
-        )
-
-        gym.run(initial_population=checkpoint["population"])
+        gym = cls(population_size=len(population), ui=ui, checkpoint_dir=checkpoint_dir, **checkpoint)
+        gym.run(initial_population=population)
 
 
 if __name__ == "__main__":

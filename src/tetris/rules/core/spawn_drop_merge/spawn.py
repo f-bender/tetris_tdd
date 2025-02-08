@@ -34,7 +34,13 @@ class SpawnStrategyImpl(Publisher):
         self._next_block = next_block
 
     @classmethod
-    def from_shuffled_bag(cls, bag: list[Block] | None = None, seed: int | None = None) -> "SpawnStrategyImpl":
+    def from_shuffled_bag(cls, seed: int | None = None, bag: list[Block] | None = None) -> "SpawnStrategyImpl":
+        return cls(select_block_fn=cls.from_shuffled_bag_selection_fn(seed=seed, bag=bag))
+
+    @classmethod
+    def from_shuffled_bag_selection_fn(
+        cls, seed: int | None = None, bag: list[Block] | None = None
+    ) -> Callable[[], Block]:
         bag = bag or [Block(block_type) for block_type in BlockType]
         rng = random.Random(seed)
 
@@ -45,7 +51,7 @@ class SpawnStrategyImpl(Publisher):
 
         block_iterator = block_iter()
 
-        return cls(select_block_fn=lambda: next(block_iterator))
+        return lambda: next(block_iterator)
 
     @classmethod
     def truly_random(cls, seed: int | None = None) -> "SpawnStrategyImpl":
