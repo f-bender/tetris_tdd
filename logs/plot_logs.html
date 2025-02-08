@@ -1,0 +1,227 @@
+<!-- Developed using Gemini Flash 2.0 Thinking -->
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Fitness Plotter - Plotly.js - Y-Scale Toggle</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 0;
+            height: 100vh;
+        }
+
+        textarea {
+            width: 100%;
+            height: 200px;
+            margin-bottom: 10px;
+            box-sizing: border-box;
+        }
+
+        button {
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+
+        #chartContainer {
+            width: 100%;
+            height: 80vh;
+            margin: 20px auto;
+            box-sizing: border-box;
+        }
+
+        #fitnessChart {
+            width: 100%;
+            height: 100%;
+            /* Important for Plotly to fill container */
+        }
+
+        #controls {
+            margin-bottom: 10px;
+            display: flex;
+            /* Arrange controls horizontally */
+            align-items: center;
+            /* Vertically align items in controls */
+            gap: 15px;
+            /* Space between controls */
+        }
+
+        #controls label {
+            display: flex;
+            /* Arrange label and checkbox horizontally */
+            align-items: center;
+            gap: 5px;
+        }
+    </style>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+
+<body>
+
+    <h1>Fitness Plotter - Plotly.js - Y-Scale Toggle</h1>
+
+    <textarea id="logInput" placeholder="Paste your raw logs here"></textarea>
+    <div id="controls">
+        <button onclick="parseLogs()">Plot Fitness</button>
+        <label>
+            <input type="checkbox" id="timeAxisToggle" checked onchange="updateChartAxis()"> Use Time for X-Axis
+        </label>
+        <label>
+            <input type="checkbox" id="logScaleToggle" checked onchange="updateChartScale()"> Logarithmic Y-Scale
+        </label>
+    </div>
+
+    <div id="chartContainer">
+        <div id="fitnessChart"></div> <!-- Plotly targets a div, not canvas -->
+    </div>
+
+    <script>
+        let useTimeAxis = true; // Default to time axis
+        let useLogScale = true; // Default to logarithmic y-scale
+        let currentPlot; // To store the current Plotly plot for updates
+
+        function parseLogs() {
+            const logText = document.getElementById('logInput').value;
+            const lines = logText.split('\n');
+            const generationsData = [];
+            let generationCounter = 0;
+            let lastTimestamp = null;
+
+            for (const line of lines) {
+                if (line.includes("Sorted fitnesses:")) {
+                    const timeMatch = line.match(/^(\d{2}:\d{2}:\d{2})/);
+                    const fitnessMatch = line.match(/\((.*?)\)/);
+
+                    if (timeMatch && fitnessMatch) {
+                        const timeString = timeMatch[1];
+                        const fitnessStrings = fitnessMatch[1].split(', ');
+                        const fitnesses = fitnessStrings.map(Number);
+
+                        if (fitnesses.length > 0 && !fitnesses.includes(NaN)) {
+                            const timestamp = useTimeAxis ? parseTime(timeString) : null; // Only parse time if time axis is enabled
+                            if (useTimeAxis && !timestamp) continue; // Skip if time parsing fails in time mode
+
+                            const maxFitness = Math.max(...fitnesses);
+                            const meanFitness = fitnesses.reduce((sum, val) => sum + val, 0) / fitnesses.length;
+                            const medianFitness = calculateMedian(fitnesses);
+
+                            if (maxFitness === 0) {
+                                continue
+                            }
+
+                            generationsData.push({
+                                generation: generationCounter,
+                                timestamp: timestamp,
+                                max: maxFitness,
+                                mean: meanFitness,
+                                median: medianFitness
+                            });
+                            generationCounter++;
+                            lastTimestamp = timestamp;
+                        }
+                    }
+                }
+            }
+
+            if (generationsData.length > 0) {
+                createChart(generationsData);
+            } else {
+                alert("No 'Sorted fitnesses' data found in logs.");
+            }
+        }
+
+        function parseTime(timeString) {
+            const today = new Date();
+            const timeParts = timeString.split(':');
+            const hours = parseInt(timeParts[0], 10);
+            const minutes = parseInt(timeParts[1], 10);
+            const seconds = parseInt(timeParts[2], 10);
+
+            if (isNaN(hours) || isNaN(minutes) || isNaN(seconds)) {
+                console.error("Failed to parse time:", timeString);
+                return null;
+            }
+
+            return new Date(today.getFullYear(), today.getMonth(), today.getDate(), hours, minutes, seconds);
+        }
+
+
+        function calculateMedian(arr) {
+            const sortedArr = [...arr].sort((a, b) => a - b);
+            const mid = Math.floor(sortedArr.length / 2);
+            if (sortedArr.length % 2 === 0) {
+                return (sortedArr[mid - 1] + sortedArr[mid]) / 2;
+            } else {
+                return sortedArr[mid];
+            }
+        }
+
+        function createChart(data) {
+            const chartDiv = document.getElementById('fitnessChart');
+
+            const xValuesTime = data.map(item => item.timestamp);
+            const xValuesIndex = data.map(item => item.generation);
+            const yValuesMax = data.map(item => item.max);
+            const yValuesMean = data.map(item => item.mean);
+            const yValuesMedian = data.map(item => item.median);
+
+            const traceMax = {
+                x: useTimeAxis ? xValuesTime : xValuesIndex,
+                y: yValuesMax,
+                mode: 'lines+markers',
+                name: 'Max Fitness',
+                line: { color: 'rgb(255, 99, 132)' }
+            };
+
+            const traceMean = {
+                x: useTimeAxis ? xValuesTime : xValuesIndex,
+                y: yValuesMean,
+                mode: 'lines+markers',
+                name: 'Mean Fitness',
+                line: { color: 'rgb(54, 162, 235)' }
+            };
+
+            const traceMedian = {
+                x: useTimeAxis ? xValuesTime : xValuesIndex,
+                y: yValuesMedian,
+                mode: 'lines+markers',
+                name: 'Median Fitness',
+                line: { color: 'rgb(75, 192, 192)' }
+            };
+
+            const layout = {
+                title: 'Fitness over ' + (useTimeAxis ? 'Time' : 'Generations'),
+                xaxis: {
+                    title: useTimeAxis ? 'Time' : 'Generation'
+                },
+                yaxis: {
+                    title: 'Fitness Score (' + (useLogScale ? 'Logarithmic' : 'Linear') + ')',
+                    type: useLogScale ? 'log' : 'linear',
+                    autorange: true
+                }
+            };
+
+            const plotData = [traceMax, traceMean, traceMedian];
+
+            if (currentPlot) {
+                Plotly.react('fitnessChart', plotData, layout); // Use Plotly.react for updates
+            } else {
+                Plotly.newPlot('fitnessChart', plotData, layout); // Initial plot
+                currentPlot = true; // Mark that plot has been created
+            }
+        }
+
+        function updateChartAxis() {
+            useTimeAxis = document.getElementById('timeAxisToggle').checked;
+            parseLogs(); // Re-parse and re-plot with the new axis setting
+        }
+
+        function updateChartScale() {
+            useLogScale = document.getElementById('logScaleToggle').checked;
+            parseLogs(); // Re-parse and re-plot with the new scale setting
+        }
+    </script>
+
+</body>
+
+</html>
