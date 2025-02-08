@@ -174,6 +174,10 @@ class CLI(UI):
         )
         num_rows = ceil(num_boards / num_cols)
 
+        # reduce the number of columns, as long as this doesn't increase the required number of rows
+        while ceil(num_boards / (num_cols - 1)) == num_rows:
+            num_cols -= 1
+
         return num_rows, num_cols
 
     def _initialize_terminal(self) -> None:
