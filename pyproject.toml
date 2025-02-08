@@ -12,7 +12,7 @@ ansi = "^0.3.7"
 keyboard = "^0.13.5"
 scikit-image = "^0.24.0"
 google-generativeai = { version = "^0.8.3", optional = true }
-inputs = {version = "^0.5", optional = true}
+inputs = { version = "^0.5", optional = true }
 pynput = "^1.7.7"
 
 [tool.poetry.group.dev.dependencies]
@@ -75,5 +75,4 @@ unfixable = [
 [tool.mypy]
 strict = true
 warn_return_any = false
-enable_incomplete_feature = "NewGenericSyntax"
 mypy_path = "src"
