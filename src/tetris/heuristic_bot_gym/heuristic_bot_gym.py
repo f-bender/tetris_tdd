@@ -3,6 +3,7 @@ import pickle
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
+from itertools import cycle, islice
 from pathlib import Path
 from pprint import pformat
 from typing import Any, BinaryIO
@@ -57,11 +58,13 @@ class HeuristicGym:
 
         return SyncEvaluator()
 
-    def run(self, initial_population: list[Heuristic] | None = None, num_generations: int | None = None) -> None:
-        initial_population = (
-            initial_population
-            or ([Heuristic()] + [self._mutator(Heuristic()) for _ in range(self._population_size - 1)])  # type: ignore[call-arg]
-        )
+    def run(self, initial_population: Sequence[Heuristic] | None = None, num_generations: int | None = None) -> None:
+        initial_population = list(initial_population) if initial_population is not None else [Heuristic()]  # type: ignore[call-arg]
+
+        if len(initial_population) > self._population_size:
+            initial_population = initial_population[: self._population_size]
+        elif len(initial_population) < self._population_size:
+            initial_population = self._expanded_population(initial_population, new_size=self._population_size)
 
         GeneticAlgorithm(
             initial_population=initial_population,
@@ -69,6 +72,14 @@ class HeuristicGym:
             mutator=self._mutator,
             post_evaluation_callback=self._post_evaluation_callback,
         ).run(num_generations)
+
+    def _expanded_population(self, population: list[Heuristic], new_size: int) -> list[Heuristic]:
+        assert new_size > len(population)
+        new_population = population.copy()
+        new_population.extend(
+            self._mutator(heuristic) for heuristic in islice(cycle(population), new_size - len(population))
+        )
+        return new_population
 
     def _post_evaluation_callback(self, population: list[Heuristic], fitnesses: list[float]) -> None:
         sorted_population, sorted_fitnesses = zip(
@@ -109,6 +120,7 @@ class HeuristicGym:
     def continue_from_latest_checkpoint(
         cls,
         checkpoint_dir: Path = Path(__file__).parent / ".checkpoints",
+        new_population_size: int | None = None,
         **kwargs_to_overwrite: Any,  # noqa: ANN401
     ) -> None:
         checkpoint_files_sorted = sorted(checkpoint_dir.iterdir(), key=lambda file: file.stat().st_mtime, reverse=True)
@@ -122,7 +134,10 @@ class HeuristicGym:
         logging.debug(latest_checkpoint_file)
 
         cls.continue_from_checkpoint(
-            latest_checkpoint_file.open("rb"), checkpoint_dir=checkpoint_dir, **kwargs_to_overwrite
+            latest_checkpoint_file.open("rb"),
+            checkpoint_dir=checkpoint_dir,
+            new_population_size=new_population_size,
+            **kwargs_to_overwrite,
         )
 
     @classmethod
@@ -130,13 +145,14 @@ class HeuristicGym:
         cls,
         checkpoint_file: BinaryIO,
         checkpoint_dir: Path | None = Path(__file__).parent / ".checkpoints",
+        new_population_size: int | None = None,
         **kwargs_to_overwrite: Any,  # noqa: ANN401
     ) -> None:
         # make sure to only load from trusted sources
         checkpoint: dict[str, Any] = deep_merge(pickle.load(checkpoint_file), kwargs_to_overwrite)  # noqa: S301
 
         population: list[Heuristic] = checkpoint.pop("population")
-        checkpoint["population_size"] = len(population)
+        checkpoint["population_size"] = new_population_size or len(population)
 
         LOGGER.info("Continuing HeuristicBotGym with config\n%s", pformat(checkpoint))
 
