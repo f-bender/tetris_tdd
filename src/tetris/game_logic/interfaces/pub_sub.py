@@ -4,7 +4,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import NamedTuple
 
-from tetris.game_logic.interfaces import global_current_game_index
+from tetris.game_logic.interfaces.dependency_manager import DEPENDENCY_MANAGER
 
 LOGGER = logging.getLogger(__name__)
 
@@ -13,8 +13,8 @@ class Subscriber(ABC):
     def __init__(self) -> None:
         super().__init__()
 
-        self.game_index = global_current_game_index.current_game_index
-        ALL_SUBSCRIBERS.append(self)
+        self.game_index = DEPENDENCY_MANAGER.current_game_index
+        DEPENDENCY_MANAGER.all_subscribers.append(self)
 
     @abstractmethod
     def notify(self, message: NamedTuple) -> None: ...
@@ -33,8 +33,8 @@ class Publisher:
 
         self._subscribers: list[Subscriber] = []
 
-        self.game_index = global_current_game_index.current_game_index
-        ALL_PUBLISHERS.append(self)
+        self.game_index = DEPENDENCY_MANAGER.current_game_index
+        DEPENDENCY_MANAGER.all_publishers.append(self)
 
     def add_subscriber(self, subscriber: Subscriber) -> None:
         self._subscribers.append(subscriber)
@@ -45,7 +45,3 @@ class Publisher:
     def notify_subscribers(self, message: NamedTuple) -> None:
         for subscriber in self._subscribers:
             subscriber.notify(message)
-
-
-ALL_SUBSCRIBERS: list[Subscriber] = []
-ALL_PUBLISHERS: list[Publisher] = []

@@ -14,7 +14,8 @@ from tetris.game_logic.components.board import Board, PositionedBlock
 from tetris.game_logic.components.exceptions import CannotDropBlockError
 from tetris.game_logic.interfaces.controller import Action, Controller
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
-from tetris.rules.core.spawn_drop_merge.spawn import SpawnMessage, SpawnStrategyImpl
+from tetris.rules.core.messages import SpawnMessage
+from tetris.rules.core.spawn_drop_merge.spawn import SpawnStrategyImpl
 from tetris.rules.core.spawn_drop_merge.spawn_drop_merge_rule import SpawnDropMergeRule
 
 LOGGER = logging.getLogger(__name__)

@@ -7,7 +7,8 @@ from tetris.game_logic.action_counter import ActionCounter
 from tetris.game_logic.components.board import Board
 from tetris.game_logic.game import GameOverError
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
-from tetris.rules.core.clear_full_lines_rule import ClearFullLinesRule, LineClearMessage
+from tetris.rules.core.clear_full_lines_rule import ClearFullLinesRule
+from tetris.rules.core.messages import LineClearMessage
 
 
 class PlaceLinesManipulation:

@@ -1,7 +1,7 @@
 import logging
 import pickle
 import random
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import BinaryIO
@@ -11,10 +11,8 @@ from tetris.controllers.heuristic_bot.controller import HeuristicBotController
 from tetris.controllers.heuristic_bot.heuristic import Heuristic, mutated_heuristic
 from tetris.game_logic.components import Board
 from tetris.game_logic.game import Game, GameOverError
-from tetris.game_logic.interfaces import global_current_game_index
-from tetris.game_logic.interfaces.callback import ALL_CALLBACKS
 from tetris.game_logic.interfaces.callback_collection import CallbackCollection
-from tetris.game_logic.interfaces.pub_sub import ALL_PUBLISHERS, ALL_SUBSCRIBERS, Publisher
+from tetris.game_logic.interfaces.dependency_manager import DEPENDENCY_MANAGER
 from tetris.game_logic.interfaces.rule_sequence import RuleSequence
 from tetris.game_logic.interfaces.ui import UI
 from tetris.genetic_algorithm.genetic_algorithm import GeneticAlgorithm
@@ -63,7 +61,7 @@ class HeuristicGym:
         self._spawn_strategies: list[SpawnStrategyImpl] = []
 
         for idx in range(population_size):
-            global_current_game_index.current_game_index = idx
+            DEPENDENCY_MANAGER.current_game_index = idx
 
             board = Board.create_empty(*board_size)
             controller = HeuristicBotController(board, lightning_mode=True)
@@ -93,8 +91,7 @@ class HeuristicGym:
                 )
             )
 
-        _wire_up_pubs_subs()
-        _wire_up_callbacks(self._games)
+        DEPENDENCY_MANAGER.wire_up(games=self._games)
 
     def run(self, initial_population: list[Heuristic] | None = None) -> None:
         initial_population = (
@@ -217,25 +214,6 @@ class HeuristicGym:
         )
 
         gym.run(initial_population=checkpoint["population"])
-
-
-def _wire_up_pubs_subs() -> None:
-    for subscriber in ALL_SUBSCRIBERS:
-        subscriptions: list[Publisher] = []
-
-        for publisher in ALL_PUBLISHERS:
-            if subscriber.should_be_subscribed_to(publisher):
-                publisher.add_subscriber(subscriber)
-                subscriptions.append(publisher)
-
-        subscriber.verify_subscriptions(subscriptions)
-
-
-def _wire_up_callbacks(games: Iterable[Game]) -> None:
-    for idx, game in enumerate(games):
-        game.callback_collection = CallbackCollection(
-            tuple(callback for callback in ALL_CALLBACKS if callback.should_be_called_by(idx))
-        )
 
 
 if __name__ == "__main__":

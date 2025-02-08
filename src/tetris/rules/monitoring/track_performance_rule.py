@@ -1,7 +1,7 @@
 import time
 
 from tetris.game_logic.interfaces.callback import Callback
-from tetris.game_logic.interfaces.global_current_game_index import RUNTIME_INDEX
+from tetris.game_logic.interfaces.dependency_manager import DependencyManager
 
 
 class TrackPerformanceCallback(Callback):
@@ -14,7 +14,7 @@ class TrackPerformanceCallback(Callback):
         self._frame_budget = 1 / fps
 
     def should_be_called_by(self, game_index: int) -> bool:
-        return game_index == RUNTIME_INDEX
+        return game_index == DependencyManager.RUNTIME_INDEX
 
     def on_frame_start(self) -> None:
         self._last_frame_start = time.perf_counter()
