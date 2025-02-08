@@ -130,6 +130,14 @@ class SyncEvaluator(Evaluator):
                     num_alive_games -= 1
 
             if self._ui:
+                if isinstance(self._ui, CLI):
+                    digits = max(
+                        len(f"{len(self._games):,}"),
+                        len(f"{self._max_evaluation_frames:,}"),
+                    )
+                    print(f"Game Over: {len(self._games) - num_alive_games:>{digits}} / {len(self._games):<{digits}}")  # noqa: T201
+                    print(f"Frames:    {i + 1:>{digits},} / {self._max_evaluation_frames:<{digits},}")  # noqa: T201
+
                 self._ui.advance_startup()
                 self._ui.draw(game.board.as_array() for game in self._games)
 
