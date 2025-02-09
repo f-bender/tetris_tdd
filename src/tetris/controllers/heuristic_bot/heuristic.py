@@ -14,17 +14,17 @@ class Heuristic(NamedTuple):
     # mypy doesn't seem to understand that this is a class variables
     CRITICAL_GAP_HEIGHT = 3  # type: ignore[misc]
 
-    # these parameters reached 32,779 cleared lines before dying (in genetic algorithm)
-    sum_of_cell_heights_close_to_top_weight: float = 0.2194666215297296
-    num_distinct_overhangs_weight: float = 3.8655963791975814
-    num_rows_with_overhung_holes_weight: float = 4.842373676164849
-    num_overhung_cells_weight: float = 0.10762127391171512
-    num_overhanging_cells_weight: float = 0.10762127391171512
-    num_narrow_gaps_weight: float = 3.243331719348859
-    sum_of_cell_heights_weight: float = 0.055269909402115645
-    sum_of_adjacent_height_differences_weight: float = 1.4710964800855681
+    # these parameters reached 39,314 cleared lines before dying (in genetic algorithm)
+    sum_of_cell_heights_close_to_top_weight: float = 29.54735612162214
+    num_distinct_overhangs_weight: float = 13.402585218414346
+    num_rows_with_overhung_holes_weight: float = 17.05798449630461
+    num_overhung_cells_weight: float = 0.1586405310117646
+    num_overhanging_cells_weight: float = 0.07176722861453179
+    num_narrow_gaps_weight: float = 22.7321777549799
+    sum_of_cell_heights_weight: float = 0.051535676453027444
+    sum_of_adjacent_height_differences_weight: float = 5.211841688641368
 
-    close_to_top_threshold: int = 1
+    close_to_top_threshold: int = 2
 
     def loss(self, board: Board) -> float:
         """Compute a measure of how bad a board is."""
