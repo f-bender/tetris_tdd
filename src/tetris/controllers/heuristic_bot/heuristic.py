@@ -14,15 +14,15 @@ class Heuristic(NamedTuple):
     # mypy doesn't seem to understand that this is a class variables
     CRITICAL_GAP_HEIGHT = 3  # type: ignore[misc]
 
-    # these parameters reached 39,314 cleared lines before dying (in genetic algorithm)
-    sum_of_cell_heights_close_to_top_weight: float = 29.54735612162214
-    num_distinct_overhangs_weight: float = 13.402585218414346
-    num_rows_with_overhung_holes_weight: float = 17.05798449630461
-    num_overhung_cells_weight: float = 0.1586405310117646
-    num_overhanging_cells_weight: float = 0.07176722861453179
-    num_narrow_gaps_weight: float = 22.7321777549799
-    sum_of_cell_heights_weight: float = 0.051535676453027444
-    sum_of_adjacent_height_differences_weight: float = 5.211841688641368
+    # these parameters reached 40,000 cleared lines without dying (in genetic algorithm)
+    sum_of_cell_heights_close_to_top_weight: float = 37.541850298966494
+    num_distinct_overhangs_weight: float = 4.981849526838116
+    num_rows_with_overhung_holes_weight: float = 7.566239791723034
+    num_overhung_cells_weight: float = 0.03716446605907205
+    num_overhanging_cells_weight: float = 0.06436170476372303
+    num_narrow_gaps_weight: float = 11.693058326155283
+    sum_of_cell_heights_weight: float = 0.019480381707076545
+    sum_of_adjacent_height_differences_weight: float = 1.749057065987776
 
     close_to_top_threshold: int = 2
 
