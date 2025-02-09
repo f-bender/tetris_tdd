@@ -2,6 +2,7 @@
 
 import logging
 import time
+from concurrent.futures import Future, ProcessPoolExecutor, as_completed
 from copy import deepcopy
 from threading import Lock, Thread
 from typing import Final, NamedTuple
@@ -34,6 +35,7 @@ class Misalignment(NamedTuple):
         return self.x != 0 or self.rotation
 
 
+# TODO refactor; split into (at least) 2 classes
 class HeuristicBotController(Controller, Subscriber):
     # we assume that the block will spawn in the top _SPAWN_ROWS rows, meaning that we are guaranteed to be able to
     # execute a plan immediately after spawning if these rows are empty
@@ -45,6 +47,7 @@ class HeuristicBotController(Controller, Subscriber):
         heuristic: Heuristic | None = None,
         *,
         lightning_mode: bool = False,
+        process_pool: ProcessPoolExecutor | None = None,
         fps: float = 60,
     ) -> None:
         """Initialize the bot controller.
@@ -60,6 +63,10 @@ class HeuristicBotController(Controller, Subscriber):
                 Otherwise, when inactive, a thread is started which computes plans concurrently without blocking
                 gameplay, and get_action executes a plan by selecting appropriate actions one by one, and is guaranteed
                 to return very quickly (the default).
+            process_pool: Optional process pool to hand work packets during planning to. Allows for some parallelization
+                of the planning of even a single HeuristicBotController, empirically leading to a ~2.2x speedup.
+                When multiple HeuristicBotControllers are run concurrently, the same process pool should be handed to
+                all of them such that the one pool can handle the scheduling.
             fps: Frames per second that the game will run with. Used as the polling rate of the planning thread. (I.e.
                 how frequently to check whether it's time to make the next plan.)
         """
@@ -81,6 +88,8 @@ class HeuristicBotController(Controller, Subscriber):
 
         self._lightning_mode = lightning_mode
         self._ready_for_instand_drop_and_merge = False
+
+        self._process_pool = process_pool
 
         if not self._lightning_mode:
             Thread(target=self._continuously_plan, daemon=True).start()
@@ -210,6 +219,13 @@ class HeuristicBotController(Controller, Subscriber):
                 plan is to be executed (for double checking), and the target positioned block (i.e. target position and
                 rotation of the block).
         """
+        if self._process_pool is None:
+            return self._create_plan_single_process(expected_board_before, block, expected_board_after)
+        return self._create_plan_with_process_pool(expected_board_before, block, expected_board_after)
+
+    def _create_plan_single_process(
+        self, expected_board_before: Board, block: Block, expected_board_after: Board | None = None
+    ) -> Plan | None:
         internal_planning_board = Board()
         min_loss: float | None = None
         min_loss_positioned_block: PositionedBlock | None = None
@@ -249,6 +265,74 @@ class HeuristicBotController(Controller, Subscriber):
             return None
 
         return Plan(expected_board_before, min_loss_positioned_block)
+
+    def _create_plan_with_process_pool(
+        self, expected_board_before: Board, block: Block, expected_board_after: Board | None = None
+    ) -> Plan | None:
+        assert self._process_pool is not None
+
+        loss_futures: list[Future[tuple[Board, PositionedBlock, float] | None]] = []
+        for rotated_block in block.unique_rotations():
+            top_offset, left_offset, _, right_offset = rotated_block.actual_bounding_box
+
+            loss_futures.extend(
+                self._process_pool.submit(
+                    self._loss_from_positioned_block,
+                    # in moving this to the worker process, a copy is being created anyways, so no need to explicitly
+                    # create a copy myself; expected_board_before will stay unchanged in the main process
+                    expected_board_before,
+                    PositionedBlock(rotated_block, Vec(y=-top_offset, x=x_position)),
+                    self.heuristic,
+                )
+                for x_position in range(-left_offset, expected_board_before.width - right_offset + 1)
+            )
+
+        min_loss: float | None = None
+        min_loss_positioned_block: PositionedBlock | None = None
+
+        for future in as_completed(loss_futures):
+            if self._cancel_planning_flag:
+                self._cancel_planning_flag = False
+                for f in loss_futures:
+                    f.cancel()
+                return None
+
+            result = future.result()
+            if result is None:
+                continue
+
+            board_after, positioned_block, loss = result
+            if min_loss is not None and loss >= min_loss:
+                continue
+
+            min_loss = loss
+            min_loss_positioned_block = positioned_block
+            if expected_board_after is not None:
+                expected_board_after.set_from_other(board_after)
+
+        if min_loss_positioned_block is None:
+            return None
+
+        return Plan(expected_board_before, min_loss_positioned_block)
+
+    @staticmethod
+    def _loss_from_positioned_block(
+        board: Board, positioned_block: PositionedBlock, heuristic: Heuristic
+    ) -> tuple[Board, PositionedBlock, float] | None:
+        if board.positioned_block_overlaps_with_active_cells(positioned_block):
+            return None
+
+        board.active_block = positioned_block
+
+        while True:
+            try:
+                board.drop_active_block()
+            except CannotDropBlockError:
+                board.merge_active_block()
+                board.clear_lines(board.get_full_line_idxs())
+                break
+
+        return board, positioned_block, heuristic.loss(board)
 
     def get_action(self, board: Board | None = None) -> Action:
         if self._ready_for_instand_drop_and_merge:

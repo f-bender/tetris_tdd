@@ -1,4 +1,6 @@
 import contextlib
+import os
+from concurrent.futures import ProcessPoolExecutor
 from typing import TYPE_CHECKING
 
 from tetris.clock.simple import SimpleClock
@@ -29,15 +31,20 @@ if TYPE_CHECKING:
 def main() -> None:
     configure_logging()
 
-    boards = _create_boards(6)
-    games = _create_games(
-        boards=boards, controllers=[HeuristicBotController(board) for board in boards], use_tetris_99_rules=False
-    )
-    runtime = _create_runtime(games)
+    boards = _create_boards(1)
+    with ProcessPoolExecutor(max_workers=os.cpu_count()) as process_pool:
+        games = _create_games(
+            boards=boards,
+            controllers=[
+                HeuristicBotController(board, lightning_mode=True, process_pool=process_pool) for board in boards
+            ],
+            use_tetris_99_rules=False,
+        )
+        runtime = _create_runtime(games)
 
-    DEPENDENCY_MANAGER.wire_up(runtime=runtime, games=games)
+        DEPENDENCY_MANAGER.wire_up(runtime=runtime, games=games)
 
-    runtime.run()
+        runtime.run()
 
 
 def _create_games(
@@ -132,7 +139,7 @@ def _create_rules_and_callbacks(num_games: int, *, create_tetris_99_rule: bool =
     rules: list[Rule] = [
         MoveRule(),
         RotateRule(),
-        SpawnDropMergeRule(),
+        SpawnDropMergeRule(spawn_delay=0),
         ParryRule(),
         ClearFullLinesRule(),
     ]
@@ -143,7 +150,7 @@ def _create_rules_and_callbacks(num_games: int, *, create_tetris_99_rule: bool =
     return RuleSequence(rules)
 
 
-def _create_runtime(games: list[Game], *, controller: Controller | None = None, fps: float = 60) -> Runtime:
+def _create_runtime(games: list[Game], *, controller: Controller | None = None, fps: float = 60000) -> Runtime:
     DEPENDENCY_MANAGER.current_game_index = DependencyManager.RUNTIME_INDEX
 
     TrackPerformanceCallback(fps)  # not useless; will be added to DEPENDENCY_MANAGER.all_callbacks
