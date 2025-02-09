@@ -20,7 +20,7 @@ LOGGER = logging.getLogger(__name__)
 def main() -> None:
     logging_config.configure_logging()
 
-    HeuristicGym(50).run()
+    HeuristicGym.continue_from_latest_checkpoint()
 
 
 class Evaluator(ABC):
@@ -54,9 +54,9 @@ class HeuristicGym:
 
     @staticmethod
     def _default_evaluator() -> Evaluator:
-        from tetris.heuristic_bot_gym.evaluators.parallel_o3_mini_refined import ParallelEvaluator
+        from tetris.heuristic_bot_gym.evaluators.parallel_within_bot import ParallelWithinBotEvaluator
 
-        return ParallelEvaluator()
+        return ParallelWithinBotEvaluator()
 
     def run(self, initial_population: Sequence[Heuristic] | None = None, num_generations: int | None = None) -> None:
         initial_population = list(initial_population) if initial_population is not None else [Heuristic()]  # type: ignore[call-arg]

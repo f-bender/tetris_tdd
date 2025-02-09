@@ -19,8 +19,17 @@ class SpawnStrategyImpl(Publisher):
     def __init__(self, select_block_fn: Callable[[], Block] = Block.create_random) -> None:
         super().__init__()
 
-        self.select_block_fn = select_block_fn
-        self._next_block = self.select_block_fn()
+        self._select_block_fn = select_block_fn
+        self._next_block = self._select_block_fn()
+
+    @property
+    def select_block_fn(self) -> Callable[[], Block]:
+        return self._select_block_fn
+
+    @select_block_fn.setter
+    def select_block_fn(self, value: Callable[[], Block]) -> None:
+        self._select_block_fn = value
+        self._next_block = self._select_block_fn()
 
     def apply(self, board: Board) -> None:
         try:
@@ -28,7 +37,7 @@ class SpawnStrategyImpl(Publisher):
         except CannotSpawnBlockError as e:
             raise GameOverError from e
 
-        next_block = self.select_block_fn()
+        next_block = self._select_block_fn()
         self.notify_subscribers(SpawnMessage(block=self._next_block, next_block=next_block))
 
         self._next_block = next_block

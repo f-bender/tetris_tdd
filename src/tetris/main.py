@@ -1,5 +1,4 @@
 import contextlib
-import os
 from concurrent.futures import ProcessPoolExecutor
 from typing import TYPE_CHECKING
 
@@ -32,7 +31,8 @@ def main() -> None:
     configure_logging()
 
     boards = _create_boards(1)
-    with ProcessPoolExecutor(max_workers=os.cpu_count()) as process_pool:
+    # note: max_workers defaults to number of processors
+    with ProcessPoolExecutor() as process_pool:
         games = _create_games(
             boards=boards,
             controllers=[
