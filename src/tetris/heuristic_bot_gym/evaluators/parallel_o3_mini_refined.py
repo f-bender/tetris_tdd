@@ -18,7 +18,6 @@ from tetris.game_logic.interfaces.dependency_manager import DEPENDENCY_MANAGER
 from tetris.game_logic.interfaces.rule_sequence import RuleSequence
 from tetris.game_logic.interfaces.ui import UI
 from tetris.heuristic_bot_gym.heuristic_bot_gym import Evaluator
-from tetris.logging_config import configure_logging
 from tetris.rules.core.clear_full_lines_rule import ClearFullLinesRule
 from tetris.rules.core.move_rotate_rules import MoveRule, RotateRule
 from tetris.rules.core.spawn_drop_merge.spawn import SpawnStrategyImpl
@@ -28,7 +27,6 @@ from tetris.rules.monitoring.track_score_rule import TrackScoreCallback
 from tetris.ui.cli.ui import CLI
 
 LOGGER = logging.getLogger(__name__)
-LOGGER_LOCK = multiprocessing.Lock()
 
 # Global variable for the communication queue.
 _GLOBAL_COMM_QUEUE = None
@@ -40,7 +38,6 @@ def _init_worker(comm_queue: multiprocessing.Queue) -> None:
     """
     global _GLOBAL_COMM_QUEUE
     _GLOBAL_COMM_QUEUE = comm_queue
-    configure_logging()
 
 
 def _evaluate_task(
@@ -95,10 +92,6 @@ def _evaluate_task(
             _GLOBAL_COMM_QUEUE.put(("update", slot_id, board.as_array()))
         except Exception as exc:
             LOGGER.exception("Error sending update for slot %d: %s", slot_id, exc)
-
-    with LOGGER_LOCK:
-        LOGGER.debug("Process %d: Game over with score %d", slot_id, score_tracker.score)
-
     return score_tracker.score
 
 
