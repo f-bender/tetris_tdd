@@ -45,6 +45,7 @@ ignore = [
     "COM812", # missing trailing comma     (handled by formatter)
     "S101",   # assert used                (used only for things that should never fail and need no check in production)
     "S311",   # cryptographically weak RNG (I don't do cryptography in this project - not relevant)
+    "TD",     # TODO comment formatting    (I don't care for the formatting - note that FIX still reminds me to handle TODOs)
 ]
 unfixable = [
     "T201",   # no automatic removing prints

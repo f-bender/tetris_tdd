@@ -2,6 +2,7 @@ import logging
 import random
 from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from itertools import count
 from typing import Any
 
 from tetris.clock.simple import SimpleClock
@@ -28,13 +29,15 @@ LOGGER = logging.getLogger(__name__)
 
 # TODO simplify/reduce duplication with SyncEvaluator
 class ParallelWithinBotEvaluator(Evaluator):
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
+        *,
         board_size: tuple[int, int] = (20, 10),
         max_evaluation_frames: int = 100_000,
         block_selection_fn_from_seed: Callable[[int], Callable[[], Block]] = SpawnStrategyImpl.truly_random_select_fn,
         ui_class: type[UI] | None = CLI,
         fps: float = 60,
+        score_log_freq: int = 1000,
     ) -> None:
         self._ui = None if ui_class is None else ui_class()
         self._board_size = board_size
@@ -43,6 +46,7 @@ class ParallelWithinBotEvaluator(Evaluator):
         self._block_selection_fn_from_seed = block_selection_fn_from_seed
 
         self._fps = fps
+        self._score_log_freq = score_log_freq
         self._initialized = False
 
     @property
@@ -54,6 +58,7 @@ class ParallelWithinBotEvaluator(Evaluator):
             "block_selection_fn_from_seed": self._block_selection_fn_from_seed,
             "ui_class": None if self._ui is None else type(self._ui),
             "fps": self._fps,
+            "score_log_freq": self._score_log_freq,
         }
 
     def _initialize(self, num_games: int) -> None:
@@ -133,20 +138,28 @@ class ParallelWithinBotEvaluator(Evaluator):
         with ThreadPoolExecutor(max_workers=len(self._games)) as thread_pool:
             futures = {thread_pool.submit(self._run_game, i) for i in range(len(self._games))}
 
-            if self._ui:
-                while futures:
-                    clock.tick()
-                    futures = {fut for fut in futures if not fut.done()}
+            if not self._ui:
+                # nothing else to do; note: it still waits for futures to finish
+                return
 
-                    if isinstance(self._ui, CLI):
-                        digits = max(
-                            len(f"{len(self._games):,}"),
-                            len(f"{self._max_evaluation_frames:,}"),
-                        )
-                        print(f"Game Over: {len(self._games) - len(futures):>{digits}} / {len(self._games):<{digits}}")  # noqa: T201
+            for i in count():
+                if i % self._score_log_freq == 0:
+                    LOGGER.debug("Scores: %s", [tracker.score for tracker in self._score_trackers])
 
-                    self._ui.advance_startup()
-                    self._ui.draw(game.board.as_array() for game in self._games)
+                clock.tick()
+                futures = {fut for fut in futures if not fut.done()}
+                if not futures:
+                    break
+
+                if isinstance(self._ui, CLI):
+                    digits = max(
+                        len(f"{len(self._games):,}"),
+                        len(f"{self._max_evaluation_frames:,}"),
+                    )
+                    print(f"Game Over: {len(self._games) - len(futures):>{digits}} / {len(self._games):<{digits}}")  # noqa: T201
+
+                self._ui.advance_startup()
+                self._ui.draw(game.board.as_array() for game in self._games)
 
     def _run_game(self, index: int) -> None:
         for _ in range(self._max_evaluation_frames):
