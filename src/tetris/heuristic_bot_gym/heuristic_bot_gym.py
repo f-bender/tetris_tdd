@@ -131,7 +131,7 @@ class HeuristicGym:
         if latest_checkpoint_file is None:
             msg = f"checkpoint_dir '{checkpoint_dir}' contains no checkpoint files!"
             raise ValueError(msg)
-        logging.debug(latest_checkpoint_file)
+        LOGGER.debug(latest_checkpoint_file)
 
         cls.continue_from_checkpoint(
             latest_checkpoint_file.open("rb"),
