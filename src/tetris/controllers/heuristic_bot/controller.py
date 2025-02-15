@@ -365,15 +365,9 @@ class HeuristicBotController(Controller, Subscriber):
                 if internal_planning_board.positioned_block_overlaps_with_active_cells(positioned_block):
                     continue
 
-                internal_planning_board.active_block = positioned_block
-
-                while True:
-                    try:
-                        internal_planning_board.drop_active_block()
-                    except CannotDropBlockError:
-                        internal_planning_board.merge_active_block()
-                        internal_planning_board.clear_lines(internal_planning_board.get_full_line_idxs())
-                        break
+                HeuristicBotController._instant_drop_and_merge_block(
+                    board=internal_planning_board, positioned_block=positioned_block
+                )
 
                 loss = heuristic.loss(internal_planning_board)
                 if min_loss is None or loss < min_loss:
@@ -396,8 +390,18 @@ class HeuristicBotController(Controller, Subscriber):
         if board.positioned_block_overlaps_with_active_cells(positioned_block):
             return None
 
-        board.active_block = positioned_block
+        HeuristicBotController._instant_drop_and_merge_block(board=board, positioned_block=positioned_block)
 
+        return board, positioned_block, heuristic.loss(board)
+
+    @staticmethod
+    def _instant_drop_and_merge_block(board: Board, positioned_block: PositionedBlock) -> None:
+        """Drop treat `positioned_block` as the active block of `board` and drop it straight down into place.
+
+        When dropped into place, merge the block into place and clear full lines.
+        Note that this is a simple naive implementation for this function:
+        ```
+        board.active_block = positioned_block
         while True:
             try:
                 board.drop_active_block()
@@ -405,8 +409,40 @@ class HeuristicBotController(Controller, Subscriber):
                 board.merge_active_block()
                 board.clear_lines(board.get_full_line_idxs())
                 break
+        ```
+        The actual implementation does the same thing in a more computationally efficient way:
+        It computes the drop distance and directly places the block at the position it should ultimately drop down to.
+        """
+        block_actual_cells = positioned_block.block.actual_cells
+        block_actual_position = positioned_block.actual_bounding_box.top_left
+        positioned_block_lower_bound = (
+            block_actual_position.y + block_actual_cells.shape[0] - np.argmax(np.flipud(block_actual_cells), axis=0)
+        )
 
-        return board, positioned_block, heuristic.loss(board)
+        board_relevant_columns_bool = board.array_view_without_active_block()[
+            :,
+            block_actual_position.x : block_actual_position.x + block_actual_cells.shape[1],
+        ].astype(bool)
+
+        board_upper_bound_under_block = np.where(
+            np.any(board_relevant_columns_bool, axis=0),
+            np.argmax(
+                board_relevant_columns_bool,
+                axis=0,
+            ),
+            board_relevant_columns_bool.shape[0],
+        )
+
+        drop_distance = np.min(board_upper_bound_under_block - positioned_block_lower_bound)
+        assert drop_distance >= 0
+
+        board.active_block = PositionedBlock(
+            block=positioned_block.block,
+            position=Vec(positioned_block.position.y + drop_distance, positioned_block.position.x),
+        )
+
+        board.merge_active_block()
+        board.clear_lines(board.get_full_line_idxs())
 
     def get_action(self, board: Board | None = None) -> Action:
         if self._ready_for_instand_drop_and_merge:
