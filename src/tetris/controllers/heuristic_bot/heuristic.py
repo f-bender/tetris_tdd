@@ -158,7 +158,13 @@ def mutated_heuristic(heuristic: Heuristic, mutation_rate: float = 1.0) -> Heuri
         ),
         close_to_top_threshold=round(
             np.clip(
-                heuristic.close_to_top_threshold * rng.normal(1, mutation_rate),
+                heuristic.close_to_top_threshold
+                + rng.normal(
+                    0,
+                    # at least keep a ~2% chance of changing it by 1
+                    # note: std=0.25 -> 2 std to reach 0.5 -> 0.5 leads to rounding to an adjacent number (2 std -> ~2%)
+                    max(mutation_rate, 0.25),
+                ),
                 1,
                 19,
             )
