@@ -1,5 +1,4 @@
 import logging
-import random
 from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from itertools import count
@@ -113,7 +112,7 @@ class ParallelWithinBotEvaluator(Evaluator):
 
         DEPENDENCY_MANAGER.wire_up(games=self._games)
 
-    def __call__(self, heuristics: list[Heuristic]) -> list[float]:
+    def _evaluate(self, heuristics: list[Heuristic], seeds: list[int]) -> list[float]:
         if not self._initialized:
             self._initialize(len(heuristics))
 
@@ -123,9 +122,7 @@ class ParallelWithinBotEvaluator(Evaluator):
         for game in self._games:
             game.reset()
 
-        seed = random.randrange(2**32)
-        LOGGER.debug("Evaluating with seed %d", seed)
-        for spawn_strategy in self._spawn_strategies:
+        for spawn_strategy, seed in zip(self._spawn_strategies, seeds, strict=True):
             spawn_strategy.select_block_fn = self._block_selection_fn_from_seed(seed)
 
         self._run_games()
