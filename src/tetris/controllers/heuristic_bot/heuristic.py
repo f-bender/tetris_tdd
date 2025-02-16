@@ -14,15 +14,20 @@ class Heuristic(NamedTuple):
     # mypy doesn't seem to understand that this is a class variables
     CRITICAL_GAP_HEIGHT = 3  # type: ignore[misc]
 
-    # these parameters reached 40,000 cleared lines without dying (in genetic algorithm)
-    sum_of_cell_heights_close_to_top_weight: float = 37.541850298966494
-    num_distinct_overhangs_weight: float = 4.981849526838116
-    num_rows_with_overhung_holes_weight: float = 7.566239791723034
-    num_overhung_cells_weight: float = 0.03716446605907205
-    num_overhanging_cells_weight: float = 0.06436170476372303
-    num_narrow_gaps_weight: float = 11.693058326155283
-    sum_of_cell_heights_weight: float = 0.019480381707076545
-    sum_of_adjacent_height_differences_weight: float = 1.749057065987776
+    # these parameters are the (so far) best evaluated ones:
+    # on a 15x10 board, evaluated on 50 different seeds:
+    # mean score:   4840.4
+    # median score: 3263.5
+    # max score:    25025
+    # min score:    385
+    sum_of_cell_heights_close_to_top_weight: float = 37.652763984182684
+    num_distinct_overhangs_weight: float = 16.877752999883597
+    num_rows_with_overhung_holes_weight: float = 7.943677640345351
+    num_overhung_cells_weight: float = 0.4779122479971236
+    num_overhanging_cells_weight: float = 0.038490107345981565
+    num_narrow_gaps_weight: float = 18.114996501107665
+    sum_of_cell_heights_weight: float = 0.04765174391968494
+    sum_of_adjacent_height_differences_weight: float = 3.7514188813751512
 
     close_to_top_threshold: int = 2
 
