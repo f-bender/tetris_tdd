@@ -21,7 +21,7 @@ from tetris.game_logic.interfaces.callback_collection import CallbackCollection
 from tetris.game_logic.interfaces.dependency_manager import DEPENDENCY_MANAGER
 from tetris.game_logic.interfaces.rule_sequence import RuleSequence
 from tetris.game_logic.interfaces.ui import UI
-from tetris.heuristic_bot_gym.heuristic_bot_gym import Evaluator
+from tetris.heuristic_bot_gym.evaluator import Evaluator
 from tetris.rules.core.clear_full_lines_rule import ClearFullLinesRule
 from tetris.rules.core.move_rotate_rules import MoveRule, RotateRule
 from tetris.rules.core.spawn_drop_merge.spawn import SpawnStrategyImpl

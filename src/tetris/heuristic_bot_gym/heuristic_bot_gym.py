@@ -1,7 +1,5 @@
 import logging
 import pickle
-import random
-from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import asdict
 from datetime import UTC, datetime
@@ -13,6 +11,8 @@ from typing import Any, BinaryIO
 from tetris import logging_config
 from tetris.controllers.heuristic_bot.heuristic import Heuristic, mutated_heuristic
 from tetris.genetic_algorithm import GeneticAlgorithm
+from tetris.heuristic_bot_gym.evaluator import Evaluator
+from tetris.heuristic_bot_gym.evaluators.parallel_within_bot import ParallelWithinBotEvaluator
 from tetris.utils import deep_merge
 
 LOGGER = logging.getLogger(__name__)
@@ -23,31 +23,6 @@ def main() -> None:
     logging_config.configure_logging()
 
     HeuristicGym.continue_from_latest_checkpoint(checkpoint_dir=Path(__file__).parent / ".checkpoints" / "15x10")
-
-
-class Evaluator(ABC):
-    def __call__(self, heuristics: list[Heuristic], seeds: list[int] | int | None = None) -> list[float]:
-        """Evaluate the heuristics, returning their fitnesses."""
-        if seeds is None:
-            seeds = random.randrange(2**32)
-        if isinstance(seeds, int):
-            LOGGER.debug("Evaluating with seed %d", seeds)
-            seeds = [seeds] * len(heuristics)
-
-        if len(seeds) != len(heuristics):
-            msg = f"`seeds` must have same length as `heuristics`, got {len(seeds) = } vs. {len(heuristics) = }"
-            raise ValueError(msg)
-
-        return self._evaluate(heuristics=heuristics, seeds=seeds)
-
-    @abstractmethod
-    def _evaluate(self, heuristics: list[Heuristic], seeds: list[int]) -> list[float]:
-        """Evaluate the heuristics, returning their fitnesses."""
-
-    @property
-    @abstractmethod
-    def config(self) -> dict[str, Any]:
-        """Config dict that can be used to create an equivalent instance of this class using cls(**config)."""
 
 
 class HeuristicGym:
@@ -66,18 +41,12 @@ class HeuristicGym:
             raise ValueError(msg)
 
         self._population_size = population_size
-        self._evaluator = evaluator or self._default_evaluator()
+        self._evaluator = evaluator or ParallelWithinBotEvaluator()
         self._genetic_algorithm = genetic_algorithm or GeneticAlgorithm(mutator=mutated_heuristic)
 
         self._checkpoint_dir = checkpoint_dir
         if self._checkpoint_dir:
             self._checkpoint_dir.mkdir(parents=True, exist_ok=True)
-
-    @staticmethod
-    def _default_evaluator() -> Evaluator:
-        from tetris.heuristic_bot_gym.evaluators.parallel_within_bot import ParallelWithinBotEvaluator
-
-        return ParallelWithinBotEvaluator()
 
     def run(
         self,
