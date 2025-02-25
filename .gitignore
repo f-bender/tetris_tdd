@@ -3,4 +3,3 @@ __pycache__/
 fuzz_test_errors.txt
 logs/*.log*
 .checkpoints/
-report.csv
