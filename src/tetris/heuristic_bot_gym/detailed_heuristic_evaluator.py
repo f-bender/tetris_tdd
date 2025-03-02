@@ -150,7 +150,7 @@ class DetailedHeuristicEvaluator:
     def reevaluate_top_performers(
         self,
         report_df: pd.DataFrame,
-        top_k: int = 3,
+        top_k: int = 5,
         performance_columns: tuple[str, ...] = ("mean_score", "median_score", "max_score", "min_score"),
     ) -> None:
         reevaluate_df = pd.concat([report_df.nlargest(top_k, col) for col in performance_columns])
@@ -186,6 +186,27 @@ def main() -> None:
             reverse=True,
         )
     )
+
+    DetailedHeuristicEvaluator(
+        num_games=200,
+        seed=13,
+        evaluator=ParallelWithinBotEvaluator(board_size=(15, 10), max_evaluation_frames=1_000_000),
+        report_file=Path(__file__).parent / "report_best_more_detailed.csv",
+    ).reevaluate_top_performers(pd.read_csv(Path(__file__).parent / "report.csv"), top_k=10)
+
+    DetailedHeuristicEvaluator(
+        num_games=200,
+        seed=69,
+        evaluator=ParallelWithinBotEvaluator(board_size=(20, 10), max_evaluation_frames=1_000_000),
+        report_file=Path(__file__).parent / "report_best_more_detailed_on_20x10.csv",
+    ).reevaluate_top_performers(pd.read_csv(Path(__file__).parent / "report_best_more_detailed.csv"), top_k=5)
+
+    DetailedHeuristicEvaluator(
+        num_games=200,
+        seed=69,
+        evaluator=ParallelWithinBotEvaluator(board_size=(20, 10), max_evaluation_frames=1_000_000),
+        report_file=Path(__file__).parent / "report_best_more_detailed_on_20x10.csv",
+    ).reevaluate_from_report(pd.read_csv(Path(__file__).parent / "report_best_on_20x10.csv"))
 
 
 if __name__ == "__main__":
