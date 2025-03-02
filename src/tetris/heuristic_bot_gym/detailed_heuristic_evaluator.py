@@ -7,7 +7,7 @@ from collections.abc import Iterable
 from datetime import datetime
 from pathlib import Path
 from pprint import pformat
-from typing import Any, ClassVar
+from typing import ClassVar
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -19,6 +19,10 @@ from tetris.heuristic_bot_gym.evaluators.parallel_within_bot import ParallelWith
 from tetris.logging_config import configure_logging
 
 LOGGER = logging.getLogger(__name__)
+
+type Primitive = str | bytes | int | float | complex | bool | None
+type SimpleContainer[T] = dict[LiteralEvallable, T] | list[T] | set[T] | tuple[T, ...]
+type LiteralEvallable = Primitive | SimpleContainer[Primitive | LiteralEvallable]
 
 
 class DetailedHeuristicEvaluator:
@@ -55,7 +59,7 @@ class DetailedHeuristicEvaluator:
         if len(self._report_df) > 0:
             LOGGER.info("Current best mean score: %f", self._report_df["mean_score"].max())
 
-    def evaluate(self, heuristic: Heuristic, seed: int | None = None, extra_info: dict[str, Any] | None = None) -> None:
+    def evaluate(self, heuristic: Heuristic, seed: int | None = None, extra_info: LiteralEvallable = None) -> None:
         seed = self._seed if seed is None else seed
 
         if self._already_evaluated(heuristic=heuristic, seed=seed):
@@ -82,7 +86,7 @@ class DetailedHeuristicEvaluator:
         return self._report_df[list(config)].eq(pd.Series(config)).all(axis=1).any()
 
     def _report_scores(
-        self, heuristic: Heuristic, scores: list[float], seed: int, extra_info: dict[str, Any] | None = None
+        self, heuristic: Heuristic, scores: list[float], seed: int, extra_info: LiteralEvallable = None
     ) -> None:
         heuristic_stats = {
             "mean_score": np.mean(scores),
@@ -95,7 +99,7 @@ class DetailedHeuristicEvaluator:
             "evaluator_config": self._evaluator_config_repr(),
             "heuristic": repr(heuristic),
             "scores": repr(scores),
-            "extra_info": repr(extra_info),
+            "extra_info": extra_info and repr(extra_info),
         }
         LOGGER.info("Evaluation results: %s", pformat(heuristic_stats))
 
@@ -132,7 +136,16 @@ class DetailedHeuristicEvaluator:
             raise ValueError(msg)
 
         for _, row in report_df.iterrows():
-            self.evaluate(self._literal_eval_heuristic(row["heuristic"]), extra_info=row["extra_info"])
+            self.evaluate(
+                self._literal_eval_heuristic(row["heuristic"]),
+                extra_info={
+                    **(ast.literal_eval(row["extra_info"]) if pd.notna(row["extra_info"]) else {}),
+                    "previous_mean_score": row["mean_score"],
+                    "previous_median_score": row["median_score"],
+                    "previous_max_score": row["max_score"],
+                    "previous_min_score": row["min_score"],
+                },
+            )
 
     def reevaluate_top_performers(
         self,
