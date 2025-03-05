@@ -130,23 +130,26 @@ class ParallelWithinBotEvaluator(Evaluator):
         return [tracker.score for tracker in self._score_trackers]
 
     def _run_games(self) -> None:
-        clock = SimpleClock(fps=self._fps)
-
         with ThreadPoolExecutor(max_workers=len(self._games)) as thread_pool:
-            futures = {thread_pool.submit(self._run_game, i) for i in range(len(self._games))}
+            futures = {i: thread_pool.submit(self._run_game, i) for i in range(len(self._games))}
 
-            if not self._ui:
-                # nothing else to do; note: it still waits for futures to finish
-                return
-
+            clock = SimpleClock(fps=self._fps)
             for i in count():
+                clock.tick()
+
                 if i % self._score_log_freq == 0:
                     LOGGER.debug("Scores: %s", [tracker.score for tracker in self._score_trackers])
 
-                clock.tick()
-                futures = {fut for fut in futures if not fut.done()}
+                done_idxs = [idx for idx, fut in futures.items() if fut.done()]
+                for done_idx in done_idxs:
+                    LOGGER.debug("Game %d scored %d", done_idx, self._score_trackers[done_idx].score)
+                    del futures[done_idx]
+
                 if not futures:
                     break
+
+                if not self._ui:
+                    continue
 
                 if isinstance(self._ui, CLI):
                     digits = max(
