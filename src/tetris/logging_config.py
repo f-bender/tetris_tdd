@@ -20,7 +20,7 @@ def configure_logging(log_dir: Path = Path(__file__).parents[2] / "logs") -> Non
     logging.getLogger().addHandler(rotating_handler)
 
     # Create TimedRotatingFileHandler for INFO and above
-    info_handler = TimedRotatingFileHandler(log_dir / "info.log", when="H", interval=2, backupCount=1, encoding="utf-8")
+    info_handler = TimedRotatingFileHandler(log_dir / "info.log", when="H", interval=2, backupCount=7, encoding="utf-8")
     info_handler.setLevel(logging.INFO)
     info_handler.setFormatter(file_formatter)
     logging.getLogger().addHandler(info_handler)
