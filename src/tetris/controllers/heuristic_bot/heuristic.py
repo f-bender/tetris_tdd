@@ -16,18 +16,18 @@ class Heuristic(NamedTuple):
 
     # these parameters are the (so far) best evaluated ones:
     # on a 15x10 board, evaluated on 50 different seeds:
-    # mean score:   4840.4
-    # median score: 3263.5
-    # max score:    25025
-    # min score:    385
-    sum_of_cell_heights_close_to_top_weight: float = 37.652763984182684
-    num_distinct_overhangs_weight: float = 16.877752999883597
-    num_rows_with_overhung_holes_weight: float = 7.943677640345351
-    num_overhung_cells_weight: float = 0.4779122479971236
-    num_overhanging_cells_weight: float = 0.038490107345981565
-    num_narrow_gaps_weight: float = 18.114996501107665
-    sum_of_cell_heights_weight: float = 0.04765174391968494
-    sum_of_adjacent_height_differences_weight: float = 3.7514188813751512
+    # mean score:   4849.3
+    # median score: 3979.5
+    # max score:    27763
+    # min score:    51
+    sum_of_cell_heights_close_to_top_weight: float = 40.89457607843424
+    num_distinct_overhangs_weight: float = 18.22445229206337
+    num_rows_with_overhung_holes_weight: float = 5.065240858045357
+    num_overhung_cells_weight: float = 0.3912644095631127
+    num_overhanging_cells_weight: float = 0.10027611440722689
+    num_narrow_gaps_weight: float = 17.56913864221128
+    sum_of_cell_heights_weight: float = 0.04753922538922408
+    sum_of_adjacent_height_differences_weight: float = 3.85145041256396
 
     close_to_top_threshold: int = 2
 
