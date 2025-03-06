@@ -45,7 +45,7 @@ class DetailedHeuristicEvaluator:
         num_games: int = 50,
         seed: int = 42,
         evaluator: Evaluator | None = None,
-        report_file: Path = Path(__file__).parent / "report.csv",
+        report_file: Path = Path(__file__).parent / "reports" / "report.csv",
     ) -> None:
         self._num_games = num_games
         self._seed = seed
@@ -104,6 +104,8 @@ class DetailedHeuristicEvaluator:
         LOGGER.info("Evaluation results: %s", pformat(heuristic_stats))
 
         self._report_df.loc[len(self._report_df)] = heuristic_stats
+
+        self._report_file.parent.mkdir(parents=True, exist_ok=True)
         self._report_df.to_csv(self._report_file, index=False)
 
     def _evaluator_config_repr(self) -> str:
@@ -176,7 +178,7 @@ def main() -> None:
         sorted(
             (
                 checkpoint
-                for checkpoint in (Path(__file__).parent / ".checkpoints").glob("**/*.pkl")
+                for checkpoint in (Path(__file__).parent / "reports" / ".checkpoints").glob("**/*.pkl")
                 if checkpoint.is_file()
                 and datetime.fromtimestamp(checkpoint.stat().st_mtime, tz=ZoneInfo("Europe/Berlin"))
                 > datetime(2025, 2, 9, 0, 45, tzinfo=ZoneInfo("Europe/Berlin"))
@@ -191,22 +193,22 @@ def main() -> None:
         num_games=200,
         seed=13,
         evaluator=ParallelWithinBotEvaluator(board_size=(15, 10), max_evaluation_frames=1_000_000),
-        report_file=Path(__file__).parent / "report_best_more_detailed.csv",
-    ).reevaluate_top_performers(pd.read_csv(Path(__file__).parent / "report.csv"), top_k=10)
+        report_file=Path(__file__).parent / "reports" / "best_more_detailed.csv",
+    ).reevaluate_top_performers(pd.read_csv(Path(__file__).parent / "reports" / "report.csv"), top_k=10)
 
     DetailedHeuristicEvaluator(
         num_games=200,
         seed=69,
         evaluator=ParallelWithinBotEvaluator(board_size=(20, 10), max_evaluation_frames=1_000_000),
-        report_file=Path(__file__).parent / "report_best_more_detailed_on_20x10.csv",
-    ).reevaluate_top_performers(pd.read_csv(Path(__file__).parent / "report_best_more_detailed.csv"), top_k=5)
+        report_file=Path(__file__).parent / "reports" / "best_more_detailed_on_20x10.csv",
+    ).reevaluate_top_performers(pd.read_csv(Path(__file__).parent / "reports" / "best_more_detailed.csv"), top_k=5)
 
     DetailedHeuristicEvaluator(
         num_games=200,
         seed=69,
         evaluator=ParallelWithinBotEvaluator(board_size=(20, 10), max_evaluation_frames=1_000_000),
-        report_file=Path(__file__).parent / "report_best_more_detailed_on_20x10.csv",
-    ).reevaluate_from_report(pd.read_csv(Path(__file__).parent / "report_best_on_20x10.csv"))
+        report_file=Path(__file__).parent / "reports" / "best_more_detailed_on_20x10.csv",
+    ).reevaluate_from_report(pd.read_csv(Path(__file__).parent / "reports" / "best_on_20x10.csv"))
 
 
 if __name__ == "__main__":
