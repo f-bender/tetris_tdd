@@ -29,6 +29,10 @@ class Game:
         self.callback_collection.on_game_start()
 
     @property
+    def controller(self) -> Controller:
+        return self._controller
+
+    @property
     def alive(self) -> bool:
         return self._alive
 

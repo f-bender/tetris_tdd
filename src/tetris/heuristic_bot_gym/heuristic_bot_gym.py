@@ -12,7 +12,7 @@ from tetris import logging_config
 from tetris.controllers.heuristic_bot.heuristic import Heuristic, mutated_heuristic
 from tetris.genetic_algorithm import GeneticAlgorithm
 from tetris.heuristic_bot_gym.evaluator import Evaluator
-from tetris.heuristic_bot_gym.evaluators.parallel_within_bot import ParallelWithinBotEvaluator
+from tetris.heuristic_bot_gym.evaluators.evaluator import EvaluatorImpl
 from tetris.utils import deep_merge
 
 LOGGER = logging.getLogger(__name__)
@@ -41,7 +41,7 @@ class HeuristicGym:
             raise ValueError(msg)
 
         self._population_size = population_size
-        self._evaluator = evaluator or ParallelWithinBotEvaluator()
+        self._evaluator = evaluator or EvaluatorImpl()
         self._genetic_algorithm = genetic_algorithm or GeneticAlgorithm(mutator=mutated_heuristic)
 
         self._checkpoint_dir = checkpoint_dir

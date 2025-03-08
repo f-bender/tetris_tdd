@@ -1,51 +1,76 @@
 import logging
-from collections.abc import Callable
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
-from itertools import count
-from typing import Any
+from abc import ABC, abstractmethod
+from collections.abc import Callable, Sequence
+from concurrent.futures import ProcessPoolExecutor
+from typing import Any, TypedDict
 
-from tetris.clock.simple import SimpleClock
 from tetris.controllers.heuristic_bot.controller import HeuristicBotController
 from tetris.controllers.heuristic_bot.heuristic import Heuristic
 from tetris.game_logic.components import Board
 from tetris.game_logic.components.block import Block
-from tetris.game_logic.game import Game, GameOverError
+from tetris.game_logic.game import Game
 from tetris.game_logic.interfaces.callback_collection import CallbackCollection
 from tetris.game_logic.interfaces.dependency_manager import DEPENDENCY_MANAGER
 from tetris.game_logic.interfaces.rule_sequence import RuleSequence
-from tetris.game_logic.interfaces.ui import UI
 from tetris.heuristic_bot_gym.evaluator import Evaluator
+from tetris.heuristic_bot_gym.evaluators.runners.parallel import ParallelRunner
+from tetris.heuristic_bot_gym.evaluators.runners.synchronous import SynchronousRunner
 from tetris.rules.core.clear_full_lines_rule import ClearFullLinesRule
 from tetris.rules.core.move_rotate_rules import MoveRule, RotateRule
 from tetris.rules.core.spawn_drop_merge.spawn import SpawnStrategyImpl
 from tetris.rules.core.spawn_drop_merge.spawn_drop_merge_rule import SpawnDropMergeRule
 from tetris.rules.core.spawn_drop_merge.speed import SpeedStrategyImpl
 from tetris.rules.monitoring.track_score_rule import TrackScoreCallback
-from tetris.ui.cli.ui import CLI
 
 LOGGER = logging.getLogger(__name__)
 
 
-# TODO simplify/reduce duplication with SyncEvaluator
-class ParallelWithinBotEvaluator(Evaluator):
-    def __init__(  # noqa: PLR0913
+class Runner(ABC):
+    @abstractmethod
+    def run_games(
+        self,
+        games: Sequence[Game],
+        max_frames: int,
+        interval_callback: Callable[[], None] | None = None,
+        game_over_callback: Callable[[int], None] | None = None,
+    ) -> None: ...
+
+    @property
+    @abstractmethod
+    def config(self) -> dict[str, Any]:
+        """Config dict that can be used to create an equivalent instance of this class using cls(**config)."""
+
+    @abstractmethod
+    def initialize(self, num_games: int, board_size: tuple[int, int]) -> None: ...
+
+
+class RunnerConfig(TypedDict):
+    cls: type[ParallelRunner | SynchronousRunner]
+    params: dict[str, Any]
+
+
+class EvaluatorImpl(Evaluator):
+    def __init__(
         self,
         *,
         board_size: tuple[int, int] = (20, 10),
         max_evaluation_frames: int = 100_000,
         block_selection_fn_from_seed: Callable[[int], Callable[[], Block]] = SpawnStrategyImpl.truly_random_select_fn,
-        ui_class: type[UI] | None = CLI,
-        fps: float = 60,
-        score_log_freq: int = 1000,
+        runner: SynchronousRunner | ParallelRunner | RunnerConfig | None = None,
     ) -> None:
-        self._ui = None if ui_class is None else ui_class()
         self._board_size = board_size
-
         self._max_evaluation_frames = max_evaluation_frames
         self._block_selection_fn_from_seed = block_selection_fn_from_seed
 
-        self._fps = fps
-        self._score_log_freq = score_log_freq
+        self._runner: SynchronousRunner | ParallelRunner
+        match runner:
+            case {"cls": runner_class, "params": runner_config}:
+                self._runner = runner_class(**runner_config)  # type: ignore[operator]
+            case None:
+                self._runner = ParallelRunner()
+            case _:
+                self._runner = runner  # type: ignore[assignment]
+
         self._initialized = False
 
     @property
@@ -55,16 +80,16 @@ class ParallelWithinBotEvaluator(Evaluator):
             "board_size": self._board_size,
             "max_evaluation_frames": self._max_evaluation_frames,
             "block_selection_fn_from_seed": self._block_selection_fn_from_seed,
-            "ui_class": None if self._ui is None else type(self._ui),
-            "fps": self._fps,
-            "score_log_freq": self._score_log_freq,
+            "runner_config": {
+                "cls": type(self._runner),
+                "params": self._runner.config,
+            },
         }
 
     def _initialize(self, num_games: int) -> None:
         self._initialized = True
 
-        if self._ui:
-            self._ui.initialize(*self._board_size, num_boards=num_games)
+        self._runner.initialize(num_games, self._board_size)
 
         self._heuristic_bot_controllers: list[HeuristicBotController] = []
         self._games: list[Game] = []
@@ -72,7 +97,9 @@ class ParallelWithinBotEvaluator(Evaluator):
         self._score_trackers: list[TrackScoreCallback] = []
         self._spawn_strategies: list[SpawnStrategyImpl] = []
 
-        process_pool = ProcessPoolExecutor()
+        process_pool = (
+            ProcessPoolExecutor(self._runner.num_workers) if isinstance(self._runner, ParallelRunner) else None
+        )
         for idx in range(num_games):
             DEPENDENCY_MANAGER.current_game_index = idx
 
@@ -125,45 +152,11 @@ class ParallelWithinBotEvaluator(Evaluator):
         for spawn_strategy, seed in zip(self._spawn_strategies, seeds, strict=True):
             spawn_strategy.select_block_fn = self._block_selection_fn_from_seed(seed)
 
-        self._run_games()
+        self._runner.run_games(
+            games=self._games,
+            max_frames=self._max_evaluation_frames,
+            interval_callback=lambda: LOGGER.debug("Scores: %s", [tracker.score for tracker in self._score_trackers]),
+            game_over_callback=lambda idx: LOGGER.debug("Game %d scored %d", idx, self._score_trackers[idx].score),
+        )
 
         return [tracker.score for tracker in self._score_trackers]
-
-    def _run_games(self) -> None:
-        with ThreadPoolExecutor(max_workers=len(self._games)) as thread_pool:
-            futures = {i: thread_pool.submit(self._run_game, i) for i in range(len(self._games))}
-
-            clock = SimpleClock(fps=self._fps)
-            for i in count():
-                clock.tick()
-
-                if i % self._score_log_freq == 0:
-                    LOGGER.debug("Scores: %s", [tracker.score for tracker in self._score_trackers])
-
-                done_idxs = [idx for idx, fut in futures.items() if fut.done()]
-                for done_idx in done_idxs:
-                    LOGGER.debug("Game %d scored %d", done_idx, self._score_trackers[done_idx].score)
-                    del futures[done_idx]
-
-                if not futures:
-                    break
-
-                if not self._ui:
-                    continue
-
-                if isinstance(self._ui, CLI):
-                    digits = max(
-                        len(f"{len(self._games):,}"),
-                        len(f"{self._max_evaluation_frames:,}"),
-                    )
-                    print(f"Game Over: {len(self._games) - len(futures):>{digits}} / {len(self._games):<{digits}}")  # noqa: T201
-
-                self._ui.advance_startup()
-                self._ui.draw(game.board.as_array() for game in self._games)
-
-    def _run_game(self, index: int) -> None:
-        for _ in range(self._max_evaluation_frames):
-            try:
-                self._games[index].advance_frame()
-            except GameOverError:
-                return

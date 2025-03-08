@@ -15,7 +15,7 @@ import pandas as pd
 
 from tetris.controllers.heuristic_bot.heuristic import Heuristic
 from tetris.heuristic_bot_gym.evaluator import Evaluator
-from tetris.heuristic_bot_gym.evaluators.parallel_within_bot import ParallelWithinBotEvaluator
+from tetris.heuristic_bot_gym.evaluators.evaluator import EvaluatorImpl
 from tetris.logging_config import configure_logging
 
 LOGGER = logging.getLogger(__name__)
@@ -50,7 +50,7 @@ class DetailedHeuristicEvaluator:
         self._num_games = num_games
         self._seed = seed
         # smaller than normal board size by default to make evaluation not take so long
-        self._evaluator = evaluator or ParallelWithinBotEvaluator(board_size=(15, 10))
+        self._evaluator = evaluator or EvaluatorImpl(board_size=(15, 10))
         self._report_file = report_file
 
         self._report_df = (
@@ -192,21 +192,21 @@ def main() -> None:
     DetailedHeuristicEvaluator(
         num_games=200,
         seed=13,
-        evaluator=ParallelWithinBotEvaluator(board_size=(15, 10), max_evaluation_frames=1_000_000),
+        evaluator=EvaluatorImpl(board_size=(15, 10), max_evaluation_frames=1_000_000),
         report_file=Path(__file__).parent / "reports" / "best_more_detailed.csv",
     ).reevaluate_top_performers(pd.read_csv(Path(__file__).parent / "reports" / "report.csv"), top_k=10)
 
     DetailedHeuristicEvaluator(
         num_games=200,
         seed=69,
-        evaluator=ParallelWithinBotEvaluator(board_size=(20, 10), max_evaluation_frames=1_000_000),
+        evaluator=EvaluatorImpl(board_size=(20, 10), max_evaluation_frames=1_000_000),
         report_file=Path(__file__).parent / "reports" / "best_more_detailed_on_20x10.csv",
-    ).reevaluate_top_performers(pd.read_csv(Path(__file__).parent / "reports" / "best_more_detailed.csv"), top_k=5)
+    ).reevaluate_top_performers(pd.read_csv(Path(__file__).parent / "reports" / "best_more_detailed.csv"), top_k=3)
 
     DetailedHeuristicEvaluator(
         num_games=200,
         seed=69,
-        evaluator=ParallelWithinBotEvaluator(board_size=(20, 10), max_evaluation_frames=1_000_000),
+        evaluator=EvaluatorImpl(board_size=(20, 10), max_evaluation_frames=1_000_000),
         report_file=Path(__file__).parent / "reports" / "best_more_detailed_on_20x10.csv",
     ).reevaluate_from_report(pd.read_csv(Path(__file__).parent / "reports" / "best_on_20x10.csv"))
 

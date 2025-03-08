@@ -72,7 +72,7 @@ class HeuristicBotController(Controller, Subscriber):
                 consistently choose the same location to place the block at. Note: only has an effect when
                 `process_pool` is provided, otherwise behaviour is consistent anyways.
             fps: Frames per second that the game will run with. Used as the polling rate of the planning thread. (I.e.
-                how frequently to check whether it's time to make the next plan.)
+                how frequently to check whether it's time to make the next plan.) Ignored in lightning mode.
         """
         super().__init__()
         self._real_board: Final = board
@@ -98,6 +98,10 @@ class HeuristicBotController(Controller, Subscriber):
 
         if not self._lightning_mode:
             Thread(target=self._continuously_plan, daemon=True).start()
+
+    @property
+    def is_using_process_pool(self) -> bool:
+        return self._process_pool is not None
 
     def should_be_subscribed_to(self, publisher: Publisher) -> bool:
         return isinstance(publisher, SpawnStrategyImpl) and publisher.game_index == self.game_index
