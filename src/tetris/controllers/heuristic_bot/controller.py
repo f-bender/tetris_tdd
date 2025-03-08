@@ -100,6 +100,10 @@ class HeuristicBotController(Controller, Subscriber):
             Thread(target=self._continuously_plan, daemon=True).start()
 
     @property
+    def lightning_mode(self) -> bool:
+        return self._lightning_mode
+
+    @property
     def is_using_process_pool(self) -> bool:
         return self._process_pool is not None
 

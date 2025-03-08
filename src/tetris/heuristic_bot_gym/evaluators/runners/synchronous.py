@@ -5,12 +5,26 @@ from tetris.controllers.heuristic_bot.controller import HeuristicBotController
 from tetris.game_logic.game import Game, GameOverError
 from tetris.game_logic.interfaces.controller import Controller
 from tetris.game_logic.interfaces.ui import UI
-from tetris.heuristic_bot_gym.evaluators.evaluator import Runner
 from tetris.ui.cli.ui import CLI
 
 
-class SynchronousRunner(Runner):
+class SynchronousRunner:
+    """A synchronous runner for evaluating Tetris games.
+
+    This runner executes games sequentially in a single thread. It's designed to work with HeuristicBotController in
+    lightning mode, and non-process-pool mode.
+    Each iteration of the main loop advances all games by one frame and then draws the UI.
+    This means that all games are processed in lockstep, and that the update rate of the UI depends on the time it takes
+    to process all games.
+    """
+
     def __init__(self, ui_class: type[UI] | None = CLI, callback_interval_frames: int = 1000) -> None:
+        """Initialize the synchronous runner.
+
+        Args:
+            ui_class: The UI class to use for visualization, or None for headless mode.
+            callback_interval_frames: Number of frames between interval callback invocations.
+        """
         self._ui = None if ui_class is None else ui_class()
         self._callback_interval_frames = callback_interval_frames
 
@@ -23,6 +37,12 @@ class SynchronousRunner(Runner):
         }
 
     def initialize(self, num_games: int, board_size: tuple[int, int]) -> None:
+        """Initialize the runner before running games.
+
+        Args:
+            num_games: Number of games that will be run.
+            board_size: Tuple of (width, height) for the game boards.
+        """
         if self._ui:
             self._ui.initialize(*board_size, num_boards=num_games)
 
@@ -33,6 +53,18 @@ class SynchronousRunner(Runner):
         interval_callback: Callable[[], None] | None = None,
         game_over_callback: Callable[[int], None] | None = None,
     ) -> None:
+        """Run multiple games synchronously until they complete or reach max frames.
+
+        Args:
+            games: Sequence of Game instances to run.
+            max_frames: Maximum number of frames to run each game.
+            interval_callback: Optional callback called every callback_interval_frames.
+            game_over_callback: Optional callback called when a game ends, receives game index.
+
+        Raises:
+            TypeError: If controller is not a HeuristicBotController.
+            ValueError: If controller is configured to use process pool.
+        """
         self._check_controller_config(games[0].controller)
 
         num_alive_games = len(games)
@@ -71,10 +103,24 @@ class SynchronousRunner(Runner):
             self._ui.draw(game.board.as_array() for game in games)
 
     def _check_controller_config(self, controller: Controller) -> None:
+        """Validate the controller configuration.
+
+        Args:
+            controller: The controller to check.
+
+        Raises:
+            TypeError: If controller is not a HeuristicBotController.
+            ValueError: If controller is configured to use process pool.
+            ValueError: If controller is configured to not use lightning mode.
+        """
         if not isinstance(controller, HeuristicBotController):
             msg = "SynchronousRunner requires a HeuristicBotController!"
             raise TypeError(msg)
 
         if controller.is_using_process_pool:
             msg = "SynchronousRunner shouldn't be used with HeuristicBotController using ProcessPoolExecutor!"
+            raise ValueError(msg)
+
+        if not controller.lightning_mode:
+            msg = "SynchronousRunner should be used with HeuristicBotController using lightning mode!"
             raise ValueError(msg)

@@ -1,8 +1,8 @@
 import logging
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from collections.abc import Callable, Sequence
 from concurrent.futures import ProcessPoolExecutor
-from typing import Any, TypedDict
+from typing import Any, Protocol, TypedDict
 
 from tetris.controllers.heuristic_bot.controller import HeuristicBotController
 from tetris.controllers.heuristic_bot.heuristic import Heuristic
@@ -25,23 +25,35 @@ from tetris.rules.monitoring.track_score_rule import TrackScoreCallback
 LOGGER = logging.getLogger(__name__)
 
 
-class Runner(ABC):
-    @abstractmethod
+class Runner(Protocol):
     def run_games(
         self,
         games: Sequence[Game],
         max_frames: int,
         interval_callback: Callable[[], None] | None = None,
         game_over_callback: Callable[[int], None] | None = None,
-    ) -> None: ...
+    ) -> None:
+        """Run multiple games until completion or max frames reached.
+
+        Args:
+            games: Sequence of Game instances to run.
+            max_frames: Maximum number of frames to run each game.
+            interval_callback: Optional callback called periodically during execution.
+            game_over_callback: Optional callback called when a game ends, receiving game index.
+        """
 
     @property
     @abstractmethod
     def config(self) -> dict[str, Any]:
         """Config dict that can be used to create an equivalent instance of this class using cls(**config)."""
 
-    @abstractmethod
-    def initialize(self, num_games: int, board_size: tuple[int, int]) -> None: ...
+    def initialize(self, num_games: int, board_size: tuple[int, int]) -> None:
+        """Initialize the runner with game parameters.
+
+        Args:
+            num_games: Number of games to prepare for.
+            board_size: Tuple of (height, width) for the game boards.
+        """
 
 
 class RunnerConfig(TypedDict):
@@ -50,6 +62,8 @@ class RunnerConfig(TypedDict):
 
 
 class EvaluatorImpl(Evaluator):
+    """Implementation of the Evaluator interface for running multiple Tetris games and returning their scores."""
+
     def __init__(
         self,
         *,
@@ -58,6 +72,14 @@ class EvaluatorImpl(Evaluator):
         block_selection_fn_from_seed: Callable[[int], Callable[[], Block]] = SpawnStrategyImpl.truly_random_select_fn,
         runner: SynchronousRunner | ParallelRunner | RunnerConfig | None = None,
     ) -> None:
+        """Initialize the evaluator.
+
+        Args:
+            board_size: Tuple of (height, width) for the game boards.
+            max_evaluation_frames: Maximum number of frames to run each evaluation.
+            block_selection_fn_from_seed: Function that creates block selection functions from seeds.
+            runner: Runner instance or config for running games.
+        """
         self._board_size = board_size
         self._max_evaluation_frames = max_evaluation_frames
         self._block_selection_fn_from_seed = block_selection_fn_from_seed
@@ -87,6 +109,11 @@ class EvaluatorImpl(Evaluator):
         }
 
     def _initialize(self, num_games: int) -> None:
+        """Initialize internal state for running evaluations.
+
+        Args:
+            num_games: Number of games to prepare for running
+        """
         self._initialized = True
 
         self._runner.initialize(num_games, self._board_size)
@@ -140,6 +167,15 @@ class EvaluatorImpl(Evaluator):
         DEPENDENCY_MANAGER.wire_up(games=self._games)
 
     def _evaluate(self, heuristics: list[Heuristic], seeds: list[int]) -> list[float]:
+        """Evaluate multiple heuristics using the specified random seeds.
+
+        Args:
+            heuristics: List of heuristics to evaluate.
+            seeds: List of random seeds for block generation.
+
+        Returns:
+            List of scores achieved by each heuristic.
+        """
         if not self._initialized:
             self._initialize(len(heuristics))
 
