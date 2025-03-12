@@ -1,0 +1,628 @@
+<!-- Created by Claude 3.7 Sonnet -->
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Tetris Score Distribution Viewer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.24.2/plotly.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 200px;
+            padding: 10px;
+            font-family: monospace;
+            box-sizing: border-box;
+        }
+
+        #plot-container {
+            position: relative;
+            width: 100%;
+        }
+
+        #plot {
+            width: 100%;
+            height: 600px;
+        }
+
+        /* Fullscreen styling */
+        #plot.fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 9999;
+            margin: 0;
+            padding: 0;
+        }
+
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        #fullscreenBtn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 100;
+            background-color: rgba(76, 175, 80, 0.8);
+            padding: 8px 12px;
+            border-radius: 4px;
+        }
+
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+
+        .info {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-left: 5px solid #17a2b8;
+        }
+
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-grow: 1;
+        }
+
+        .slider-container label {
+            width: 200px;
+        }
+
+        .slider-container input[type="range"] {
+            width: 100%;
+        }
+
+        .slider-container input[type="number"] {
+            width: 80px;
+            padding: 5px;
+        }
+
+        .model-controls {
+            margin-top: 20px;
+        }
+
+        /* Additional styles for fullscreen exit button */
+        #exitFullscreenBtn {
+            display: none;
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 10000;
+            background-color: rgba(220, 53, 69, 0.8);
+        }
+
+        #exitFullscreenBtn:hover {
+            background-color: rgba(200, 35, 51, 0.9);
+        }
+
+        /* Quick set buttons for 1/avg(scores) */
+        .quick-set-container {
+            margin-top: 10px;
+            overflow-x: auto;
+            padding-bottom: 5px;
+        }
+
+        .quick-set-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: nowrap;
+        }
+
+        .quick-set-button {
+            background-color: #17a2b8;
+            white-space: nowrap;
+            font-size: 14px;
+            padding: 6px 10px;
+            flex-shrink: 0;
+        }
+
+        .quick-set-button:hover {
+            background-color: #138496;
+        }
+
+        h4 {
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Tetris Score Distribution Viewer</h1>
+        <div class="info">
+            <p>Paste your CSV data below and click "Generate Plot" to create a cumulative distribution plot of the
+                scores.</p>
+            <p>Each line represents a different dataset, starting at (0, 1) and ending at (max_score, 0).</p>
+            <p>The y-axis shows the proportion of games with a score higher than the x-axis value.</p>
+            <p>The theoretical model trace shows a constant failure rate model where P(score > x) = (1-p)^x where p is
+                the failure probability.</p>
+        </div>
+        <textarea id="csvInput" placeholder="Paste your CSV data here..."></textarea>
+        <button onclick="processData()">Generate Plot</button>
+
+        <div class="model-controls">
+            <h3>Theoretical Model Controls</h3>
+            <div class="controls">
+                <div class="slider-container">
+                    <label for="failureRate">Failure Probability (p):</label>
+                    <input type="range" id="failureRateSlider" min="0.000005" max="0.001" step="0.000001"
+                        value="0.00005">
+                    <input type="number" id="failureRateInput" min="0.000005" max="0.001" step="0.000001"
+                        value="0.00005">
+                </div>
+            </div>
+
+            <div id="quickSetContainer" class="quick-set-container" style="display: none;">
+                <h4>Quick Set Failure Rate (1/avg):</h4>
+                <div id="quickSetButtons" class="quick-set-buttons">
+                    <!-- Quick set buttons will be generated here -->
+                </div>
+            </div>
+        </div>
+
+        <div id="errorMessage" class="error"></div>
+        <div id="plot-container">
+            <button id="fullscreenBtn" onclick="toggleFullscreen()">Fullscreen</button>
+            <button id="exitFullscreenBtn" onclick="exitFullscreen()">Exit Fullscreen</button>
+            <div id="plot"></div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables to store the current state
+        let currentData = [];
+        let maxScoreOverall = 0;
+        let plotReady = false;
+        let isFullscreen = false;
+        let datasetMeans = []; // Store mean scores for each dataset
+
+        // Initialize the controls
+        document.addEventListener('DOMContentLoaded', function () {
+            const slider = document.getElementById('failureRateSlider');
+            const input = document.getElementById('failureRateInput');
+
+            // Sync slider and input with real-time updates
+            slider.addEventListener('input', function () {
+                input.value = slider.value;
+                if (plotReady) {
+                    updateModelTrace();
+                }
+            });
+
+            // Change the 'input' event to 'change' for the number input
+            // This ensures the plot updates when the user finishes entering a value
+            input.addEventListener('change', function () {
+                const value = parseFloat(input.value);
+                // Check if the value is in range
+                if (value >= parseFloat(input.min) && value <= parseFloat(input.max)) {
+                    slider.value = value;
+                    if (plotReady) {
+                        updateModelTrace();
+                    }
+                }
+            });
+
+            // Also add an input event listener to update in real time
+            input.addEventListener('input', function () {
+                const value = parseFloat(input.value);
+                // Check if the value is in range
+                if (value >= parseFloat(input.min) && value <= parseFloat(input.max)) {
+                    slider.value = value;
+                    if (plotReady) {
+                        updateModelTrace();
+                    }
+                }
+            });
+
+            // Listen for fullscreen change events
+            document.addEventListener('fullscreenchange', handleFullscreenChange);
+            document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+            document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+            document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+        });
+
+        function handleFullscreenChange() {
+            // Check if we're in fullscreen mode
+            isFullscreen = !!(document.fullscreenElement ||
+                document.webkitFullscreenElement ||
+                document.mozFullScreenElement ||
+                document.msFullscreenElement);
+
+            const plot = document.getElementById('plot');
+            const fullscreenBtn = document.getElementById('fullscreenBtn');
+            const exitFullscreenBtn = document.getElementById('exitFullscreenBtn');
+
+            if (isFullscreen) {
+                plot.classList.add('fullscreen');
+                fullscreenBtn.style.display = 'none';
+                exitFullscreenBtn.style.display = 'block';
+                // Resize the plot to fill the screen
+                Plotly.Plots.resize(document.getElementById('plot'));
+            } else {
+                plot.classList.remove('fullscreen');
+                fullscreenBtn.style.display = 'block';
+                exitFullscreenBtn.style.display = 'none';
+                // Resize the plot back to normal
+                Plotly.Plots.resize(document.getElementById('plot'));
+            }
+        }
+
+        function toggleFullscreen() {
+            const plotElement = document.getElementById('plot');
+
+            if (!isFullscreen) {
+                // Enter fullscreen
+                if (plotElement.requestFullscreen) {
+                    plotElement.requestFullscreen();
+                } else if (plotElement.webkitRequestFullscreen) { /* Safari */
+                    plotElement.webkitRequestFullscreen();
+                } else if (plotElement.msRequestFullscreen) { /* IE11 */
+                    plotElement.msRequestFullscreen();
+                } else if (plotElement.mozRequestFullScreen) { /* Firefox */
+                    plotElement.mozRequestFullScreen();
+                }
+            }
+        }
+
+        function exitFullscreen() {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) { /* Safari */
+                document.webkitExitFullscreen();
+            } else if (document.msExitFullscreen) { /* IE11 */
+                document.msExitFullscreen();
+            } else if (document.mozCancelFullScreen) { /* Firefox */
+                document.mozCancelFullScreen();
+            }
+        }
+
+        function processData() {
+            const csvText = document.getElementById('csvInput').value;
+            const errorElement = document.getElementById('errorMessage');
+            errorElement.textContent = '';
+
+            if (!csvText) {
+                errorElement.textContent = 'Please paste CSV data first.';
+                return;
+            }
+
+            Papa.parse(csvText, {
+                header: true,
+                skipEmptyLines: true,
+                complete: function (results) {
+                    if (results.errors.length > 0) {
+                        errorElement.textContent = 'Error parsing CSV: ' + results.errors[0].message;
+                        return;
+                    }
+
+                    try {
+                        const datasets = results.data;
+                        createPlot(datasets);
+                        generateQuickSetButtons(datasets);
+                        plotReady = true;
+                    } catch (e) {
+                        errorElement.textContent = 'Error processing data: ' + e.message;
+                        console.error(e);
+                    }
+                }
+            });
+        }
+
+        function generateQuickSetButtons(datasets) {
+            const container = document.getElementById('quickSetButtons');
+            container.innerHTML = ''; // Clear existing buttons
+            datasetMeans = []; // Clear existing means
+
+            if (datasets.length > 0) {
+                // Show the container
+                document.getElementById('quickSetContainer').style.display = 'block';
+
+                // Create an "All" button that calculates the global average
+                let allScores = [];
+
+                datasets.forEach((dataset, index) => {
+                    try {
+                        // Parse scores
+                        let scores = JSON.parse(dataset.scores.replace(/'/g, '"'));
+
+                        if (Array.isArray(scores)) {
+                            scores = scores.map(s => Number(s));
+
+                            // Calculate mean for this dataset
+                            const sum = scores.reduce((a, b) => a + b, 0);
+                            const mean = sum / scores.length;
+                            datasetMeans[index] = mean;
+
+                            // Add to all scores for global average
+                            allScores = allScores.concat(scores);
+
+                            // Create button for this dataset
+                            const button = document.createElement('button');
+                            const inverseRate = 1 / mean;
+                            button.className = 'quick-set-button';
+                            button.textContent = `Heuristic ${index + 1}: 1/${mean.toFixed(0)} = ${inverseRate.toExponential(5)}`;
+                            button.onclick = function () {
+                                setFailureRate(inverseRate);
+                            };
+                            container.appendChild(button);
+                        }
+                    } catch (e) {
+                        console.error("Error processing dataset for quick set button", index, e);
+                    }
+                });
+
+                // Add the global average button if we have scores
+                if (allScores.length > 0) {
+                    const globalMean = allScores.reduce((a, b) => a + b, 0) / allScores.length;
+                    const globalInverseRate = 1 / globalMean;
+
+                    const globalButton = document.createElement('button');
+                    globalButton.className = 'quick-set-button';
+                    globalButton.textContent = `All: 1/${globalMean.toFixed(0)} = ${globalInverseRate.toExponential(5)}`;
+                    globalButton.onclick = function () {
+                        setFailureRate(globalInverseRate);
+                    };
+
+                    // Insert at the beginning
+                    container.insertBefore(globalButton, container.firstChild);
+                }
+            }
+        }
+
+        function setFailureRate(rate) {
+            // Clamp to allowed range
+            const min = parseFloat(document.getElementById('failureRateSlider').min);
+            const max = parseFloat(document.getElementById('failureRateSlider').max);
+            rate = Math.max(min, Math.min(max, rate));
+
+            // Update the inputs
+            document.getElementById('failureRateSlider').value = rate;
+            document.getElementById('failureRateInput').value = rate;
+
+            // Update the plot
+            if (plotReady) {
+                updateModelTrace();
+            }
+        }
+
+        function createPlot(datasets) {
+            const plotData = [];
+            const colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'];
+
+            maxScoreOverall = 0;
+
+            datasets.forEach((dataset, index) => {
+                try {
+                    // Parse the scores string into an array of numbers
+                    let scores = JSON.parse(dataset.scores.replace(/'/g, '"'));
+
+                    if (!Array.isArray(scores)) {
+                        throw new Error("Scores is not an array for dataset " + index);
+                    }
+
+                    // Make sure all scores are numbers
+                    scores = scores.map(s => Number(s)).sort((a, b) => a - b);
+                    const totalGames = scores.length;
+
+                    // Track the maximum score across all datasets
+                    maxScoreOverall = Math.max(maxScoreOverall, scores[scores.length - 1]);
+
+                    // Create points for the ECDF (Empirical Cumulative Distribution Function)
+                    // but inverted (1 - ECDF) to show ratio of games ABOVE a score
+                    const x = [0];
+                    const y = [1];
+
+                    // Add each score as a point
+                    for (let i = 0; i < scores.length; i++) {
+                        x.push(scores[i]);
+                        // Proportion of games with score higher than this one
+                        y.push(1 - (i + 1) / totalGames);
+                    }
+
+                    // Add the maximum score with y=0 (no games have a higher score)
+                    // This might be redundant if the last y value is already 0
+                    if (y[y.length - 1] > 0) {
+                        x.push(scores[scores.length - 1]);
+                        y.push(0);
+                    }
+
+                    // Extract some metadata for the label
+                    const meanScore = parseFloat(dataset.mean_score).toFixed(2);
+                    const medianScore = parseFloat(dataset.median_score).toFixed(2);
+                    const maxScore = dataset.max_score;
+
+                    // Create heuristic name from the data
+                    const heuristicName = `Heuristic ${index + 1}`;
+
+                    plotData.push({
+                        x: x,
+                        y: y,
+                        mode: 'lines+markers',
+                        type: 'scatter',
+                        name: `${heuristicName} (Mean: ${meanScore}, Median: ${medianScore}, Max: ${maxScore})`,
+                        line: {
+                            color: colors[index % colors.length],
+                            width: 2
+                        },
+                        marker: {
+                            size: 5
+                        }
+                    });
+
+                } catch (e) {
+                    console.error("Error processing dataset", index, e);
+                    document.getElementById('errorMessage').textContent +=
+                        `Error in dataset ${index + 1}: ${e.message}. `;
+                }
+            });
+
+            // Store the current plot data
+            currentData = plotData;
+
+            // Add the model trace
+            const failureRate = parseFloat(document.getElementById('failureRateInput').value);
+            const modelTrace = generateModelTrace(failureRate);
+
+            // Create the initial plot with all traces
+            const allTraces = [...plotData, modelTrace];
+
+            const layout = {
+                title: 'Tetris Score Distribution',
+                xaxis: {
+                    title: 'Score',
+                    rangemode: 'tozero',
+                    type: 'linear'
+                },
+                yaxis: {
+                    title: 'Proportion of Games Above Score',
+                    range: [0, 1],
+                    type: 'linear'
+                },
+                legend: {
+                    orientation: 'h',
+                    y: -0.2
+                },
+                hovermode: 'closest',
+                margin: {
+                    l: 60,
+                    r: 40,
+                    b: 60,
+                    t: 60
+                }
+            };
+
+            const config = {
+                responsive: true,
+                displayModeBar: true,
+                displaylogo: false,
+                modeBarButtonsToRemove: ['lasso2d', 'select2d']
+            };
+
+            Plotly.newPlot('plot', allTraces, layout, config);
+
+            // Show the fullscreen button once we have data
+            document.getElementById('fullscreenBtn').style.display = 'block';
+        }
+
+        function generateModelTrace(failureRate) {
+            // Calculate the model
+            const modelX = [];
+            const modelY = [];
+
+            // Start at x=0, y=1 (probability of score > 0 is 1)
+            modelX.push(0);
+            modelY.push(1);
+
+            // Calculate the survival function: P(X > x) = (1-p)^x
+            // where p is the failure probability per unit
+            let x = 1;
+            let y = Math.pow(1 - failureRate, x);
+
+            // Continue until y drops below 0.001 or we exceed the max observed score
+            const cutoffY = 0.001;
+            const maxModelX = Math.max(maxScoreOverall * 1.5, Math.ceil(-Math.log(cutoffY) / Math.log(1 - failureRate)));
+
+            while (y > cutoffY && x <= maxModelX) {
+                modelX.push(x);
+                modelY.push(y);
+
+                // Use smaller step size for low x values, larger for high x values
+                // This ensures a smooth curve without too many points
+                if (x < 1000) {
+                    x += 1;
+                } else if (x < 10000) {
+                    x += 10;
+                } else if (x < 100000) {
+                    x += 100;
+                } else {
+                    x += 1000;
+                }
+
+                y = Math.pow(1 - failureRate, x);
+            }
+
+            // Add the final point where y <= cutoffY
+            if (y <= cutoffY) {
+                modelX.push(x);
+                modelY.push(y);
+            }
+
+            // Create the model trace
+            return {
+                x: modelX,
+                y: modelY,
+                mode: 'lines',
+                type: 'scatter',
+                name: `Const Fail Model (p=${failureRate.toExponential(5)})`,
+                line: {
+                    color: 'black',
+                    width: 3,
+                    dash: 'dash'
+                }
+            };
+        }
+
+        function updateModelTrace() {
+            if (!plotReady) {
+                return;
+            }
+
+            // Get the updated failure rate
+            const failureRate = parseFloat(document.getElementById('failureRateInput').value);
+
+            // Generate the new model trace
+            const modelTrace = generateModelTrace(failureRate);
+
+            // Update just the model trace (last trace)
+            Plotly.update('plot',
+                {
+                    x: [modelTrace.x],
+                    y: [modelTrace.y],
+                    name: [`Const Fail Model (p=${failureRate.toExponential(5)})`]
+                },
+                {},
+                [currentData.length]
+            );
+        }
+    </script>
+</body>
+
+</html>
