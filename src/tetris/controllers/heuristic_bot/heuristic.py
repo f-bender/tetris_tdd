@@ -14,20 +14,27 @@ class Heuristic(NamedTuple):
     # mypy doesn't seem to understand that this is a class variables
     CRITICAL_GAP_HEIGHT = 3  # type: ignore[misc]
 
-    # these parameters are the (so far) best evaluated ones:
-    # on a 15x10 board, evaluated on 50 different seeds:
-    # mean score:   4849.3
-    # median score: 3979.5
-    # max score:    27763
-    # min score:    51
-    sum_of_cell_heights_close_to_top_weight: float = 40.89457607843424
-    num_distinct_overhangs_weight: float = 18.22445229206337
-    num_rows_with_overhung_holes_weight: float = 5.065240858045357
-    num_overhung_cells_weight: float = 0.3912644095631127
-    num_overhanging_cells_weight: float = 0.10027611440722689
-    num_narrow_gaps_weight: float = 17.56913864221128
-    sum_of_cell_heights_weight: float = 0.04753922538922408
-    sum_of_adjacent_height_differences_weight: float = 3.85145041256396
+    # These default parameters have been obtained through a genetic algorithm optimization
+    # and are the (so far) best ones according to a detailed evaluation.
+
+    # On a 20x10 board, evaluated on 200 different seeds:
+    # mean score:   49273.64
+    # median score: 36714.0
+    # max score:    228223
+    # min score:    134
+    # An assumption of a constant probability of failure to clear the next line models the behavior well.
+    # This probability p is 1/mean_score = 1/49273.64 ~= 2e-05.
+    # I.e. with a probability of (1-p)**n, we score above n line clears.
+    # For example, with a probability of ~82%, we score above 10,000 line clears.
+    # All of this assumes standard NES Tetris rules (fully random block spawns (no "random bag"), no "Hold piece").
+    sum_of_cell_heights_close_to_top_weight: float = 1_000_000.0
+    num_distinct_overhangs_weight: float = 14.28200459973235
+    num_rows_with_overhung_holes_weight: float = 5.992567087282148
+    num_overhung_cells_weight: float = 0.47296546559291547
+    num_overhanging_cells_weight: float = 0.04961999808069783
+    num_narrow_gaps_weight: float = 20.434313335543326
+    sum_of_cell_heights_weight: float = 0.04895973843887606
+    sum_of_adjacent_height_differences_weight: float = 2.9046525787750297
 
     close_to_top_threshold: int = 2
 
