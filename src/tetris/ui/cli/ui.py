@@ -1,7 +1,6 @@
 import atexit
 import logging
 import os
-from collections.abc import Iterable
 from dataclasses import dataclass
 from math import ceil
 from typing import TYPE_CHECKING, Self
@@ -11,7 +10,7 @@ from ansi import color, cursor
 from numpy.typing import NDArray
 
 from tetris.ansi_extensions import cursor as cursorx
-from tetris.game_logic.interfaces.ui import UI
+from tetris.game_logic.interfaces.ui import UI, UiElements
 from tetris.space_filling_coloring import concurrent_fill_and_colorize
 from tetris.ui.cli.buffered_printing import BufferedPrint
 from tetris.ui.cli.color_palette import ColorPalette
@@ -236,7 +235,7 @@ class CLI(UI):
             ),
         )
 
-    def draw(self, boards: Iterable[NDArray[np.uint8]]) -> None:
+    def draw(self, elements: UiElements) -> None:
         if self._single_board_ui is None or self._board_ui_offsets is None:
             msg = "board UI not initialized, likely draw() was called before initialize()!"
             raise RuntimeError(msg)
@@ -255,6 +254,7 @@ class CLI(UI):
 
         image_buffer = self._outer_background.copy()
 
+        boards = (game.board for game in elements.games)
         board_ui_height, board_ui_width = self._single_board_ui.total_size
         for board, offset in zip(boards, self._board_ui_offsets, strict=True):
             if board is None:

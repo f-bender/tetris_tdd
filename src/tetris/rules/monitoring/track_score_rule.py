@@ -7,7 +7,12 @@ from tetris.rules.core.clear_full_lines_rule import ClearFullLinesRule
 from tetris.rules.core.messages import LineClearMessage
 
 
-class TrackScoreCallback(Callback, Subscriber):
+class ScoreMessage(NamedTuple):
+    score: int
+    high_score: int
+
+
+class TrackScoreRule(Callback, Publisher, Subscriber):
     def __init__(self, header: str | None = None) -> None:
         super().__init__()
 
@@ -35,11 +40,13 @@ class TrackScoreCallback(Callback, Subscriber):
 
     def on_game_start(self) -> None:
         self._score = 0
+        self.notify_subscribers(ScoreMessage(score=self._score, high_score=self._high_score))
 
     def notify(self, message: NamedTuple) -> None:
         if isinstance(message, LineClearMessage):
             self._score += len(message.cleared_lines)
             self._high_score = max(self._high_score, self._score)
+            self.notify_subscribers(ScoreMessage(score=self._score, high_score=self._high_score))
 
     def on_frame_start(self) -> None:
         if self._header:

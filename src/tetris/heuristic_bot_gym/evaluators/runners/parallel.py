@@ -7,7 +7,7 @@ from tetris.clock.simple import SimpleClock
 from tetris.controllers.heuristic_bot.controller import HeuristicBotController
 from tetris.game_logic.game import Game, GameOverError
 from tetris.game_logic.interfaces.controller import Controller
-from tetris.game_logic.interfaces.ui import UI
+from tetris.game_logic.interfaces.ui import UI, UiElements
 from tetris.ui.cli.ui import CLI
 
 
@@ -83,6 +83,8 @@ class ParallelRunner:
         """
         self._check_controller_config(games[0].controller)
 
+        ui_elements = UiElements(games=tuple(game.ui_elements for game in games))
+
         with ThreadPoolExecutor(max_workers=len(games)) as thread_pool:
             futures = {
                 i: thread_pool.submit(self._run_game, game=games[i], max_frames=max_frames) for i in range(len(games))
@@ -113,7 +115,7 @@ class ParallelRunner:
                     print(f"Game Over: {len(games) - len(futures):>{digits},} / {len(games):<{digits},}")  # noqa: T201
 
                 self._ui.advance_startup()
-                self._ui.draw(game.board.as_array() for game in games)
+                self._ui.draw(ui_elements)
 
     def _run_game(self, game: Game, max_frames: int) -> None:
         """Run a single game until completion or max frames reached.

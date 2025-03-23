@@ -4,6 +4,8 @@ from tetris.game_logic.components import Board
 from tetris.game_logic.interfaces.callback_collection import CallbackCollection
 from tetris.game_logic.interfaces.controller import Controller
 from tetris.game_logic.interfaces.rule_sequence import RuleSequence
+from tetris.game_logic.interfaces.ui import SingleUiElements
+from tetris.game_logic.ui_aggregator import UiAggregator
 
 
 class GameOverError(BaseTetrisError):
@@ -28,6 +30,8 @@ class Game:
         self._alive = True
         self.callback_collection.on_game_start()
 
+        self._ui_aggregator = UiAggregator(board=board.as_array())
+
     @property
     def controller(self) -> Controller:
         return self._controller
@@ -48,11 +52,16 @@ class Game:
     def board(self) -> Board:
         return self._board
 
+    @property
+    def ui_elements(self) -> SingleUiElements:
+        return self._ui_aggregator.ui_elements
+
     def reset(self) -> None:
         self._board.clear()
         self._board.active_block = None
         self._frame_counter = 0
         self._alive = True
+        self._ui_aggregator.reset()
         self.callback_collection.on_game_start()
 
     def advance_frame(self) -> None:
@@ -67,3 +76,5 @@ class Game:
             self._alive = False
             raise
         self.callback_collection.on_rules_applied()
+
+        self._ui_aggregator.update(self._board.as_array())

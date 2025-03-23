@@ -6,7 +6,7 @@ from tetris.game_logic.game import Game, GameOverError
 from tetris.game_logic.interfaces.callback_collection import CallbackCollection
 from tetris.game_logic.interfaces.clock import Clock
 from tetris.game_logic.interfaces.controller import Action, Controller
-from tetris.game_logic.interfaces.ui import UI
+from tetris.game_logic.interfaces.ui import UI, UiElements
 
 
 class Runtime:
@@ -32,6 +32,8 @@ class Runtime:
         self._ui.initialize(*board_size, num_boards=len(games))
         self._clock = clock
         self._frame_counter = 0
+        self._ui_elements = UiElements(games=tuple(game.ui_elements for game in games))
+
         self.state: State = STARTUP_STATE
 
         self.callback_collection = callback_collection or CallbackCollection(())
@@ -54,8 +56,10 @@ class Runtime:
     def reset(self) -> None:
         self._frame_counter = 0
         self._clock.reset()
+
         for game in self._games:
             game.reset()
+        self._ui_elements = UiElements(games=tuple(game.ui_elements for game in self._games))
 
     def run(self) -> None:
         self.callback_collection.on_runtime_start()
@@ -71,7 +75,7 @@ class Runtime:
 
         self.state.advance(self)
 
-        self._ui.draw(game.board.as_array() for game in self._games)
+        self._ui.draw(self._ui_elements)
         self.callback_collection.on_frame_end()
 
         self._frame_counter += 1

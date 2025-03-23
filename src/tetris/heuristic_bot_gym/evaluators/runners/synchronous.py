@@ -4,7 +4,7 @@ from typing import Any
 from tetris.controllers.heuristic_bot.controller import HeuristicBotController
 from tetris.game_logic.game import Game, GameOverError
 from tetris.game_logic.interfaces.controller import Controller
-from tetris.game_logic.interfaces.ui import UI
+from tetris.game_logic.interfaces.ui import UI, UiElements
 from tetris.ui.cli.ui import CLI
 
 
@@ -69,6 +69,8 @@ class SynchronousRunner:
 
         num_alive_games = len(games)
 
+        ui_elements = UiElements(games=tuple(game.ui_elements for game in games))
+
         for i in range(max_frames):
             if interval_callback and i % self._callback_interval_frames == 0:
                 interval_callback()
@@ -100,7 +102,7 @@ class SynchronousRunner:
                 print(f"Frames:    {i + 1:>{digits},} / {max_frames:<{digits},}")  # noqa: T201
 
             self._ui.advance_startup()
-            self._ui.draw(game.board.as_array() for game in games)
+            self._ui.draw(ui_elements)
 
     def _check_controller_config(self, controller: Controller) -> None:
         """Validate the controller configuration.
