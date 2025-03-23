@@ -47,10 +47,3 @@ class TrackScoreRule(Callback, Publisher, Subscriber):
             self._score += len(message.cleared_lines)
             self._high_score = max(self._high_score, self._score)
             self.notify_subscribers(ScoreMessage(score=self._score, high_score=self._high_score))
-
-    def on_frame_start(self) -> None:
-        if self._header:
-            print(self._header)  # noqa: T201
-        print(f"Score: {self._score}")  # noqa: T201
-        print(f"High Score: {self._high_score}")  # noqa: T201
-        print()  # noqa: T201

@@ -17,7 +17,7 @@ class UiAggregator(Subscriber):
         self._ui_elements = SingleUiElements(board=board)
 
     def reset(self) -> None:
-        self._ui_elements = SingleUiElements(board=self._ui_elements.board)
+        self._ui_elements.reset()
 
     @property
     def ui_elements(self) -> SingleUiElements:

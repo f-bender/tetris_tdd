@@ -59,7 +59,6 @@ class Runtime:
 
         for game in self._games:
             game.reset()
-        self._ui_elements = UiElements(games=tuple(game.ui_elements for game in self._games))
 
     def run(self) -> None:
         self.callback_collection.on_runtime_start()

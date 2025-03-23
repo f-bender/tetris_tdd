@@ -2,15 +2,18 @@ import atexit
 import logging
 import os
 from dataclasses import dataclass
+from enum import Enum, auto
+from functools import cached_property
 from math import ceil
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, NamedTuple, Self
 
 import numpy as np
 from ansi import color, cursor
 from numpy.typing import NDArray
 
 from tetris.ansi_extensions import cursor as cursorx
-from tetris.game_logic.interfaces.ui import UI, UiElements
+from tetris.game_logic.components.block import Block
+from tetris.game_logic.interfaces.ui import UI, SingleUiElements, UiElements
 from tetris.space_filling_coloring import concurrent_fill_and_colorize
 from tetris.ui.cli.buffered_printing import BufferedPrint
 from tetris.ui.cli.color_palette import ColorPalette
@@ -65,6 +68,7 @@ class CLI(UI):
             block_6=(51, 153, 255),
             block_7=(240, 0, 1),
             block_neutral=(200, 200, 200),
+            display_bg=(50, 50, 50),
         )
         self._buffered_print = BufferedPrint()
         self._startup_animation_iter: (
@@ -254,13 +258,13 @@ class CLI(UI):
 
         image_buffer = self._outer_background.copy()
 
-        boards = (game.board for game in elements.games)
         board_ui_height, board_ui_width = self._single_board_ui.total_size
-        for board, offset in zip(boards, self._board_ui_offsets, strict=True):
-            if board is None:
-                continue
-            image_buffer[offset.y : offset.y + board_ui_height, offset.x : offset.x + board_ui_width] = (
-                self._single_board_ui.create_as_array(board)
+        for single_ui_elements, offset in zip(elements.games, self._board_ui_offsets, strict=True):
+            ui_array, ui_texts = self._single_board_ui.create_array_and_texts(single_ui_elements)
+            np.copyto(
+                image_buffer[offset.y : offset.y + board_ui_height, offset.x : offset.x + board_ui_width],
+                ui_array,
+                where=self._single_board_ui.mask,
             )
 
         if self._last_image_buffer is None:
@@ -304,21 +308,132 @@ class CLI(UI):
         print(self._cursor_goto(position) + self._color_palette[color_index] + " " * CLI.PIXEL_WIDTH, end="")
 
 
-@dataclass(frozen=True, slots=True)
+class Alignment(Enum):
+    LEFT = auto()
+    RIGHT = auto()
+
+
+class Text(NamedTuple):
+    text: str
+    position: Vec
+    alignment: Alignment = Alignment.LEFT
+
+
+@dataclass(frozen=True)
 class _SingleBoardUI:
     board_background: NDArray[np.uint8]
 
-    @property
+    RIGHT_GAP_WIDTH = 4
+    RIGHT_ELEMENTS_WIDTH = 6
+
+    SCORE_HEIGHT = 4
+    NEXT_BLOCK_HEIGHT = 5
+    DISPLAY_GAP_HEIGHT = 1
+
+    # What the UI looks like:
+
+    #                  board_size[1] (width)    RIGHT_ELEMENTS_WIDTH
+    #                  <------------------>        <---------->
+    #
+    #               ^  ####################........____________  ^
+    #               |  ####################........__Score_____  | SCORE_HEIGHT
+    #               |  ####################........__99999999__  |
+    #               |  ####################........____________  v
+    # board_size[0] |  ####################....................    | DISPLAY_GAP_HEIGHT
+    # (height)      |  ####################........____________  ^
+    #               |  ####################........__Next______  |
+    #               |  ####################........____##______  | NEXT_BLOCK_HEIGHT
+    #               |  ####################........__######____  |
+    #               v  ####################........____________  v
+    #
+    #                                      <------>
+    #                                   RIGHT_GAP_WIDTH
+
+    # legend:
+    # # board/block
+    # _ display background (black)
+    # . gap (mask=False, filled by outer background)
+    # note: 2 characters constitute one pixel
+
+    @cached_property
     def board_size(self) -> tuple[int, int]:
         return tuple(self.board_background.shape)
 
-    @property
+    @cached_property
     def total_size(self) -> tuple[int, int]:
-        return self.board_size
+        return (
+            max(self.board_size[0], self.SCORE_HEIGHT + self.DISPLAY_GAP_HEIGHT + self.NEXT_BLOCK_HEIGHT),
+            self.board_size[1] + self.RIGHT_GAP_WIDTH + self.RIGHT_ELEMENTS_WIDTH,
+        )
+
+    @cached_property
+    def next_block_position(self) -> Vec:
+        return Vec(self.SCORE_HEIGHT + self.DISPLAY_GAP_HEIGHT, self.board_size[1] + self.RIGHT_GAP_WIDTH)
+
+    @cached_property
+    def score_display_position(self) -> Vec:
+        return Vec(0, self.board_size[1] + self.RIGHT_GAP_WIDTH)
 
     @property
     def mask(self) -> NDArray[np.bool]:
-        return np.ones_like(self.board_background, dtype=np.bool)
+        mask = np.zeros(self.total_size, dtype=np.bool)
 
-    def create_as_array(self, board: NDArray[np.uint8]) -> NDArray[np.uint8]:
-        return np.where(board, board + ColorPalette.block_color_index_offset() - 1, self.board_background)
+        mask[: self.board_size[0], : self.board_size[1]] = True
+        mask[
+            self.score_display_position.y : self.score_display_position.y + self.SCORE_HEIGHT,
+            self.score_display_position.x : self.score_display_position.x + self.RIGHT_ELEMENTS_WIDTH,
+        ] = True
+        mask[
+            self.next_block_position.y : self.next_block_position.y + self.NEXT_BLOCK_HEIGHT,
+            self.next_block_position.x : self.next_block_position.x + self.RIGHT_ELEMENTS_WIDTH,
+        ] = True
+
+        return mask
+
+    def create_array_and_texts(self, elements: SingleUiElements) -> tuple[NDArray[np.uint8], list[Text]]:
+        ui_array = np.empty(self.total_size, dtype=np.uint8)
+        texts: list[Text] = []
+
+        self._add_board(board=elements.board, ui_array=ui_array)
+        self._add_score_display(score=elements.score, ui_array=ui_array, texts=texts)
+        self._add_next_block_display(next_block=elements.next_block, ui_array=ui_array, texts=texts)
+
+        return ui_array, texts
+
+    def _add_board(self, board: NDArray[np.uint8], ui_array: NDArray[np.uint8]) -> None:
+        ui_array[: self.board_size[0], : self.board_size[1]] = np.where(
+            board, board + ColorPalette.block_color_index_offset() - 1, self.board_background
+        )
+
+    def _add_score_display(self, score: int, ui_array: NDArray[np.uint8], texts: list[Text]) -> None:
+        ui_array[
+            self.score_display_position.y : self.score_display_position.y + self.SCORE_HEIGHT,
+            self.score_display_position.x : self.score_display_position.x + self.RIGHT_ELEMENTS_WIDTH,
+        ] = ColorPalette.index_of_color("display_bg")
+        texts.append(Text(text="Score", position=self.score_display_position + Vec(1, 1)))
+        texts.append(
+            Text(
+                text=str(score),
+                position=self.score_display_position + Vec(2, self.RIGHT_ELEMENTS_WIDTH - 1),
+                alignment=Alignment.RIGHT,
+            )
+        )
+
+    def _add_next_block_display(self, next_block: Block | None, ui_array: NDArray[np.uint8], texts: list[Text]) -> None:
+        ui_array[
+            self.next_block_position.y : self.next_block_position.y + self.NEXT_BLOCK_HEIGHT,
+            self.next_block_position.x : self.next_block_position.x + self.RIGHT_ELEMENTS_WIDTH,
+        ] = ColorPalette.index_of_color("display_bg")
+        texts.append(Text(text="Next", position=self.next_block_position + Vec(1, 1)))
+
+        if next_block is not None:
+            block_height, block_width = next_block.actual_cells.shape
+            x_offset = ceil((self.RIGHT_ELEMENTS_WIDTH - 2 - block_width) / 2)
+            np.copyto(
+                ui_array[
+                    self.next_block_position.y + 2 : self.next_block_position.y + 2 + block_height,
+                    self.next_block_position.x + 1 + x_offset : self.next_block_position.x + 1 + x_offset + block_width,
+                ],
+                next_block.actual_cells + ColorPalette.block_color_index_offset() - 1,
+                where=next_block.actual_cells.astype(bool),
+            )

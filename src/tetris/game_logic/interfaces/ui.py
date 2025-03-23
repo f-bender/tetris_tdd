@@ -17,6 +17,10 @@ class SingleUiElements:
     score: int = 0
     # potential additions in the future: hold_block, level
 
+    def reset(self) -> None:
+        self.next_block = None
+        self.score = 0
+
 
 @dataclass
 class UiElements:
