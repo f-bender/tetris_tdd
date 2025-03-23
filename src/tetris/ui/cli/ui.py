@@ -1,11 +1,12 @@
 import atexit
 import logging
 import os
+from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import Enum, auto
 from functools import cached_property
 from math import ceil
-from typing import TYPE_CHECKING, NamedTuple, Self
+from typing import TYPE_CHECKING, Self
 
 import numpy as np
 from ansi import color, cursor
@@ -37,6 +38,9 @@ class Vec:
     def __add__(self, other: Self) -> "Vec":
         return Vec(self.y + other.y, self.x + other.x)
 
+    def __sub__(self, other: Self) -> "Vec":
+        return Vec(self.y - other.y, self.x - other.x)
+
 
 class CLI(UI):
     PIXEL_WIDTH = 2  # how many terminal characters together form one pixel
@@ -46,6 +50,7 @@ class CLI(UI):
 
     def __init__(self, color_palette: ColorPalette | None = None, target_aspect_ratio: float = 16 / 9) -> None:
         self._last_image_buffer: NDArray[np.uint8] | None = None
+        self._last_texts: set[Text] | None = None
         self._board_background: NDArray[np.uint8] | None = None
         self._outer_background: NDArray[np.uint8] | None = None
 
@@ -257,15 +262,21 @@ class CLI(UI):
         self._handle_terminal_size_change()
 
         image_buffer = self._outer_background.copy()
+        texts: set[Text] = set()
 
         board_ui_height, board_ui_width = self._single_board_ui.total_size
         for single_ui_elements, offset in zip(elements.games, self._board_ui_offsets, strict=True):
             ui_array, ui_texts = self._single_board_ui.create_array_and_texts(single_ui_elements)
+
             np.copyto(
                 image_buffer[offset.y : offset.y + board_ui_height, offset.x : offset.x + board_ui_width],
                 ui_array,
                 where=self._single_board_ui.mask,
             )
+
+            for text in ui_texts:
+                text.position += offset
+            texts.update(ui_texts)
 
         if self._last_image_buffer is None:
             self._draw_array(Vec(0, 0), image_buffer)
@@ -273,15 +284,43 @@ class CLI(UI):
             for y, x in zip(*(image_buffer != self._last_image_buffer).nonzero(), strict=True):
                 self._draw_pixel(Vec(y, x), color_index=int(image_buffer[y, x]))
 
+        if self._last_texts is None:
+            self._draw_texts(texts)
+        else:
+            removed_texts = self._last_texts - texts
+            for text in removed_texts:
+                text.text = " " * len(text.text)
+            self._draw_texts(removed_texts)
+
+            new_texts = texts - self._last_texts
+            self._draw_texts(new_texts)
+
         self._last_image_buffer = image_buffer
+        self._last_texts = texts
 
         self._buffered_print.print_and_restart_buffering()
         self._setup_cursor_for_normal_printing(image_height=len(image_buffer))
+
+    def _draw_texts(self, texts: Iterable["Text"]) -> None:
+        for text in texts:
+            self._draw_text(text)
+
+    def _draw_text(self, text: "Text") -> None:
+        if text.alignment is Alignment.RIGHT:
+            pixels = ceil(len(text.text) / self.PIXEL_WIDTH)
+            position = text.position - Vec(0, pixels)
+            characters = text.text.rjust(pixels * self.PIXEL_WIDTH)
+        else:
+            position = text.position
+            characters = text.text
+
+        print(self._cursor_goto(position) + self._color_palette[text.bg_color_index] + characters, end="")
 
     def _handle_terminal_size_change(self) -> None:
         if (new_terminal_size := os.get_terminal_size()) != self._last_terminal_size:
             # terminal size changed: redraw everything
             self._last_image_buffer = None
+            self._last_texts = None
             self._last_terminal_size = new_terminal_size
             print(cursor.erase(""), end="")
 
@@ -313,10 +352,12 @@ class Alignment(Enum):
     RIGHT = auto()
 
 
-class Text(NamedTuple):
+@dataclass(unsafe_hash=True, slots=True)
+class Text:
     text: str
     position: Vec
     alignment: Alignment = Alignment.LEFT
+    bg_color_index: int = ColorPalette.index_of_color("display_bg")  # noqa: RUF009
 
 
 @dataclass(frozen=True)
