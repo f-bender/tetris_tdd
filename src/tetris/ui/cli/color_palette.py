@@ -35,6 +35,8 @@ class ColorPalette(NamedTuple):
     block_neutral: str
     # background of score and next block display
     display_bg: str
+    # animation colors
+    tetris_sparkle: str
     # background that has not (yet) been filled or (four-)colored
     empty: str = colorx.bg.rgb_palette(0, 0, 0)
 
@@ -66,6 +68,7 @@ class ColorPalette(NamedTuple):
         block_7: tuple[int, int, int],
         block_neutral: tuple[int, int, int],
         display_bg: tuple[int, int, int],
+        tetris_sparkle: tuple[int, int, int],
         empty: tuple[int, int, int] = (0, 0, 0),
         *,
         mode: Literal["palette", "truecolor"] = "truecolor",
@@ -97,6 +100,7 @@ class ColorPalette(NamedTuple):
             block_7=color_fn(*block_7),
             block_neutral=color_fn(*block_neutral),
             display_bg=color_fn(*display_bg),
+            tetris_sparkle=color_fn(*tetris_sparkle),
             empty=color_fn(*empty),
         )
 
@@ -129,6 +133,7 @@ class ColorPalette(NamedTuple):
             "block_7",
             "block_neutral",
             "display_bg",
+            "tetris_sparkle",
             "empty",
         ],
     ) -> int:

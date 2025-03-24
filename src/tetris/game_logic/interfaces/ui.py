@@ -1,11 +1,12 @@
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 from numpy.typing import NDArray
 
 from tetris.game_logic.components.block import Block
+from tetris.game_logic.interfaces.animations import AnimationSpec
 
 
 @dataclass
@@ -15,6 +16,7 @@ class SingleUiElements:
     board: NDArray[np.uint8]
     next_block: Block | None = None
     score: int = 0
+    animations: list[AnimationSpec] = field(default_factory=list)
     # potential additions in the future: hold_block, level
 
     def reset(self) -> None:
