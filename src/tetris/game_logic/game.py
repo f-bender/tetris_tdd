@@ -77,4 +77,4 @@ class Game:
             raise
         self.callback_collection.on_rules_applied()
 
-        self._ui_aggregator.update(self._board.as_array())
+        self._ui_aggregator.update(self._board.as_array(), self._frame_counter)

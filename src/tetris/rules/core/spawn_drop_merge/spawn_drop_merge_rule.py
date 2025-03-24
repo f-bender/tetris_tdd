@@ -90,7 +90,8 @@ class SpawnDropMergeRule(Callback, Publisher):
                 MergeMessage(
                     speed=Speed.INSTANT
                     if instant_drop_and_merge
-                    else (Speed.QUICK if quick_drop_held else Speed.NORMAL)
+                    else (Speed.QUICK if quick_drop_held else Speed.NORMAL),
+                    next_spawn_frame_counter=frame_counter + self._spawn_delay,
                 )
             )
             if self._spawn_delay == 0:

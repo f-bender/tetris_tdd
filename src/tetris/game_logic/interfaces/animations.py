@@ -18,3 +18,8 @@ class AnimationSpec(ABC):
 @dataclass(kw_only=True)
 class TetrisAnimationSpec(AnimationSpec):
     top_line_idx: int
+
+
+@dataclass(kw_only=True)
+class LineClearAnimationSpec(AnimationSpec):
+    cleared_lines: list[int]

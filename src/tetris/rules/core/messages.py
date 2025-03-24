@@ -17,6 +17,7 @@ class Speed(Enum):
 
 class MergeMessage(NamedTuple):
     speed: Speed
+    next_spawn_frame_counter: int
 
 
 class InstantSpawnMessage(NamedTuple):

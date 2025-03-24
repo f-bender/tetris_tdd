@@ -3,10 +3,10 @@ from typing import NamedTuple
 import numpy as np
 from numpy.typing import NDArray
 
-from tetris.game_logic.interfaces.animations import TetrisAnimationSpec
+from tetris.game_logic.interfaces.animations import LineClearAnimationSpec, TetrisAnimationSpec
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.game_logic.interfaces.ui import SingleUiElements
-from tetris.rules.core.messages import LineClearMessage, SpawnMessage
+from tetris.rules.core.messages import LineClearMessage, MergeMessage, SpawnMessage
 from tetris.rules.monitoring.track_score_rule import ScoreMessage
 
 
@@ -16,6 +16,8 @@ class UiAggregator(Subscriber):
     def __init__(self, board: NDArray[np.uint8]) -> None:
         super().__init__()
         self._ui_elements = SingleUiElements(board=board)
+        self._frame_counter = 0
+        self._next_spawn_frame_counter: int | None = None
 
     def reset(self) -> None:
         self._ui_elements.reset()
@@ -48,7 +50,23 @@ class UiAggregator(Subscriber):
                 self._ui_elements.score = score
             case SpawnMessage(next_block=next_block):
                 self._ui_elements.next_block = next_block
+            case MergeMessage(next_spawn_frame_counter=next_spawn_frame_counter):
+                self._next_spawn_frame_counter = next_spawn_frame_counter
+            # TODO: merge line clearing logic into the SpawnDropMergeRule; they are just too intertwined!
+            # actually though, think about it. Can I keep it flexible enough that I can change the rules, e.g. making it
+            # such that a full line isn't immediately cleared, but you have to fill a chunk of 4 lines for them to be
+            # cleared? With this in mind, think again if this can be achieved when moving line clear rule into spawn
+            # drop merge rule, or if I should keep it separate (note: line clear message should actually correspond to
+            # lines being cleared, not to lines being filled (it's just that with the standard rules, those are the same))
             case LineClearMessage(cleared_lines=cleared_lines):
+                if self._next_spawn_frame_counter is not None and self._next_spawn_frame_counter > self._frame_counter:
+                    self._ui_elements.animations.append(
+                        LineClearAnimationSpec(
+                            total_frames=self._next_spawn_frame_counter - self._frame_counter,
+                            cleared_lines=cleared_lines,
+                        )
+                    )
+
                 max_cleared_lines = 4
                 if len(cleared_lines) == max_cleared_lines:
                     assert cleared_lines == list(range(cleared_lines[0], cleared_lines[0] + max_cleared_lines))
@@ -59,7 +77,8 @@ class UiAggregator(Subscriber):
                 msg = f"Unexpected message: {message}"
                 raise ValueError(msg)
 
-    def update(self, board: NDArray[np.uint8]) -> None:
+    def update(self, board: NDArray[np.uint8], frame_counter: int) -> None:
+        self._frame_counter = frame_counter
         self._ui_elements.board = board
         for animation in self._ui_elements.animations:
             animation.advance_frame()
