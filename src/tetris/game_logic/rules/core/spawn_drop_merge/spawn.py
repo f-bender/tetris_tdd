@@ -43,18 +43,21 @@ class SpawnStrategyImpl(Publisher):
         self._next_block = next_block
 
     @classmethod
-    def from_shuffled_bag(cls, seed: int | None = None, bag: list[Block] | None = None) -> "SpawnStrategyImpl":
+    def from_shuffled_bag(cls, seed: int | None = None, bag: list[BlockType] | None = None) -> "SpawnStrategyImpl":
         return cls(select_block_fn=cls.from_shuffled_bag_selection_fn(seed=seed, bag=bag))
 
     @staticmethod
-    def from_shuffled_bag_selection_fn(seed: int | None = None, bag: list[Block] | None = None) -> Callable[[], Block]:
-        bag = bag or [Block(block_type) for block_type in BlockType]
+    def from_shuffled_bag_selection_fn(
+        seed: int | None = None, bag: list[BlockType] | None = None
+    ) -> Callable[[], Block]:
+        bag = bag or list(BlockType)
         rng = random.Random(seed)
 
         def block_iter() -> Iterator[Block]:
             while True:
                 rng.shuffle(bag)
-                yield from bag
+                for block_type in bag:
+                    yield Block(block_type)
 
         block_iterator = block_iter()
 
