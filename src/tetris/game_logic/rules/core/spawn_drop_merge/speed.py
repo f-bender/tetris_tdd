@@ -4,8 +4,8 @@ from typing import NamedTuple, Protocol, Self
 
 from tetris.game_logic.interfaces.callback import Callback
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
-from tetris.rules.core.clear_full_lines_rule import ClearFullLinesRule
-from tetris.rules.core.messages import LineClearMessage
+from tetris.game_logic.rules.board_manipulations.clear_lines import ClearFullLines
+from tetris.game_logic.rules.messages import FinishedLineClearMessage
 
 
 class IntIterWithFloatAverage(Iterator[int]):
@@ -134,7 +134,7 @@ class LineClearSpeedUp(Subscriber, Callback):
         self._speedup_factor = speedup_factor
 
     def should_be_subscribed_to(self, publisher: Publisher) -> bool:
-        return isinstance(publisher, ClearFullLinesRule) and publisher.game_index == self.game_index
+        return isinstance(publisher, ClearFullLines) and publisher.game_index == self.game_index
 
     def verify_subscriptions(self, publishers: list[Publisher]) -> None:
         if len(publishers) != 1:
@@ -143,7 +143,7 @@ class LineClearSpeedUp(Subscriber, Callback):
 
     def notify(self, message: NamedTuple) -> None:
         if (
-            not isinstance(message, LineClearMessage)
+            not isinstance(message, FinishedLineClearMessage)
             or self._speed_strategy_impl.normal_interval <= self._minimum_normal_interval
         ):
             return

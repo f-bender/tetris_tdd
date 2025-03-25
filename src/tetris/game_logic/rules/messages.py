@@ -5,7 +5,12 @@ from tetris.game_logic.components.block import Block
 from tetris.game_logic.components.board import Board
 
 
-class LineClearMessage(NamedTuple):
+class StartingLineClearMessage(NamedTuple):
+    cleared_lines: list[int]
+    num_frames: int
+
+
+class FinishedLineClearMessage(NamedTuple):
     cleared_lines: list[int]
 
 

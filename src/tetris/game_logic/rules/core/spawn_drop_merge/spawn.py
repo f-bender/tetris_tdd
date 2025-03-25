@@ -8,7 +8,7 @@ from tetris.game_logic.components.board import Board
 from tetris.game_logic.components.exceptions import CannotSpawnBlockError
 from tetris.game_logic.game import GameOverError
 from tetris.game_logic.interfaces.pub_sub import Publisher
-from tetris.rules.core.messages import SpawnMessage
+from tetris.game_logic.rules.messages import SpawnMessage
 
 
 class SpawnStrategy(Protocol):

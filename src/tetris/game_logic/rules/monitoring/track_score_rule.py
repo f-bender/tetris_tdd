@@ -3,8 +3,8 @@ from typing import NamedTuple
 from tetris.game_logic.interfaces.callback import Callback
 from tetris.game_logic.interfaces.dependency_manager import DependencyManager
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
-from tetris.rules.core.clear_full_lines_rule import ClearFullLinesRule
-from tetris.rules.core.messages import LineClearMessage
+from tetris.game_logic.rules.board_manipulations.clear_lines import ClearFullLines
+from tetris.game_logic.rules.messages import FinishedLineClearMessage
 
 
 class ScoreMessage(NamedTuple):
@@ -31,7 +31,7 @@ class TrackScoreRule(Callback, Publisher, Subscriber):
         )
 
     def should_be_subscribed_to(self, publisher: Publisher) -> bool:
-        return isinstance(publisher, ClearFullLinesRule) and publisher.game_index == self.game_index
+        return isinstance(publisher, ClearFullLines) and publisher.game_index == self.game_index
 
     def verify_subscriptions(self, publishers: list[Publisher]) -> None:
         if len(publishers) != 1:
@@ -43,7 +43,7 @@ class TrackScoreRule(Callback, Publisher, Subscriber):
         self.notify_subscribers(ScoreMessage(score=self._score, high_score=self._high_score))
 
     def notify(self, message: NamedTuple) -> None:
-        if isinstance(message, LineClearMessage):
+        if isinstance(message, FinishedLineClearMessage):
             self._score += len(message.cleared_lines)
             self._high_score = max(self._high_score, self._score)
             self.notify_subscribers(ScoreMessage(score=self._score, high_score=self._high_score))

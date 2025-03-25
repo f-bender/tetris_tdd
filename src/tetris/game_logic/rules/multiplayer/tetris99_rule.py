@@ -7,8 +7,8 @@ from tetris.game_logic.action_counter import ActionCounter
 from tetris.game_logic.components.board import Board
 from tetris.game_logic.game import GameOverError
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
-from tetris.rules.core.clear_full_lines_rule import ClearFullLinesRule
-from tetris.rules.core.messages import LineClearMessage
+from tetris.game_logic.rules.board_manipulations.clear_lines import ClearFullLines
+from tetris.game_logic.rules.messages import FinishedLineClearMessage
 
 
 class PlaceLinesManipulation:
@@ -52,18 +52,18 @@ class Tetris99Rule(Publisher, Subscriber):
         self._num_lines_to_place: int = 0
 
     def should_be_subscribed_to(self, publisher: Publisher) -> bool:
-        return (isinstance(publisher, ClearFullLinesRule) and publisher.game_index == self.game_index) or (
+        return (isinstance(publisher, ClearFullLines) and publisher.game_index == self.game_index) or (
             isinstance(publisher, Tetris99Rule) and publisher.game_index in self._targeted_by_idxs
         )
 
     def verify_subscriptions(self, publishers: list[Publisher]) -> None:
-        num_clear_line_subscriptions = sum(1 for publisher in publishers if isinstance(publisher, ClearFullLinesRule))
+        num_clear_line_subscriptions = sum(1 for publisher in publishers if isinstance(publisher, ClearFullLines))
         num_tetris_99_subscriptions = sum(1 for publisher in publishers if isinstance(publisher, Tetris99Rule))
 
         if num_clear_line_subscriptions != 1:
             msg = (
                 f"{type(self).__name__} of game {self.game_index} has {num_clear_line_subscriptions} "
-                "ClearFullLinesRule subscriptions!"
+                "ClearFullLines subscriptions!"
             )
             raise RuntimeError(msg)
 
@@ -75,7 +75,7 @@ class Tetris99Rule(Publisher, Subscriber):
             raise RuntimeError(msg)
 
     def notify(self, message: NamedTuple) -> None:
-        if isinstance(message, LineClearMessage):
+        if isinstance(message, FinishedLineClearMessage):
             self._num_recently_cleared_lines = len(message.cleared_lines)
 
         elif isinstance(message, Tetris99Message) and message.target_id == self.game_index:

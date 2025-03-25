@@ -12,15 +12,14 @@ from tetris.game_logic.game import Game
 from tetris.game_logic.interfaces.callback_collection import CallbackCollection
 from tetris.game_logic.interfaces.dependency_manager import DEPENDENCY_MANAGER
 from tetris.game_logic.interfaces.rule_sequence import RuleSequence
+from tetris.game_logic.rules.core.move_rotate_rules import MoveRule, RotateRule
+from tetris.game_logic.rules.core.spawn_drop_merge.spawn import SpawnStrategyImpl
+from tetris.game_logic.rules.core.spawn_drop_merge.spawn_drop_merge_rule import SpawnDropMergeRule
+from tetris.game_logic.rules.core.spawn_drop_merge.speed import SpeedStrategyImpl
+from tetris.game_logic.rules.monitoring.track_score_rule import TrackScoreRule
 from tetris.heuristic_bot_gym.evaluator import Evaluator
 from tetris.heuristic_bot_gym.evaluators.runners.parallel import ParallelRunner
 from tetris.heuristic_bot_gym.evaluators.runners.synchronous import SynchronousRunner
-from tetris.rules.core.clear_full_lines_rule import ClearFullLinesRule
-from tetris.rules.core.move_rotate_rules import MoveRule, RotateRule
-from tetris.rules.core.spawn_drop_merge.spawn import SpawnStrategyImpl
-from tetris.rules.core.spawn_drop_merge.spawn_drop_merge_rule import SpawnDropMergeRule
-from tetris.rules.core.spawn_drop_merge.speed import SpeedStrategyImpl
-from tetris.rules.monitoring.track_score_rule import TrackScoreRule
 
 LOGGER = logging.getLogger(__name__)
 
@@ -157,7 +156,6 @@ class EvaluatorImpl(Evaluator):
                                 speed_strategy=SpeedStrategyImpl(base_interval=10),
                                 spawn_delay=0,
                             ),
-                            ClearFullLinesRule(),
                         )
                     ),
                     callback_collection=CallbackCollection((track_score_callback,)),

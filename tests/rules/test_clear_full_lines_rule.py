@@ -1,15 +1,14 @@
 from collections.abc import Callable
-from unittest.mock import Mock
 
 import pytest
 
 from tetris.game_logic.components.board import Board
-from tetris.rules.core.clear_full_lines_rule import ClearFullLinesRule
+from tetris.game_logic.rules.board_manipulations.clear_lines import ClearFullLines
 
 
 @pytest.fixture(autouse=True)
 def clear_full_lines_fn() -> Callable[[Board], None]:
-    return lambda board: ClearFullLinesRule().apply(board=board, frame_counter=Mock(), action_counter=Mock())
+    return lambda board: ClearFullLines().manipulate_gradually(board=board, current_frame=0, total_frames=1)
 
 
 def test_one_line_cleared(clear_full_lines_fn: Callable[[Board], None]) -> None:

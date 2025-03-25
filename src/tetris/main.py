@@ -12,16 +12,15 @@ from tetris.game_logic.interfaces.controller import Controller
 from tetris.game_logic.interfaces.dependency_manager import DEPENDENCY_MANAGER, DependencyManager
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.game_logic.interfaces.rule_sequence import RuleSequence
+from tetris.game_logic.rules.core.move_rotate_rules import MoveRule, RotateRule
+from tetris.game_logic.rules.core.spawn_drop_merge.spawn import SpawnStrategyImpl
+from tetris.game_logic.rules.core.spawn_drop_merge.spawn_drop_merge_rule import SpawnDropMergeRule
+from tetris.game_logic.rules.monitoring.track_performance_rule import TrackPerformanceCallback
+from tetris.game_logic.rules.monitoring.track_score_rule import TrackScoreRule
+from tetris.game_logic.rules.multiplayer.tetris99_rule import Tetris99Rule
+from tetris.game_logic.rules.special.parry_rule import ParryRule
 from tetris.game_logic.runtime import Runtime
 from tetris.logging_config import configure_logging
-from tetris.rules.core.clear_full_lines_rule import ClearFullLinesRule
-from tetris.rules.core.move_rotate_rules import MoveRule, RotateRule
-from tetris.rules.core.spawn_drop_merge.spawn import SpawnStrategyImpl
-from tetris.rules.core.spawn_drop_merge.spawn_drop_merge_rule import SpawnDropMergeRule
-from tetris.rules.monitoring.track_performance_rule import TrackPerformanceCallback
-from tetris.rules.monitoring.track_score_rule import TrackScoreRule
-from tetris.rules.multiplayer.tetris99_rule import Tetris99Rule
-from tetris.rules.special.parry_rule import ParryRule
 from tetris.ui.cli import CLI
 
 if TYPE_CHECKING:
@@ -142,7 +141,6 @@ def _create_rules_and_callbacks(num_games: int, *, create_tetris_99_rule: bool =
         RotateRule(),
         SpawnDropMergeRule(spawn_delay=0, spawn_strategy=SpawnStrategyImpl.from_shuffled_bag()),
         ParryRule(),
-        ClearFullLinesRule(),
     ]
 
     if create_tetris_99_rule and num_games > 1:

@@ -15,9 +15,9 @@ from tetris.game_logic.components.board import Board, PositionedBlock
 from tetris.game_logic.components.exceptions import CannotDropBlockError
 from tetris.game_logic.interfaces.controller import Action, Controller
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
-from tetris.rules.core.messages import SpawnMessage
-from tetris.rules.core.spawn_drop_merge.spawn import SpawnStrategyImpl
-from tetris.rules.core.spawn_drop_merge.spawn_drop_merge_rule import SpawnDropMergeRule
+from tetris.game_logic.rules.core.spawn_drop_merge.spawn import SpawnStrategyImpl
+from tetris.game_logic.rules.core.spawn_drop_merge.spawn_drop_merge_rule import SpawnDropMergeRule
+from tetris.game_logic.rules.messages import SpawnMessage
 
 LOGGER = logging.getLogger(__name__)
 
@@ -298,9 +298,9 @@ class HeuristicBotController(Controller, Subscriber):
                 return None
 
             if expected_board_after is None:
-                return cast(Plan, plan_result)
+                return cast("Plan", plan_result)
 
-            plan, board_after = cast(tuple[Plan, Board], plan_result)
+            plan, board_after = cast("tuple[Plan, Board]", plan_result)
             expected_board_after.set_from_other(board_after)
 
             return plan

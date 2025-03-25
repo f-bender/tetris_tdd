@@ -63,7 +63,7 @@ unfixable = [
     "T201",
 ]
 # unused method arguments are ok (required to conform to protocols, but not necessarily used)
-"src/tetris/rules/*" = ["ARG002"]
+"src/tetris/game_logic/rules/*" = ["ARG002"]
 "src/tetris/controllers/*" = ["ARG002"]
 
 "tests/*" = ["INP001"] # we want no __init__.py files in tests
