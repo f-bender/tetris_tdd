@@ -26,6 +26,7 @@ class SpawnDropMergeRule(Callback, Publisher):
         merge_strategy: MergeStrategy | None = None,
         speed_strategy: SpeedStrategy | None = None,
         board_manipulation_after_merge: GradualBoardManipulation | None = None,
+        animate_board_manipulation: bool = True,
     ) -> None:
         """Initialize the DropRule.
 
@@ -37,6 +38,8 @@ class SpawnDropMergeRule(Callback, Publisher):
             merge_strategy: Strategy for merging the active block into the board.
             board_manipulation_after_merge: Board manipulation to apply after each merge. Defaults to clearing full
                 lines.
+            animate_board_manipulation: Whether to animate the board manipulation after the merge. If False, the board
+                manipulation will be applied instantly.
         """
         super().__init__()
 
@@ -47,6 +50,7 @@ class SpawnDropMergeRule(Callback, Publisher):
         self.merge_strategy = merge_strategy or MergeStrategyImpl()
         self.speed_strategy = speed_strategy or LineClearSpeedUp(SpeedStrategyImpl())
         self.board_manipulation_after_merge = board_manipulation_after_merge or ClearFullLines()
+        self._animate_board_manipulation = animate_board_manipulation
 
         self._last_merge_frame: int | None = None
         self._last_drop_frame: int = 0
@@ -69,7 +73,7 @@ class SpawnDropMergeRule(Callback, Publisher):
         Block dropping and merging acts on the quick interval schedule in case the quick-drop-action is held.
         """
         if not board.has_active_block():
-            if self._last_merge_frame is not None:
+            if self._last_merge_frame is not None and self._animate_board_manipulation:
                 self.board_manipulation_after_merge.manipulate_gradually(
                     board,
                     current_frame=frame_counter - self._last_merge_frame,
@@ -117,7 +121,7 @@ class SpawnDropMergeRule(Callback, Publisher):
                 # "+ 1" because of "fencepost" situation:
                 # the first frame is the merge frame, the last frame is the spawn frame,
                 # spawn_delay is the number of frames between them
-                total_frames=self._spawn_delay + 1,
+                total_frames=self._spawn_delay + 1 if self._animate_board_manipulation else 1,
             )
             if self._spawn_delay == 0:
                 self.spawn_strategy.apply(board)
