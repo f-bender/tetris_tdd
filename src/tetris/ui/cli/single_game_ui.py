@@ -143,14 +143,17 @@ class SingleGameUI:
         if next_block is not None:
             block_height, block_width = next_block.actual_cells.shape
             x_offset = ceil((self.RIGHT_ELEMENTS_WIDTH - 2 - block_width) / 2)
+            y_offset = ceil((self.NEXT_BLOCK_HEIGHT - 3 - block_height) / 2)
+            # fmt: off
             np.copyto(
                 ui_array[
-                    self.next_block_position.y + 2 : self.next_block_position.y + 2 + block_height,
+                    self.next_block_position.y + 2 + y_offset : self.next_block_position.y + 2 + y_offset + block_height,  # noqa: E501
                     self.next_block_position.x + 1 + x_offset : self.next_block_position.x + 1 + x_offset + block_width,
                 ],
                 next_block.actual_cells + ColorPalette.block_color_index_offset() - 1,
                 where=next_block.actual_cells.astype(bool),
             )
+            # fmt: on
 
     # ui_array to be used in line clear animation
     def _add_animations(self, animations: list[AnimationSpec], ui_array: NDArray[np.uint8]) -> list[Overlay]:  # noqa: ARG002
