@@ -402,13 +402,23 @@ class HeuristicBotController(Controller, Subscriber):
 
         return board, positioned_block, heuristic.loss(board)
 
-    @staticmethod
-    def _instant_drop_and_merge_block(board: Board, positioned_block: PositionedBlock) -> None:
+    @classmethod
+    def _instant_drop_and_merge_block(cls, board: Board, positioned_block: PositionedBlock) -> None:
         """Drop treat `positioned_block` as the active block of `board` and drop it straight down into place.
 
         When dropped into place, merge the block into place and clear full lines.
-        Note that this is a simple naive implementation for this function:
-        ```
+
+        When the rows where blocks can spawn are not empty, the naive and reliable implementation is used.
+        Otherwise, an optimized implementation is used which assumes that the rows of the positioned block and above
+        are empty.
+        """
+        if np.any(board.array_view_without_active_block()[: cls._SPAWN_ROWS]):
+            cls._instant_drop_and_merge_block_naive(board, positioned_block)
+        else:
+            cls._instant_drop_and_merge_optimized(board, positioned_block)
+
+    @staticmethod
+    def _instant_drop_and_merge_block_naive(board: Board, positioned_block: PositionedBlock) -> None:
         board.active_block = positioned_block
         while True:
             try:
@@ -417,8 +427,12 @@ class HeuristicBotController(Controller, Subscriber):
                 board.merge_active_block()
                 board.clear_lines(board.get_full_line_idxs())
                 break
-        ```
-        The actual implementation does the same thing in a more computationally efficient way:
+
+    @staticmethod
+    def _instant_drop_and_merge_optimized(board: Board, positioned_block: PositionedBlock) -> None:
+        """An optimized version of _instant_drop_and_merge_block_naive.
+
+        This implementation does the same thing in a more computationally efficient way:
         It computes the drop distance and directly places the block at the position it should ultimately drop down to.
         """
         block_actual_cells = positioned_block.block.actual_cells
