@@ -144,7 +144,7 @@ class HeuristicBotController(Controller, Subscriber):
                 # we have crossed over to a new block, but still don't have a plan for the previous one; tell the
                 # planning thread to cancel the planning for the previous block (and start planning for the new one)
                 self._cancel_planning_flag = True
-                LOGGER.warning("Previous block was merged before plan for it could even be created")
+                LOGGER.debug("Previous block was merged before plan for it could even be created")
             elif self._next_plan:
                 assert self._current_plan
                 # planning has finished in time; we know that we are not currently in the process of creating a plan
@@ -157,7 +157,7 @@ class HeuristicBotController(Controller, Subscriber):
                 # planning ahead has not finished in time; we are currently in the process of creating the current plan
                 # let the planning thread know to directly set _current_plan (by having it be None)
                 self._current_plan = None
-                LOGGER.warning("Didn't finish planning for this block before it was spawned")
+                LOGGER.debug("Didn't finish planning for this block before it was spawned")
 
     def _set_current_plan(self, plan: Plan) -> None:
         """Set the current plan to the given plan, triggering the execution of the plan in get_action.
@@ -175,7 +175,7 @@ class HeuristicBotController(Controller, Subscriber):
             # we have made a false assumption about the board state; don't execute any plan, and replan from
             # scratch
             self._current_plan = self._next_plan = None
-            LOGGER.warning("Need to completely replan as the board is not as expected for the plan")
+            LOGGER.debug("Need to completely replan as the board is not as expected for the plan")
 
     def _continuously_plan(self) -> None:
         while self._current_block is None or self._next_block is None:
