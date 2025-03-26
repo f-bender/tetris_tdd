@@ -34,7 +34,7 @@ class Text:
 class SingleGameUI:
     board_background: NDArray[np.uint8]
 
-    RIGHT_GAP_WIDTH = 4
+    RIGHT_GAP_WIDTH = 2
     RIGHT_ELEMENTS_WIDTH = 6
 
     SCORE_HEIGHT = 4
