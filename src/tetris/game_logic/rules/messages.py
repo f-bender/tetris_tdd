@@ -32,3 +32,8 @@ class InstantSpawnMessage(NamedTuple):
 class SpawnMessage(NamedTuple):
     block: Block
     next_block: Block
+
+
+class BoardTranslationMessage(NamedTuple):
+    x_offset: int = 0
+    y_offset: int = 0

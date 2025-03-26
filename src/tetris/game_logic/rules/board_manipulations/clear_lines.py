@@ -1,12 +1,14 @@
 from math import ceil, floor
+from typing import NamedTuple
 
 from tetris.game_logic.components.board import Board
-from tetris.game_logic.interfaces.pub_sub import Publisher
+from tetris.game_logic.interfaces.callback import Callback
+from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.game_logic.rules.board_manipulations.board_manipulation import GradualBoardManipulation
 from tetris.game_logic.rules.messages import FinishedLineClearMessage, StartingLineClearMessage
 
 
-class ClearFullLines(Publisher, GradualBoardManipulation):
+class ClearFullLines(Callback, Publisher, Subscriber, GradualBoardManipulation):
     def __init__(self) -> None:
         super().__init__()
         self._full_lines: list[int] | None = None
@@ -50,3 +52,20 @@ class ClearFullLines(Publisher, GradualBoardManipulation):
 
         if start_index < end_index:
             board.array_view_without_active_block()[self._full_lines, start_index:end_index] = 0
+
+    def should_be_called_by(self, game_index: int) -> bool:
+        return game_index == self.game_index
+
+    def on_game_start(self) -> None:
+        self._full_lines = None
+
+    def should_be_subscribed_to(self, publisher: Publisher) -> bool:
+        from tetris.game_logic.rules.multiplayer.tetris99_rule import Tetris99Rule
+
+        return isinstance(publisher, Tetris99Rule) and publisher.game_index == self.game_index
+
+    def notify(self, message: NamedTuple) -> None:
+        from tetris.game_logic.rules.messages import BoardTranslationMessage
+
+        if self._full_lines and isinstance(message, BoardTranslationMessage):
+            self._full_lines = [new_line_idx for i in self._full_lines if (new_line_idx := i + message.y_offset) >= 0]

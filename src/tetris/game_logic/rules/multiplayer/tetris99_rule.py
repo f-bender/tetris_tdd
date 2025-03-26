@@ -8,7 +8,7 @@ from tetris.game_logic.components.board import Board
 from tetris.game_logic.game import GameOverError
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.game_logic.rules.board_manipulations.clear_lines import ClearFullLines
-from tetris.game_logic.rules.messages import FinishedLineClearMessage
+from tetris.game_logic.rules.messages import BoardTranslationMessage, FinishedLineClearMessage
 
 
 class PlaceLinesManipulation:
@@ -98,4 +98,5 @@ class Tetris99Rule(Publisher, Subscriber):
 
         if self._num_lines_to_place:
             PlaceLinesManipulation(self._num_lines_to_place).manipulate(board)
+            self.notify_subscribers(BoardTranslationMessage(y_offset=-self._num_lines_to_place))
             self._num_lines_to_place = 0
