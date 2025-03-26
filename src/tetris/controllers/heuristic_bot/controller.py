@@ -73,6 +73,13 @@ class HeuristicBotController(Controller, Subscriber):
                 `process_pool` is provided, otherwise behaviour is consistent anyways.
             fps: Frames per second that the game will run with. Used as the polling rate of the planning thread. (I.e.
                 how frequently to check whether it's time to make the next plan.) Ignored in lightning mode.
+
+        Note that it is inefficient to use both lightning mode and process pool with multiple
+        HeuristicBotController-controlled games in the same thread since lightning mode avoids creating an internal
+        thread, and thus preventing multiple HeuristicBotControllers from dispatching tasks to the process pool at the
+        same time, making it underutilized.
+        Lightning mode plus process pool does still make sense for multiple HeuristicBotControllers, if their games are
+        being run in separate threads.
         """
         super().__init__()
         self._real_board: Final = board
