@@ -138,7 +138,7 @@ class SingleGameUI:
         )
         self._add_score_display(score=elements.score, ui_array=ui_array, texts=texts)
         self._add_next_block_display(next_block=elements.next_block, ui_array=ui_array, texts=texts)
-        overlay_animations = self._add_animations(elements.animations, ui_array=ui_array)
+        overlay_animations = self._add_animations(elements.animations)
 
         return ui_array, texts, overlay_animations
 
@@ -200,8 +200,7 @@ class SingleGameUI:
             )
             # fmt: on
 
-    # ui_array to be used in line clear animation
-    def _add_animations(self, animations: list[AnimationSpec], ui_array: NDArray[np.uint8]) -> list[Overlay]:  # noqa: ARG002
+    def _add_animations(self, animations: list[AnimationSpec]) -> list[Overlay]:
         overlay_animations: list[Overlay] = []
         for animation in animations:
             match animation:
