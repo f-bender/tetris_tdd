@@ -14,6 +14,7 @@ class SingleUiElements:
     """Elements to be drawn on the UI for one game."""
 
     board: NDArray[np.uint8]
+    controller_symbol: str
     next_block: Block | None = None
     score: int = 0
     animations: list[AnimationSpec] = field(default_factory=list)
@@ -22,6 +23,7 @@ class SingleUiElements:
     def reset(self) -> None:
         self.next_block = None
         self.score = 0
+        self.animations = []
 
 
 @dataclass

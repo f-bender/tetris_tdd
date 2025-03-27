@@ -1,4 +1,4 @@
-from tetris.controllers.random import RandomController
+from tetris.controllers.random_controller import RandomController
 from tetris.game_logic.components.board import Board
 from tetris.game_logic.interfaces.controller import Action
 

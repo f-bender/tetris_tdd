@@ -11,13 +11,14 @@ LOGGER = logging.getLogger(__name__)
 
 
 class PynputKeyboardController(Controller):
-    def __init__(self, action_to_keys: Mapping[str, list[str | int]] | None = None) -> None:
+    def __init__(self, action_to_keys: Mapping[str, list[str | int]] | None = None, symbol: str = "⌨") -> None:
         """Initialize the PynputKeyboardController.
 
         Args:
             action_to_keys: Mapping from action names (see class Action) to lists of key representations for the keys
                 that all should be able to trigger the respective action.
                 Key representations can be int (VK key codes) or str (key chars like "a", or key names like "enter".)
+            symbol: Symbol string representing this controller.
 
         Raises:
             ValueError: If not all actions are covered by action_to_keys, or it contains an invalid action name.
@@ -65,6 +66,12 @@ class PynputKeyboardController(Controller):
 
         self._listener = keyboard.Listener(on_press=self._on_press, on_release=self._on_release)
         self._listener.start()
+
+        self._symbol = symbol
+
+    @property
+    def symbol(self) -> str:
+        return self._symbol
 
     @staticmethod
     def _key_str_to_vk_or_char(key_str: str) -> int | str:
@@ -115,7 +122,8 @@ class PynputKeyboardController(Controller):
                 "right_shoulder": ["e"],
                 "confirm": ["space"],
                 "cancel": ["esc"],
-            }
+            },
+            symbol="WASD",
         )
 
     @classmethod
@@ -130,7 +138,8 @@ class PynputKeyboardController(Controller):
                 "right_shoulder": [],
                 "confirm": [96],  # vk: numpad 0
                 "cancel": ["ctrl"],
-            }
+            },
+            symbol="←↓↑→",
         )
 
     @classmethod
@@ -145,7 +154,8 @@ class PynputKeyboardController(Controller):
                 "right_shoulder": ["o"],
                 "confirm": ["enter"],
                 "cancel": ["backspace"],
-            }
+            },
+            symbol="Vim",
         )
 
     def get_action(self, board: Board | None = None) -> Action:

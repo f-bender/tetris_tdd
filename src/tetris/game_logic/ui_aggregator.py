@@ -13,9 +13,9 @@ from tetris.game_logic.rules.monitoring.track_score_rule import ScoreMessage
 class UiAggregator(Subscriber):
     """Subscriber to all UI-relevant events, aggregating them into UiElements."""
 
-    def __init__(self, board: NDArray[np.uint8]) -> None:
+    def __init__(self, board: NDArray[np.uint8], controller_symbol: str) -> None:
         super().__init__()
-        self._ui_elements = SingleUiElements(board=board)
+        self._ui_elements = SingleUiElements(board=board, controller_symbol=controller_symbol)
 
     def reset(self) -> None:
         self._ui_elements.reset()

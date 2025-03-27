@@ -18,6 +18,8 @@ LOGGER = logging.getLogger(__name__)
 
 
 class GamepadController(Controller):
+    SYMBOL = "🎮"
+
     def __init__(self, gamepad_index: int = 0) -> None:
         if gamepad_index >= (num_gamepads := len(devices.gamepads)):
             msg = f"Invalid gamepad index '{gamepad_index}' - only {num_gamepads} gamepads connected!"
@@ -27,6 +29,10 @@ class GamepadController(Controller):
         self._up = self._down = self._left = self._right = False
 
         Thread(target=self.continuously_poll_gamepad, daemon=True).start()
+
+    @property
+    def symbol(self) -> str:
+        return "🎮"
 
     def continuously_poll_gamepad(self) -> None:
         while True:

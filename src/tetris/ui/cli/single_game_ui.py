@@ -17,6 +17,7 @@ from tetris.ui.cli.vec import Vec
 class Alignment(Enum):
     LEFT = auto()
     RIGHT = auto()
+    CENTER = auto()
 
 
 _DISPLAY_BG_COLOR_INDEX = ColorPalette.index_of_color("display_bg")
@@ -37,28 +38,33 @@ class SingleGameUI:
     RIGHT_GAP_WIDTH = 2
     RIGHT_ELEMENTS_WIDTH = 6
 
+    DISPLAY_GAP_HEIGHT = 1
     SCORE_HEIGHT = 4
     NEXT_BLOCK_HEIGHT = 5
-    DISPLAY_GAP_HEIGHT = 1
+    CONTROLLER_SYMBOL_HEIGHT = 3
 
     # What the UI looks like:
 
-    #                  board_size[1] (width)    RIGHT_ELEMENTS_WIDTH
-    #                  <------------------>        <---------->
+    #                 board_size[1] (width)  RIGHT_ELEMENTS_WIDTH
+    #                  <------------------>    <---------->
     #
-    #               ^  ####################........____________  ^
-    #               |  ####################........__Score_____  | SCORE_HEIGHT
-    #               |  ####################........__99999999__  |
-    #               |  ####################........____________  v
-    # board_size[0] |  ####################....................    | DISPLAY_GAP_HEIGHT
-    # (height)      |  ####################........____________  ^
-    #               |  ####################........__Next______  |
-    #               |  ####################........____##______  | NEXT_BLOCK_HEIGHT
-    #               |  ####################........__######____  |
-    #               v  ####################........____________  v
+    #               ^  ####################....____________  ^
+    #               |  ####################....____WASD____  | CONTROLLER_SYMBOL_HEIGHT
+    #               |  ####################....____________  v
+    #               |  ####################................    | DISPLAY_GAP_HEIGHT
+    #               |  ####################....____________  ^
+    #               |  ####################....__Score_____  | SCORE_HEIGHT
+    #               |  ####################....__99999999__  |
+    #               |  ####################....____________  v
+    # board_size[0] |  ####################................    | DISPLAY_GAP_HEIGHT
+    # (height)      |  ####################....____________  ^
+    #               |  ####################....__Next______  |
+    #               |  ####################....____##______  | NEXT_BLOCK_HEIGHT
+    #               |  ####################....__######____  |
+    #               v  ####################....____________  v
     #
-    #                                      <------>
-    #                                   RIGHT_GAP_WIDTH
+    #                                      <-->
+    #                                 RIGHT_GAP_WIDTH
 
     # legend:
     # # board/block
@@ -78,18 +84,37 @@ class SingleGameUI:
         )
 
     @cached_property
-    def next_block_position(self) -> Vec:
-        return Vec(self.SCORE_HEIGHT + self.DISPLAY_GAP_HEIGHT, self.board_size[1] + self.RIGHT_GAP_WIDTH)
+    def controller_symbol_display_position(self) -> Vec:
+        return Vec(
+            0,
+            self.board_size[1] + self.RIGHT_GAP_WIDTH,
+        )
 
     @cached_property
     def score_display_position(self) -> Vec:
-        return Vec(0, self.board_size[1] + self.RIGHT_GAP_WIDTH)
+        return Vec(
+            self.CONTROLLER_SYMBOL_HEIGHT + self.DISPLAY_GAP_HEIGHT,
+            self.board_size[1] + self.RIGHT_GAP_WIDTH,
+        )
+
+    @cached_property
+    def next_block_position(self) -> Vec:
+        return Vec(
+            self.CONTROLLER_SYMBOL_HEIGHT + self.DISPLAY_GAP_HEIGHT + self.SCORE_HEIGHT + self.DISPLAY_GAP_HEIGHT,
+            self.board_size[1] + self.RIGHT_GAP_WIDTH,
+        )
 
     @property
     def mask(self) -> NDArray[np.bool]:
         mask = np.zeros(self.total_size, dtype=np.bool)
 
         mask[: self.board_size[0], : self.board_size[1]] = True
+        mask[
+            self.controller_symbol_display_position.y : self.controller_symbol_display_position.y
+            + self.CONTROLLER_SYMBOL_HEIGHT,
+            self.controller_symbol_display_position.x : self.controller_symbol_display_position.x
+            + self.RIGHT_ELEMENTS_WIDTH,
+        ] = True
         mask[
             self.score_display_position.y : self.score_display_position.y + self.SCORE_HEIGHT,
             self.score_display_position.x : self.score_display_position.x + self.RIGHT_ELEMENTS_WIDTH,
@@ -108,6 +133,9 @@ class SingleGameUI:
         texts: list[Text] = []
 
         self._add_board(board=elements.board, ui_array=ui_array)
+        self._add_controller_symbol_display(
+            controller_symbol=elements.controller_symbol, ui_array=ui_array, texts=texts
+        )
         self._add_score_display(score=elements.score, ui_array=ui_array, texts=texts)
         self._add_next_block_display(next_block=elements.next_block, ui_array=ui_array, texts=texts)
         overlay_animations = self._add_animations(elements.animations, ui_array=ui_array)
@@ -117,6 +145,23 @@ class SingleGameUI:
     def _add_board(self, board: NDArray[np.uint8], ui_array: NDArray[np.uint8]) -> None:
         ui_array[: self.board_size[0], : self.board_size[1]] = np.where(
             board, board + ColorPalette.block_color_index_offset() - 1, self.board_background
+        )
+
+    def _add_controller_symbol_display(
+        self, controller_symbol: str, ui_array: NDArray[np.uint8], texts: list[Text]
+    ) -> None:
+        ui_array[
+            self.controller_symbol_display_position.y : self.controller_symbol_display_position.y
+            + self.CONTROLLER_SYMBOL_HEIGHT,
+            self.controller_symbol_display_position.x : self.controller_symbol_display_position.x
+            + self.RIGHT_ELEMENTS_WIDTH,
+        ] = ColorPalette.index_of_color("display_bg")
+        texts.append(
+            Text(
+                text=controller_symbol,
+                position=self.controller_symbol_display_position + Vec(1, self.RIGHT_ELEMENTS_WIDTH // 2),
+                alignment=Alignment.CENTER,
+            )
         )
 
     def _add_score_display(self, score: int, ui_array: NDArray[np.uint8], texts: list[Text]) -> None:

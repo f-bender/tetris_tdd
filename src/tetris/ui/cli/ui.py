@@ -307,12 +307,15 @@ class CLI(UI):
 
     def _draw_text(self, text: "Text") -> None:
         if text.alignment is Alignment.RIGHT:
-            pixels = ceil(len(text.text) / self.PIXEL_WIDTH)
-            position = text.position - Vec(0, pixels)
-            characters = text.text.rjust(pixels * self.PIXEL_WIDTH)
+            character_offset = len(text.text)
+        elif text.alignment is Alignment.CENTER:
+            character_offset = ceil(len(text.text) / 2)
         else:
-            position = text.position
-            characters = text.text
+            character_offset = 0
+
+        pixel_offset = ceil(character_offset / self.PIXEL_WIDTH)
+        position = text.position - Vec(0, pixel_offset)
+        characters = " " * (pixel_offset * self.PIXEL_WIDTH - character_offset) + text.text
 
         print(self._cursor_goto(position) + self._color_palette[text.bg_color_index] + characters, end="")
 

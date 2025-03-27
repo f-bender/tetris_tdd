@@ -107,6 +107,18 @@ class HeuristicBotController(Controller, Subscriber):
             Thread(target=self._continuously_plan, daemon=True).start()
 
     @property
+    def symbol(self) -> str:
+        symbol = "🤖"
+
+        if self._lightning_mode:
+            symbol = "⚡" + symbol
+
+        if self._process_pool:
+            symbol = symbol + "⚡"
+
+        return symbol
+
+    @property
     def lightning_mode(self) -> bool:
         return self._lightning_mode
 

@@ -19,14 +19,19 @@ class Action(NamedTuple):
 
 
 class Controller(ABC):
+    @property
+    @abstractmethod
+    def symbol(self) -> str: ...
+
     @abstractmethod
     def get_action(self, board: Board | None = None) -> Action: ...
 
     # the Game class uses this to display a message what button to press in order to trigger something (e.g. start a
     # new game on game over screen)
     def get_button_description(self, action: Action) -> str:
-        return " + ".join(
+        description = " + ".join(
             action_name.replace("_", " ").title()
             for action_name, action_is_performed in action._asdict().items()
             if action_is_performed
         )
+        return description or "<nothing>"

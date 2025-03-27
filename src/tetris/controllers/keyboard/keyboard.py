@@ -8,13 +8,14 @@ from tetris.game_logic.interfaces.controller import Action, Controller
 
 
 class KeyboardKeyboardController(Controller):
-    def __init__(self, action_to_keys: Mapping[str, list[str | int]] | None = None) -> None:
+    def __init__(self, action_to_keys: Mapping[str, list[str | int]] | None = None, symbol: str = "⌨") -> None:
         """Initialize the KeyboardKeyboardController.
 
         Args:
             action_to_keys: Mapping from action names (see class Action) to lists of key representations for the keys
                 that all should be able to trigger the respective action.
                 Key representations can be int or str, see keyboard module for details on valid values.
+            symbol: Symbol string representing this controller.
 
         Raises:
             ValueError: If not all actions are covered by action_to_keys, or it contains an invalid action name.
@@ -46,6 +47,12 @@ class KeyboardKeyboardController(Controller):
 
             raise ValueError(message)
 
+        self._symbol = symbol
+
+    @property
+    def symbol(self) -> str:
+        return self._symbol
+
     @classmethod
     def wasd(cls) -> Self:
         return cls(
@@ -58,7 +65,8 @@ class KeyboardKeyboardController(Controller):
                 "right_shoulder": ["e"],
                 "confirm": ["space"],
                 "cancel": ["esc"],
-            }
+            },
+            symbol="WASD",
         )
 
     @classmethod
@@ -73,7 +81,8 @@ class KeyboardKeyboardController(Controller):
                 "right_shoulder": [],
                 "confirm": [82],  # numpad 0
                 "cancel": ["ctrl"],
-            }
+            },
+            symbol="⬅⬇⬆➡",
         )
 
     @classmethod
@@ -88,7 +97,8 @@ class KeyboardKeyboardController(Controller):
                 "right_shoulder": ["o"],
                 "confirm": ["enter"],
                 "cancel": ["backspace"],
-            }
+            },
+            symbol="Vim",
         )
 
     def get_action(self, board: Board | None = None) -> Action:

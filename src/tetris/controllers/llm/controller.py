@@ -29,7 +29,8 @@ class LLMController(Controller):
         # high level description
         "You are a Tetris AI. You will be given the current state of a Tetris board and must decide what "
         "move(s) to make next. The board will look something like this:\n\n"
-        f"{Board.from_string_representation('''
+        f"{
+            Board.from_string_representation('''
             ..........
             ..........
             ..XXX.....
@@ -42,7 +43,8 @@ class LLMController(Controller):
             .XXXXXXXXX
             XXXXXXXXX.
             XXXX...XXX
-        ''')}\n\n"
+        ''')
+        }\n\n"
         "'X' represents a block, '.' represents an empty space. "
         "Note that this representation also always includes the currently falling block which you have control over. "
         "You must infer yourself where on the board this block is, and provide commands for this block going forward. "
@@ -79,6 +81,10 @@ class LLMController(Controller):
 
         self._action_queue: Queue[Action] = Queue()
         Thread(target=self._continuously_ask_llm, args=(llm,), daemon=True).start()
+
+    @property
+    def symbol(self) -> str:
+        return "✨"
 
     def _continuously_ask_llm(self, llm: LLM) -> None:
         llm.start_new_chat(self.SYSTEM_PROMPT)

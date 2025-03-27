@@ -30,7 +30,7 @@ class Game:
         self._alive = True
         self.callback_collection.on_game_start()
 
-        self._ui_aggregator = UiAggregator(board=board.as_array())
+        self._ui_aggregator = UiAggregator(board=board.as_array(), controller_symbol=self._controller.symbol)
 
     @property
     def controller(self) -> Controller:

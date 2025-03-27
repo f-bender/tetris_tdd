@@ -35,6 +35,10 @@ class RandomController(Controller):
 
         self._max_buttons_at_once = max_buttons_at_once or self.MAX_VALID_COMBINATION_BUTTONS
 
+    @property
+    def symbol(self) -> str:
+        return "🎲"
+
     def get_action(self, board: Board | None = None) -> Action:
         if random.random() < self._p_do_nothing:
             return Action()
