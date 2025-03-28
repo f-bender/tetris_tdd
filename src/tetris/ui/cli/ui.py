@@ -275,7 +275,9 @@ class CLI(UI):
                         overlay_position.x : overlay_position.x + overlay.width,
                     ],
                     overlay.frame,
-                    where=overlay.frame.astype(bool),
+                    # using view() instead of astype() is an optimization that assumes that the int type of frame is
+                    # 8 bit wide!
+                    where=overlay.frame.view(bool),
                 )
 
         if self._last_image_buffer is None:

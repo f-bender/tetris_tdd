@@ -460,10 +460,11 @@ class HeuristicBotController(Controller, Subscriber):
             block_actual_position.y + block_actual_cells.shape[0] - np.argmax(np.flipud(block_actual_cells), axis=0)
         )
 
+        # using view() instead of astype() is an optimization that assumes that the int type of the board is 8 bit wide!
         board_relevant_columns_bool = board.array_view_without_active_block()[
             :,
             block_actual_position.x : block_actual_position.x + block_actual_cells.shape[1],
-        ].astype(bool)
+        ].view(bool)
 
         board_upper_bound_under_block = np.where(
             np.any(board_relevant_columns_bool, axis=0),

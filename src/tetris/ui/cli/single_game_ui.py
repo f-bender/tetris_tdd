@@ -196,7 +196,9 @@ class SingleGameUI:
                     self.next_block_position.x + 1 + x_offset : self.next_block_position.x + 1 + x_offset + block_width,
                 ],
                 next_block.actual_cells + ColorPalette.block_color_index_offset() - 1,
-                where=next_block.actual_cells.astype(bool),
+                # using view() instead of astype() is an optimization that assumes that the int type of actual_cells is
+                # 8 bit wide!
+                where=next_block.actual_cells.view(bool),
             )
             # fmt: on
 

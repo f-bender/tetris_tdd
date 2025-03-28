@@ -96,9 +96,9 @@ class TetrominoSpaceFiller:
             )
             raise ValueError(msg)
 
-        # 0: space to be filled, >0: holes, each holes with an individual value, starting at 1
+        # 0: space to be filled, >0: holes, each hole with an individual value, starting at 1
         self._space_with_labeled_holes: NDArray[np.int64] = measure.label(
-            (self.space == -1).astype(np.uint8), connectivity=2
+            (self.space == -1).view(np.uint8), connectivity=2
         )
 
         self._total_blocks_to_place = cells_to_fill // self.TETROMINO_SIZE
@@ -401,7 +401,7 @@ class TetrominoSpaceFiller:
 
     @staticmethod
     def _empty_space_has_multiple_islands(space: NDArray[np.int32]) -> bool:
-        island_map = (space == 0).astype(np.uint8)
+        island_map = (space == 0).view(np.uint8)
         return measure.label(island_map, connectivity=1, return_num=True)[1] > 1
 
     def _check_islands_are_fillable_and_set_smallest_island(self) -> bool:
@@ -414,7 +414,7 @@ class TetrominoSpaceFiller:
 
         Return a bool whether the space is in a valid state (all islands are fillable).
         """
-        island_map = (self.space == 0).astype(np.uint8)
+        island_map = (self.space == 0).view(np.uint8)
         space_with_labeled_islands, num_islands = measure.label(island_map, connectivity=1, return_num=True)
 
         if num_islands <= 1:
@@ -493,7 +493,7 @@ class TetrominoSpaceFiller:
             # if there are no cells to be filled at all, we consider the space not fillable
             return False
 
-        island_map = (space == 0).astype(np.uint8)
+        island_map = (space == 0).view(np.uint8)
         space_with_labeled_islands, num_islands = measure.label(island_map, connectivity=1, return_num=True)
         return all(
             np.sum(space_with_labeled_islands == i) % TetrominoSpaceFiller.TETROMINO_SIZE == 0
@@ -518,7 +518,7 @@ class TetrominoSpaceFiller:
 
         for idx in tetromino_idxs:
             # check that each tetromino is a single connected component of size 4
-            island_map = (filled_space == idx).astype(np.uint8)
+            island_map = (filled_space == idx).view(np.uint8)
             if np.sum(island_map) != TetrominoSpaceFiller.TETROMINO_SIZE:
                 msg = f"Tetromino {idx} isn't of size 4."
                 raise ValueError(msg)

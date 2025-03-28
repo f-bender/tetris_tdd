@@ -40,7 +40,8 @@ class Heuristic(NamedTuple):
 
     def loss(self, board: Board) -> float:
         """Compute a measure of how bad a board is."""
-        board_array = board.array_view_without_active_block().astype(bool)
+        # using view() instead of astype() is an optimization that assumes that the int type of the board is 8 bit wide!
+        board_array = board.array_view_without_active_block().view(bool)
 
         adjacent_height_differences = self.adjacent_height_differences(board_array)
 
