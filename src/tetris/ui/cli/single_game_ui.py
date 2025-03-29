@@ -20,22 +20,18 @@ class Alignment(Enum):
     CENTER = auto()
 
 
-_DISPLAY_BG_COLOR_INDEX = ColorPalette.index_of_color("display_bg")
-
-
-@dataclass(unsafe_hash=True, slots=True)
+@dataclass(slots=True)
 class Text:
     text: str
     position: Vec
     alignment: Alignment = Alignment.LEFT
-    bg_color_index: int = _DISPLAY_BG_COLOR_INDEX
 
 
 @dataclass(frozen=True)
 class SingleGameUI:
     board_background: NDArray[np.uint8]
 
-    RIGHT_GAP_WIDTH = 4
+    RIGHT_GAP_WIDTH = 2
     RIGHT_ELEMENTS_WIDTH = 6
 
     DISPLAY_GAP_HEIGHT = 1

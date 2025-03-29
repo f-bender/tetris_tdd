@@ -9,7 +9,7 @@ from tetris.ui.cli.color_palette import ColorPalette
 from tetris.ui.cli.vec import Vec
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class Overlay:
     position: Vec
     frame: NDArray[np.uint8]
@@ -24,6 +24,8 @@ class Overlay:
 
 
 class OverlayAnimation(ABC):
+    # 0 stands for transparency, other values for color palette indices
+    # Note: this means color of index 0 can't be in the animation. This is a limitation we accept for now.
     _FRAMES: ClassVar[NDArray[np.uint8]]  # dimensions: (frame, height, width)
 
     @classmethod
