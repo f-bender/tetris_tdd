@@ -1,6 +1,7 @@
 import atexit
 import logging
 import os
+from functools import lru_cache
 from math import ceil
 from typing import TYPE_CHECKING, cast
 
@@ -39,7 +40,6 @@ class CLI(UI):
 
     def __init__(self, color_palette: ColorPalette | None = None, target_aspect_ratio: float = 16 / 9) -> None:
         self._last_image_buffer: NDArray[np.uint8] | None = None
-        # self._last_texts: set[Text] | None = None
         self._last_text_buffer: NDArray[np.str_] | None = None
         self._board_background: NDArray[np.uint8] | None = None
         self._outer_background: NDArray[np.uint8] | None = None
@@ -235,7 +235,7 @@ class CLI(UI):
             ),
         )
 
-    def draw(self, elements: UiElements) -> None:
+    def draw(self, elements: UiElements) -> None:  # noqa: C901, PLR0912
         if self._single_board_ui is None or self._board_ui_offsets is None:
             msg = "board UI not initialized, likely draw() was called before initialize()!"
             raise RuntimeError(msg)
@@ -268,97 +268,90 @@ class CLI(UI):
 
             for text in ui_texts:
                 text.position += offset
-                self._add_text(text, text_buffer)
+                self._add_text(text=text, text_buffer=text_buffer)
 
             for overlay in overlays:
                 overlay.position += offset
             all_overlays.extend(overlays)
 
-        # text_buffer.view(np.uint32)[(text_buffer.view(np.uint32) >= 0x1000)] = 0x00F6
-        # LOGGER.debug(np.unique(text_buffer.view(np.uint32)))
-        # LOGGER.debug(np.max(text_buffer.view(np.uint32)))
-        # LOGGER.debug(
-        #     np.where(np.logical_and((0x1F600 <= text_buffer.view(np.uint32)), (text_buffer.view(np.uint32) <= 0x1F64F)))
-        # )
-        # LOGGER.debug(f"\n{np.array2string(text_buffer.view(np.uint32), threshold=np.inf, max_line_width=np.inf)}")
-
         for overlay in all_overlays:
             self._draw_overlay(overlay=overlay, image_buffer=image_buffer, text_buffer=text_buffer)
 
-        if self._last_image_buffer is None or self._last_text_buffer is None:
-            self._draw_array(top_left=Vec(0, 0), array=image_buffer)
-            for y, x in zip(*np.where(text_buffer), strict=True):
-                self._draw_pixel(Vec(y, x), color_index=int(image_buffer[y, x]), text=cast("str", text_buffer[y, x]))
-        else:
+        if self._last_image_buffer is not None and self._last_text_buffer is not None:
+            # we have a last buffer: only draw where it changed
             for y, x in zip(
                 *np.where((image_buffer != self._last_image_buffer) | (text_buffer != self._last_text_buffer)),
                 strict=True,
             ):
                 self._draw_pixel(Vec(y, x), color_index=int(image_buffer[y, x]), text=cast("str", text_buffer[y, x]))
-
-        # if self._last_texts is None:
-        #     self._draw_texts(texts)
-        # else:
-        #     removed_texts = self._last_texts - texts
-        #     for text in removed_texts:
-        #         text.text = " " * len(text.text)
-        #     self._draw_texts(removed_texts)
-
-        #     new_texts = texts - self._last_texts
-        #     self._draw_texts(new_texts)
+        elif self._last_image_buffer is not None:
+            # we have a last image buffer, but not text: draw where image changed, and where there's any text
+            # (shouldn't realistically ever happen)
+            for y, x in zip(
+                *np.where(np.logical_or((image_buffer != self._last_image_buffer), text_buffer)),
+                strict=True,
+            ):
+                self._draw_pixel(Vec(y, x), color_index=int(image_buffer[y, x]), text=cast("str", text_buffer[y, x]))
+        else:
+            # we have no last buffer: draw the image array (efficiently, whole rows at a time), then redraw any pixels
+            # with text on them
+            # (note: drawing whole rows with text in them breaks the UI when emojis are used in the text)
+            self._draw_array(top_left=Vec(0, 0), array=image_buffer)
+            for y, x in zip(*np.where(text_buffer), strict=True):
+                self._draw_pixel(Vec(y, x), color_index=int(image_buffer[y, x]), text=cast("str", text_buffer[y, x]))
 
         self._last_image_buffer = image_buffer
         self._last_text_buffer = text_buffer
-        # self._last_texts = texts
 
         self._buffered_print.print_and_restart_buffering()
         self._setup_cursor_for_normal_printing(image_height=len(image_buffer))
 
     @staticmethod
     def _add_text(text: Text, text_buffer: NDArray[np.str_]) -> None:
-        min_characters_length = CLI._display_length(text.text)
-        LOGGER.debug(f"{min_characters_length = }")
+        characters, offset = CLI._processed_text_and_offset(text=text.text, alignment=text.alignment)
+        position = text.position - Vec(0, offset)
 
-        if text.alignment is Alignment.RIGHT:
+        text_buffer[position.y, position.x : position.x + ceil(len(characters) / CLI.PIXEL_WIDTH)] = [
+            characters[i : i + CLI.PIXEL_WIDTH] for i in range(0, len(characters), CLI.PIXEL_WIDTH)
+        ]
+
+    @lru_cache
+    @staticmethod
+    def _processed_text_and_offset(text: str, alignment: Alignment) -> tuple[str, int]:
+        # NOTE: this code *does* work with pixel widths other than 2, but looks the best with pixel width = 2
+        min_characters_length = CLI._display_length(text)
+
+        if alignment is Alignment.RIGHT:
             character_offset = min_characters_length
-        elif text.alignment is Alignment.CENTER:
+        elif alignment is Alignment.CENTER:
             character_offset = ceil(min_characters_length / 2)
         else:
             character_offset = 0
 
-        LOGGER.debug(f"{character_offset = }")
         pixel_offset = ceil(character_offset / CLI.PIXEL_WIDTH)
-        LOGGER.debug(f"{pixel_offset = }")
         subpixel_offset = pixel_offset * CLI.PIXEL_WIDTH - character_offset
-        LOGGER.debug(f"{subpixel_offset = }")
-        LOGGER.debug(f"{text.text = }")
-        characters = CLI._pixel_align_emojis(" " * subpixel_offset + text.text)
-        LOGGER.debug(f"{characters = }")
+        characters = CLI._pixel_align_emojis(" " * subpixel_offset + text)
 
-        real_pixel_offset = pixel_offset + round((len(characters) - min_characters_length) / CLI.PIXEL_WIDTH)
-        LOGGER.debug(f"{real_pixel_offset = }")
-        position = text.position - Vec(0, real_pixel_offset)
+        # in case emoji-pixel-alignment has increased the length of `characters`, increase the pixel offset (only full
+        # pixel steps at this point)
+        if alignment is Alignment.RIGHT:
+            real_pixel_offset = pixel_offset + round(
+                (len(characters) - (min_characters_length + subpixel_offset)) / CLI.PIXEL_WIDTH
+            )
+        elif alignment is Alignment.CENTER:
+            real_pixel_offset = pixel_offset + round(
+                (len(characters) - (min_characters_length + subpixel_offset)) / CLI.PIXEL_WIDTH / 2
+            )
+        else:
+            real_pixel_offset = pixel_offset
 
-        # TODO: check via ord(char) > 0x1000 if each character is an emoji
-        # TODO: for each character, pixel-align it on the left side of a pixel, add spaces if necessary
-
-        # if remainder := len(characters) % CLI.PIXEL_
-        #     characters += " " * (CLI.PIXEL_WIDTH - remainder)
-
-        # LOGGER.debug(f"{position.y = }, {position.x = }, {position.x + len(characters) // CLI.PIXEL_WIDTH = }")
-        # LOGGER.debug(f"{characters = }, {len(characters) = }")
-        LOGGER.debug(f"{text_buffer[position.y, position.x : position.x + len(characters) // CLI.PIXEL_WIDTH] = }")
-        LOGGER.debug(f"{[characters[i : i + CLI.PIXEL_WIDTH] for i in range(0, len(characters), CLI.PIXEL_WIDTH)]}")
-        text_buffer[position.y, position.x : position.x + ceil(len(characters) / CLI.PIXEL_WIDTH)] = [
-            characters[i : i + CLI.PIXEL_WIDTH] for i in range(0, len(characters), CLI.PIXEL_WIDTH)
-        ]
+        return characters, real_pixel_offset
 
     @staticmethod
     def _pixel_align_emojis(text: str) -> str:
         result: list[str] = []
 
         for char in text:
-            LOGGER.debug(f"{result = }")
             is_emoji = ord(char) > CLI.EMOJI_THRESHOLD
             if is_emoji and len(result) % CLI.PIXEL_WIDTH == CLI.PIXEL_WIDTH - 1:
                 # if emoji is directly before a pixel border, insert a space to push it over the pixel border
@@ -376,7 +369,8 @@ class CLI(UI):
 
     @staticmethod
     def _display_length(text: str) -> int:
-        return len(text) + sum(1 for char in text if ord(char) > CLI.EMOJI_THRESHOLD)
+        # emojis are displayed with a width of 2
+        return sum(2 if ord(char) > CLI.EMOJI_THRESHOLD else 1 for char in text)
 
     @staticmethod
     def _draw_overlay(overlay: Overlay, image_buffer: NDArray[np.uint8], text_buffer: NDArray[np.str_]) -> None:
@@ -396,47 +390,10 @@ class CLI(UI):
         ys, xs = np.nonzero(overlay.frame)
         text_buffer[ys + overlay.position.y, xs + overlay.position.x] = ""
 
-        # # alternative 1
-        # text_buffer[
-        #     overlay.position.y : overlay.position.y + overlay.height,
-        #     overlay.position.x : overlay.position.x + overlay.width,
-        # ][overlay.frame.view(bool)] = ""
-
-        # # alternative 2
-        # np.copyto(
-        #     text_buffer[
-        #         overlay.position.y : overlay.position.y + overlay.height,
-        #         overlay.position.x : overlay.position.x + overlay.width,
-        #     ],
-        #     "",
-        #     # using view() instead of astype() is an optimization that assumes that the int type of frame is
-        #     # 8 bit wide!
-        #     where=overlay.frame.view(bool),
-        # )
-
-    # def _draw_texts(self, texts: Iterable["Text"]) -> None:
-    #     for text in texts:
-    #         self._draw_text(text)
-
-    # def _draw_text(self, text: "Text") -> None:
-    #     if text.alignment is Alignment.RIGHT:
-    #         character_offset = len(text.text)
-    #     elif text.alignment is Alignment.CENTER:
-    #         character_offset = ceil(len(text.text) / 2)
-    #     else:
-    #         character_offset = 0
-
-    #     pixel_offset = ceil(character_offset / self.PIXEL_WIDTH)
-    #     position = text.position - Vec(0, pixel_offset)
-    #     characters = " " * (pixel_offset * self.PIXEL_WIDTH - character_offset) + text.text
-
-    #     print(self._cursor_goto(position) + self._color_palette[text.bg_color_index] + characters, end="")
-
     def _handle_terminal_size_change(self) -> None:
         if (new_terminal_size := os.get_terminal_size()) != self._last_terminal_size:
             # terminal size changed: redraw everything
             self._last_image_buffer = None
-            # self._last_texts = None
             self._last_text_buffer = None
             self._last_terminal_size = new_terminal_size
             print(cursor.erase(""), end="")
@@ -450,6 +407,7 @@ class CLI(UI):
         print(self._cursor_goto(Vec(image_height, 0)) + color.fx.reset + cursorx.erase_to_end(""))
 
     def _draw_array(self, top_left: Vec, array: NDArray[np.uint8]) -> None:
+        # NOTE: we don't draw text while drawing entire rows at a time since emojis in text can mess up the spacing
         for idx, row in enumerate(array):
             self._draw_array_row(top_left=top_left + Vec(idx, 0), array_row=row)
 
@@ -467,17 +425,3 @@ class CLI(UI):
             + ((text and text.ljust(CLI.PIXEL_WIDTH)) or " " * CLI.PIXEL_WIDTH),
             end="",
         )
-
-    # def _draw_array(self, top_left: Vec, image_array: NDArray[np.uint8], text_array: NDArray[np.str_]) -> None:
-    #     for idx, (image_row, text_row) in enumerate(zip(image_array, text_array, strict=True)):
-    #         self._draw_array_row(top_left=top_left + Vec(idx, 0), array_row=image_row, text_row=text_row)
-
-    # def _draw_array_row(self, top_left: Vec, array_row: NDArray[np.uint8], text_row: NDArray[np.str_]) -> None:
-    #     print(
-    #         self._cursor_goto(top_left)
-    #         + "".join(
-    #             self._color_palette[color_index] + cast("str", text).ljust(self.PIXEL_WIDTH)
-    #             for color_index, text in zip(array_row, text_row, strict=True)
-    #         ),
-    #         end="",
-    #     )
