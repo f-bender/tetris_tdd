@@ -100,7 +100,7 @@ class SingleGameUI:
             self.board_size[1] + self.RIGHT_GAP_WIDTH,
         )
 
-    @property
+    @cached_property
     def mask(self) -> NDArray[np.bool]:
         mask = np.zeros(self.total_size, dtype=np.bool)
 
