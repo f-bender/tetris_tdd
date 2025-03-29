@@ -114,7 +114,7 @@ class HeuristicBotController(Controller, Subscriber):
             symbol = "⚡" + symbol
 
         if self._process_pool:
-            symbol = symbol + "⚡"
+            symbol = symbol + "🏊"
 
         return symbol
 
