@@ -34,7 +34,7 @@ class CLI(UI):
     PIXEL_WIDTH = 2  # how many terminal characters together form one pixel
     FRAME_WIDTH = 8  # width of the static frame around the board, in pixels
 
-    EMOJI_THRESHOLD = 0x1000  # characters with unicodes higher than this are considered emojis
+    EMOJI_THRESHOLD = 0x2500  # characters with unicodes higher than this are considered emojis
 
     MAX_BOARDS_SINGLE_ROW = 3
 
