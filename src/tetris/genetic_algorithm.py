@@ -91,8 +91,8 @@ class GeneticAlgorithm[T]:
             self._survival_rate: Fraction of the population that should survive. Must be in the range [0, 1].
             self._elitism_factor: How much to favor the best individuals.
                 A factor of 0 means that all individuals have the same chance of surviving.
-                A very factor of `inf` means that exactly the best `round(survival_rate * len(self._population))`
-                individuals survive.
+                A factor of `inf` means that exactly the best `round(survival_rate * len(self._population))` individuals
+                survive.
                 A factor of < 0 is not recommended and will lead to less fit individuals having a higher chance of
                 surviving.
         """

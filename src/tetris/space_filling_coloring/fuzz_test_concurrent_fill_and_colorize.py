@@ -18,12 +18,9 @@ from tetris.space_filling_coloring.tetromino_space_filler import TetrominoSpaceF
 
 
 class TestConfig(NamedTuple):
-    main_rng_seed: int
     fill_and_colorize_rng_seed: int
     minimum_separation_steps: int
-    size_limits: tuple[tuple[int, int], tuple[int, int]]
     size: tuple[int, int]
-    max_holes: int
     holes: list[tuple[int, int, int, int]]
     inverted: bool = False
 
@@ -58,12 +55,9 @@ class TestConfig(NamedTuple):
                 holes.append((y1, x1, y2, x2))
 
             config = cls(
-                main_rng_seed=main_rng_seed,
                 fill_and_colorize_rng_seed=fill_and_colorize_rng_seed,
                 minimum_separation_steps=minimum_separation_steps,
-                size_limits=size_limits,
                 size=size,
-                max_holes=max_holes,
                 holes=holes,
                 inverted=inverted,
             )

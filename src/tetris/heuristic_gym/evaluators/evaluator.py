@@ -17,9 +17,9 @@ from tetris.game_logic.rules.core.spawn_drop_merge.spawn import SpawnStrategyImp
 from tetris.game_logic.rules.core.spawn_drop_merge.spawn_drop_merge_rule import SpawnDropMergeRule
 from tetris.game_logic.rules.core.spawn_drop_merge.speed import SpeedStrategyImpl
 from tetris.game_logic.rules.monitoring.track_score_rule import TrackScoreRule
-from tetris.heuristic_bot_gym.evaluator import Evaluator
-from tetris.heuristic_bot_gym.evaluators.runners.parallel import ParallelRunner
-from tetris.heuristic_bot_gym.evaluators.runners.synchronous import SynchronousRunner
+from tetris.heuristic_gym.evaluator import Evaluator
+from tetris.heuristic_gym.evaluators.runners.parallel import ParallelRunner
+from tetris.heuristic_gym.evaluators.runners.synchronous import SynchronousRunner
 
 LOGGER = logging.getLogger(__name__)
 
@@ -67,8 +67,10 @@ class EvaluatorImpl(Evaluator):
         self,
         *,
         board_size: tuple[int, int] = (20, 10),
-        max_evaluation_frames: int = 100_000,
-        block_selection_fn_from_seed: Callable[[int], Callable[[], Block]] = SpawnStrategyImpl.truly_random_select_fn,
+        max_evaluation_frames: int = 1_000_000,
+        block_selection_fn_from_seed: Callable[
+            [int], Callable[[], Block]
+        ] = SpawnStrategyImpl.truly_random_selection_fn,
         runner: SynchronousRunner | ParallelRunner | RunnerConfig | None = None,
     ) -> None:
         """Initialize the evaluator.
@@ -101,7 +103,7 @@ class EvaluatorImpl(Evaluator):
             "board_size": self._board_size,
             "max_evaluation_frames": self._max_evaluation_frames,
             "block_selection_fn_from_seed": self._block_selection_fn_from_seed,
-            "runner_config": {
+            "runner": {
                 "cls": type(self._runner),
                 "params": self._runner.config,
             },

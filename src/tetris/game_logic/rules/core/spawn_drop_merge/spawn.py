@@ -65,8 +65,8 @@ class SpawnStrategyImpl(Publisher):
 
     @classmethod
     def truly_random(cls, seed: int | None = None) -> "SpawnStrategyImpl":
-        return cls(select_block_fn=cls.truly_random_select_fn(seed))
+        return cls(select_block_fn=cls.truly_random_selection_fn(seed))
 
     @staticmethod
-    def truly_random_select_fn(seed: int | None = None) -> Callable[[], Block]:
+    def truly_random_selection_fn(seed: int | None = None) -> Callable[[], Block]:
         return partial(Block.create_random, rng=random.Random(seed))

@@ -32,11 +32,11 @@ LOGGER = logging.getLogger(__name__)
 
 class CLI(UI):
     PIXEL_WIDTH = 2  # how many terminal characters together form one pixel
-    FRAME_WIDTH = 8  # width of the static frame around the board, in pixels
+    FRAME_WIDTH = 8  # width of the static frame around and between the single games' UIs, in pixels
 
     EMOJI_THRESHOLD = 0x2500  # characters with unicodes higher than this are considered emojis
 
-    MAX_BOARDS_SINGLE_ROW = 3
+    MAX_GAMES_SINGLE_ROW = 3
 
     def __init__(self, color_palette: ColorPalette | None = None, target_aspect_ratio: float = 16 / 9) -> None:
         self._last_image_buffer: NDArray[np.uint8] | None = None
@@ -44,8 +44,8 @@ class CLI(UI):
         self._board_background: NDArray[np.uint8] | None = None
         self._outer_background: NDArray[np.uint8] | None = None
 
-        self._single_board_ui: SingleGameUI | None = None
-        self._board_ui_offsets: list[Vec] | None = None
+        self._single_game_ui: SingleGameUI | None = None
+        self._game_ui_offsets: list[Vec] | None = None
 
         self._color_palette = color_palette or ColorPalette.from_rgb(
             **{f"outer_bg_progress_{i}": (127 + 10 * (i - 5),) * 3 for i in range(1, 11)},  # type: ignore[arg-type]
@@ -87,7 +87,8 @@ class CLI(UI):
             msg = "num_boards must be greater than 0"
             raise ValueError(msg)
 
-        self._single_board_ui = SingleGameUI(self._create_board_background(board_height, board_width))
+        # TODO move board background creation into single game ui
+        self._single_game_ui = SingleGameUI(self._create_board_background(board_height, board_width))
         self._initialize_board_ui_offsets(num_boards)
         self._initialize_terminal()
 
@@ -99,40 +100,40 @@ class CLI(UI):
 
         return board_background
 
-    def _initialize_board_ui_offsets(self, num_boards: int) -> None:
-        assert self._single_board_ui is not None
+    def _initialize_board_ui_offsets(self, num_games: int) -> None:
+        assert self._single_game_ui is not None
 
-        board_ui_height, board_ui_width = self._single_board_ui.total_size
+        game_ui_height, game_ui_width = self._single_game_ui.total_size
 
-        num_rows, num_cols = self._compute_num_rows_cols(num_boards)
+        num_rows, num_cols = self._compute_num_rows_cols(num_games)
 
-        self._board_ui_offsets = [
+        self._game_ui_offsets = [
             Vec(
-                self.FRAME_WIDTH + y * (board_ui_height + self.FRAME_WIDTH),
-                self.FRAME_WIDTH + x * (board_ui_width + self.FRAME_WIDTH),
+                self.FRAME_WIDTH + y * (game_ui_height + self.FRAME_WIDTH),
+                self.FRAME_WIDTH + x * (game_ui_width + self.FRAME_WIDTH),
             )
             for y in range(num_rows)
             for x in range(num_cols)
-            if y * num_cols + x < num_boards
+            if y * num_cols + x < num_games
         ]
 
     def _create_outer_background_mask(self) -> NDArray[np.bool]:
-        if self._board_ui_offsets is None or self._single_board_ui is None:
+        if self._game_ui_offsets is None or self._single_game_ui is None:
             msg = "board UI not initialized, likely initialize() was not called before advance_startup()!"
             raise RuntimeError(msg)
 
-        board_ui_height, board_ui_width = self._single_board_ui.total_size
-        total_height = max(offset.y for offset in self._board_ui_offsets) + board_ui_height + self.FRAME_WIDTH
-        total_width = max(offset.x for offset in self._board_ui_offsets) + board_ui_width + self.FRAME_WIDTH
+        board_ui_height, board_ui_width = self._single_game_ui.total_size
+        total_height = max(offset.y for offset in self._game_ui_offsets) + board_ui_height + self.FRAME_WIDTH
+        total_width = max(offset.x for offset in self._game_ui_offsets) + board_ui_width + self.FRAME_WIDTH
 
         outer_background_mask = np.ones((total_height, total_width), dtype=np.bool)
 
         # cut out the board UIs from the outer background
-        for offset in self._board_ui_offsets:
+        for offset in self._game_ui_offsets:
             outer_background_mask[
                 offset.y : offset.y + board_ui_height,
                 offset.x : offset.x + board_ui_width,
-            ] = ~self._single_board_ui.mask
+            ] = ~self._single_game_ui.mask
 
         # make sure the size of the space to be filled is divisible by 4 (otherwise it can't be filed with tetrominos)
         match int(np.sum(outer_background_mask) % 4):
@@ -148,33 +149,33 @@ class CLI(UI):
 
         return outer_background_mask
 
-    def _compute_num_rows_cols(self, num_boards: int) -> tuple[int, int]:
-        assert self._single_board_ui is not None
+    def _compute_num_rows_cols(self, num_games: int) -> tuple[int, int]:
+        assert self._single_game_ui is not None
 
-        board_height, board_width = self._single_board_ui.board_size
-        height_added_per_board = board_height + self.FRAME_WIDTH
-        width_added_per_board = board_width + self.FRAME_WIDTH
+        single_game_ui_height, single_game_ui_width = self._single_game_ui.total_size
+        height_added_per_game = single_game_ui_height + self.FRAME_WIDTH
+        width_added_per_game = single_game_ui_width + self.FRAME_WIDTH
 
         # solution from WolframAlpha, prompted with
         # `(c * w + f) / (r * h + f) = a, r * c = n, solve for r, c`
-        # where c: num_cols, w: width_added_per_board, f: frame_width, r: num_rows, h: height_added_per_board,
-        #       a: target_aspect_ratio, n: num_boards
+        # where c: num_cols, w: width_added_per_game, f: frame_width, r: num_rows, h: height_added_per_game,
+        #       a: target_aspect_ratio, n: num_games
         # (`ceil` added myself to make it integers)
         num_cols = ceil(
             (
                 (
                     (self._target_aspect_ratio - 1) ** 2 * self.FRAME_WIDTH**2
-                    + 4 * self._target_aspect_ratio * height_added_per_board * num_boards * width_added_per_board
+                    + 4 * self._target_aspect_ratio * height_added_per_game * num_games * width_added_per_game
                 )
                 ** 0.5
                 + (self._target_aspect_ratio - 1) * self.FRAME_WIDTH
             )
-            / (2 * width_added_per_board)
+            / (2 * width_added_per_game)
         )
-        num_rows = ceil(num_boards / num_cols)
+        num_rows = ceil(num_games / num_cols)
 
         # reduce the number of columns, as long as this doesn't increase the required number of rows
-        while num_cols > 1 and ceil(num_boards / (num_cols - 1)) == num_rows:
+        while num_cols > 1 and ceil(num_games / (num_cols - 1)) == num_rows:
             num_cols -= 1
 
         return num_rows, num_cols
@@ -236,8 +237,8 @@ class CLI(UI):
         )
 
     def draw(self, elements: UiElements) -> None:  # noqa: C901, PLR0912
-        if self._single_board_ui is None or self._board_ui_offsets is None:
-            msg = "board UI not initialized, likely draw() was called before initialize()!"
+        if self._single_game_ui is None or self._game_ui_offsets is None:
+            msg = "game UI not initialized, likely draw() was called before initialize()!"
             raise RuntimeError(msg)
         if not self._buffered_print.is_active():
             msg = "buffered printing not active, likely draw() was called before initialize()!"
@@ -256,14 +257,14 @@ class CLI(UI):
         text_buffer: NDArray[np.str_] = np.zeros_like(image_buffer, dtype=f"U{self.PIXEL_WIDTH}")
         all_overlays: list[Overlay] = []
 
-        board_ui_height, board_ui_width = self._single_board_ui.total_size
-        for single_ui_elements, offset in zip(elements.games, self._board_ui_offsets, strict=True):
-            ui_array, ui_texts, overlays = self._single_board_ui.create_array_texts_animations(single_ui_elements)
+        single_game_ui_height, single_game_ui_width = self._single_game_ui.total_size
+        for single_ui_elements, offset in zip(elements.games, self._game_ui_offsets, strict=True):
+            ui_array, ui_texts, overlays = self._single_game_ui.create_array_texts_animations(single_ui_elements)
 
             np.copyto(
-                image_buffer[offset.y : offset.y + board_ui_height, offset.x : offset.x + board_ui_width],
+                image_buffer[offset.y : offset.y + single_game_ui_height, offset.x : offset.x + single_game_ui_width],
                 ui_array,
-                where=self._single_board_ui.mask,
+                where=self._single_game_ui.mask,
             )
 
             for text in ui_texts:
@@ -399,9 +400,9 @@ class CLI(UI):
             print(cursor.erase(""), end="")
 
     def _setup_cursor_for_normal_printing(self, image_height: int) -> None:
-        """Move the cursor below the board, clear any colors, and erase anything below the board.
+        """Move the cursor below the UI, clear any colors, and erase anything below the UI.
 
-        This allows usage of print outside the class in a well-defined manner, appearing below the board and being reset
+        This allows usage of print outside the class in a well-defined manner, appearing below the UI and being reset
         every after every call to this function.
         """
         print(self._cursor_goto(Vec(image_height, 0)) + color.fx.reset + cursorx.erase_to_end(""))

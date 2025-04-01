@@ -4,19 +4,16 @@ import pickle
 import random
 import re
 from collections.abc import Iterable
-from datetime import datetime
 from pathlib import Path
 from pprint import pformat
 from typing import ClassVar
-from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
 
 from tetris.controllers.heuristic_bot.heuristic import Heuristic
-from tetris.heuristic_bot_gym.evaluator import Evaluator
-from tetris.heuristic_bot_gym.evaluators.evaluator import EvaluatorImpl
-from tetris.logging_config import configure_logging
+from tetris.heuristic_gym.evaluator import Evaluator
+from tetris.heuristic_gym.evaluators.evaluator import EvaluatorImpl
 
 LOGGER = logging.getLogger(__name__)
 
@@ -139,9 +136,9 @@ class DetailedHeuristicEvaluator:
 
         for _, row in report_df.iterrows():
             self.evaluate(
-                self._literal_eval_heuristic(row["heuristic"]),
+                Heuristic.from_repr(row["heuristic"]),
                 extra_info={
-                    **(ast.literal_eval(row["extra_info"]) if pd.notna(row["extra_info"]) else {}),
+                    "previous_extra_info": ast.literal_eval(row["extra_info"]) if pd.notna(row["extra_info"]) else None,
                     "previous_mean_score": row["mean_score"],
                     "previous_median_score": row["median_score"],
                     "previous_max_score": row["max_score"],
@@ -160,56 +157,3 @@ class DetailedHeuristicEvaluator:
 
         LOGGER.info("Evaluating top performers:\n%s", reevaluate_df[[*performance_columns, "heuristic", "extra_info"]])
         self.reevaluate_from_report(reevaluate_df)
-
-    @staticmethod
-    def _literal_eval_heuristic(heuristic_repr: str) -> Heuristic:
-        """Functionally equivalent to `eval(heuristic_repr)` but without the security risk."""
-        heuristic_dict_literal = (
-            heuristic_repr.replace("Heuristic(", "{'").replace(")", "}").replace("=", "':").replace(", ", ", '")
-        )
-        return Heuristic(**ast.literal_eval(heuristic_dict_literal))
-
-
-# this should obviously moved out of here eventually
-def main() -> None:
-    configure_logging()
-
-    DetailedHeuristicEvaluator().evaluate_from_checkpoints(
-        sorted(
-            (
-                checkpoint
-                for checkpoint in (Path(__file__).parent / "reports" / ".checkpoints").glob("**/*.pkl")
-                if checkpoint.is_file()
-                and datetime.fromtimestamp(checkpoint.stat().st_mtime, tz=ZoneInfo("Europe/Berlin"))
-                > datetime(2025, 2, 9, 0, 45, tzinfo=ZoneInfo("Europe/Berlin"))
-                and "10x10" not in str(checkpoint)
-            ),
-            key=lambda file: file.stat().st_mtime,
-            reverse=True,
-        )
-    )
-
-    DetailedHeuristicEvaluator(
-        num_games=200,
-        seed=13,
-        evaluator=EvaluatorImpl(board_size=(15, 10), max_evaluation_frames=1_000_000),
-        report_file=Path(__file__).parent / "reports" / "best_more_detailed.csv",
-    ).reevaluate_top_performers(pd.read_csv(Path(__file__).parent / "reports" / "report.csv"), top_k=10)
-
-    DetailedHeuristicEvaluator(
-        num_games=200,
-        seed=69,
-        evaluator=EvaluatorImpl(board_size=(20, 10), max_evaluation_frames=1_000_000),
-        report_file=Path(__file__).parent / "reports" / "best_more_detailed_on_20x10.csv",
-    ).reevaluate_top_performers(pd.read_csv(Path(__file__).parent / "reports" / "best_more_detailed.csv"), top_k=3)
-
-    DetailedHeuristicEvaluator(
-        num_games=200,
-        seed=69,
-        evaluator=EvaluatorImpl(board_size=(20, 10), max_evaluation_frames=1_000_000),
-        report_file=Path(__file__).parent / "reports" / "best_more_detailed_on_20x10.csv",
-    ).reevaluate_from_report(pd.read_csv(Path(__file__).parent / "reports" / "best_on_20x10.csv"))
-
-
-if __name__ == "__main__":
-    main()

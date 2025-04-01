@@ -11,8 +11,8 @@ from typing import Any, BinaryIO
 from tetris import logging_config
 from tetris.controllers.heuristic_bot.heuristic import Heuristic, mutated_heuristic
 from tetris.genetic_algorithm import GeneticAlgorithm
-from tetris.heuristic_bot_gym.evaluator import Evaluator
-from tetris.heuristic_bot_gym.evaluators.evaluator import EvaluatorImpl
+from tetris.heuristic_gym.evaluator import Evaluator
+from tetris.heuristic_gym.evaluators.evaluator import EvaluatorImpl
 from tetris.utils import deep_merge
 
 LOGGER = logging.getLogger(__name__)

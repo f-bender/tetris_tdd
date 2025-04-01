@@ -75,7 +75,14 @@ class SingleGameUI:
     @cached_property
     def total_size(self) -> tuple[int, int]:
         return (
-            max(self.board_size[0], self.SCORE_HEIGHT + self.DISPLAY_GAP_HEIGHT + self.NEXT_BLOCK_HEIGHT),
+            max(
+                self.board_size[0],
+                self.CONTROLLER_SYMBOL_HEIGHT
+                + self.DISPLAY_GAP_HEIGHT
+                + self.SCORE_HEIGHT
+                + self.DISPLAY_GAP_HEIGHT
+                + self.NEXT_BLOCK_HEIGHT,
+            ),
             self.board_size[1] + self.RIGHT_GAP_WIDTH + self.RIGHT_ELEMENTS_WIDTH,
         )
 

@@ -1,6 +1,7 @@
 """An automated controller that uses a heuristic approach to try and fit the current block into the optimal position."""
 
-from typing import NamedTuple
+import ast
+from typing import NamedTuple, Self
 
 import numpy as np
 from numpy.typing import NDArray
@@ -37,6 +38,17 @@ class Heuristic(NamedTuple):
     sum_of_adjacent_height_differences_weight: float = 2.9046525787750297
 
     close_to_top_threshold: int = 2
+
+    @classmethod
+    def from_repr(cls, heuristic_repr: str) -> Self:
+        """Functionally equivalent to `eval(heuristic_repr)` but without the security risk."""
+        if heuristic_repr == f"{cls.__name__}()":
+            return cls()
+
+        heuristic_dict_literal = (
+            heuristic_repr.replace(f"{cls.__name__}(", "{'").replace(")", "}").replace("=", "':").replace(", ", ", '")
+        )
+        return cls(**ast.literal_eval(heuristic_dict_literal))
 
     def loss(self, board: Board) -> float:
         """Compute a measure of how bad a board is."""
