@@ -36,7 +36,7 @@ class Board:
     @classmethod
     def create_empty(cls, height: int, width: int) -> Self:
         board = cls()
-        board._board = np.zeros((height, width), dtype=np.uint8)  # noqa: SLF001
+        board._board = np.zeros((height, width), dtype=np.uint8)
         return board
 
     @classmethod
@@ -61,7 +61,7 @@ class Board:
             _board.append([c == "X" for c in line])
 
         board = cls()
-        board._board = np.array(_board, dtype=np.uint8)  # noqa: SLF001
+        board._board = np.array(_board, dtype=np.uint8)
         return board
 
     def set_from_other(self, other: Self) -> None:

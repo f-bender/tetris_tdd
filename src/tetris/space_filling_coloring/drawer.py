@@ -33,7 +33,7 @@ def draw_full_array_raw(array: NDArray[np.int32], *, rgb_range: tuple[int, int] 
     for row in array:
         print(
             "".join(
-                _ansi_color_for(int(val), rgb_range=rgb_range) + (f"{val%100:>2}" if draw_value else "  ")
+                _ansi_color_for(int(val), rgb_range=rgb_range) + (f"{val % 100:>2}" if draw_value else "  ")
                 for val in row
             )
         )
@@ -47,7 +47,7 @@ def _draw_differences(
         print(cursor.goto(y + 1, x * 2 + 1), end="")
         print(
             _ansi_color_for(val := int(array[y, x]), rgb_range=rgb_range)
-            + (f"{val%100:>2}" if draw_value else "  ")
+            + (f"{val % 100:>2}" if draw_value else "  ")
             + color.fx.reset,
             end="",
         )

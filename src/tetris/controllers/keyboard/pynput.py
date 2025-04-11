@@ -101,7 +101,7 @@ class PynputKeyboardController(Controller):
         key = self._listener.canonical(key)
 
         if isinstance(key, keyboard.Key):
-            key = cast(keyboard.KeyCode, key.value)
+            key = cast("keyboard.KeyCode", key.value)
 
         return key
 
