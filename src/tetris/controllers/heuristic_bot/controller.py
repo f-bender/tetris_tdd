@@ -126,6 +126,14 @@ class HeuristicBotController(Controller, Subscriber):
     def is_using_process_pool(self) -> bool:
         return self._process_pool is not None
 
+    @property
+    def process_pool(self) -> ProcessPoolExecutor | None:
+        return self._process_pool
+
+    @process_pool.setter
+    def process_pool(self, process_pool: ProcessPoolExecutor) -> None:
+        self._process_pool = process_pool
+
     def should_be_subscribed_to(self, publisher: Publisher) -> bool:
         return isinstance(publisher, SpawnStrategyImpl) and publisher.game_index == self.game_index
 

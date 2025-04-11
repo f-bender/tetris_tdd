@@ -1,10 +1,12 @@
 import logging
+import re
 import time
 from functools import partial
 
 import click
 import numpy as np
 
+from tetris.cli.common import BoardSize
 from tetris.cli.helpers import generate_space, parse_holes
 from tetris.space_filling_coloring import drawer
 from tetris.space_filling_coloring.concurrent_fill_and_colorize import fill_and_colorize
@@ -14,16 +16,44 @@ from tetris.space_filling_coloring.tetromino_space_filler import NotFillableErro
 
 LOGGER = logging.getLogger(__name__)
 
-# TODO refine fuzz_test_concurrent_fill_and_colorize.py into a more generic module that lets you define spaces to be
-# filled and/or colorized, and have the fuzz-test entrypoint be THIS here instead of the current fuzz_test file
-# which shall be renamed after being made more general)
-# Note: maybe (probably) still okay to have a fuzz_test function in that module that is called from here
+# TODO turn fuzz_test_....py into a more general module used for filling and/or colorizing a space
+
+
+class Hole(click.ParamType):
+    name = "hole"
+
+    _REGEX = r"^(\d+),(\d+)-(\d+),(\d+)$"
+
+    def convert(
+        self,
+        value: str,
+        param: click.Parameter | None,  # noqa: ARG002
+        ctx: click.Context | None,  # noqa: ARG002
+    ) -> tuple[tuple[int, int], tuple[int, int]]:
+        match = re.match(self._REGEX, value)
+        if not match:
+            msg = "Expected two 2D points in the format 'y1,x1-y2,x2', e.g. '30,50-40,60'."
+            raise click.BadParameter(msg)
+
+        y1, x1, y2, x2 = map(int, match.groups())
+
+        return (y1, x1), (y2, x2)
 
 
 @click.command()
-@click.option("--width", type=int, required=True, help="Width of the space.")
-@click.option("--height", type=int, required=True, help="Height of the space.")
-@click.option("--holes", type=str, default=None, help='Define holes as "y1,x1,y2,x2;y1,x1,y2,x2;...".')
+@click.option(
+    "--size",
+    type=BoardSize(),
+    default=None,
+    help="Size of the space (height and width separated by 'x'). Defaults to the size of the terminal.",
+)
+@click.option(
+    "--hole",
+    "-h",
+    type=Hole(),
+    multiple=True,
+    help="Hole in the space (not to be filled), specified as 'y1,x1-y2,x2'. Can be provided multiple times.",
+)
 @click.option("--inverted", is_flag=True, default=False, help="Invert space (fill around holes).")
 @click.option("--seed", type=int, default=None, help="Seed for RNG during filling/coloring.")
 @click.option("--use-rng/--no-rng", default=True, show_default=True, help="Use randomness.")

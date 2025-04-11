@@ -1,7 +1,6 @@
 from typing import NamedTuple
 
 from tetris.game_logic.interfaces.callback import Callback
-from tetris.game_logic.interfaces.dependency_manager import DependencyManager
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.game_logic.rules.board_manipulations.clear_lines import ClearFullLines
 from tetris.game_logic.rules.messages import FinishedLineClearMessage
@@ -12,23 +11,19 @@ class ScoreMessage(NamedTuple):
     high_score: int
 
 
-class TrackScoreRule(Callback, Publisher, Subscriber):
-    def __init__(self, header: str | None = None) -> None:
+class ScoreTracker(Callback, Publisher, Subscriber):
+    def __init__(self) -> None:
         super().__init__()
 
         self._score = 0
         self._high_score = 0
-        self._header = header
 
     @property
     def score(self) -> int:
         return self._score
 
     def should_be_called_by(self, game_index: int) -> bool:
-        return game_index in (
-            DependencyManager.RUNTIME_INDEX,  # runtime: for on_frame_start
-            self.game_index,  # own game: for on_game_start
-        )
+        return game_index == self.game_index  # own game: for on_game_start
 
     def should_be_subscribed_to(self, publisher: Publisher) -> bool:
         return isinstance(publisher, ClearFullLines) and publisher.game_index == self.game_index

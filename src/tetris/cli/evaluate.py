@@ -16,7 +16,12 @@ LOGGER = logging.getLogger(__name__)
 @click.group()
 @click.option("--seed", type=int, default=42, show_default=True, help="Seed for evaluation randomness.")
 @click.option(
-    "--num-games", type=click.IntRange(min=1), default=50, show_default=True, help="Number of games for evaluation."
+    "--num-games",
+    "-n",
+    type=click.IntRange(min=1),
+    default=50,
+    show_default=True,
+    help="Number of games for evaluation.",
 )
 @evaluator_options()
 @click.option(

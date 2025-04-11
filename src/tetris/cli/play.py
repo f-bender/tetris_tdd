@@ -1,176 +1,331 @@
-# commands/play.py
+import contextlib
 import logging
+import random
+from collections.abc import Callable
+from concurrent.futures import ProcessPoolExecutor
+from typing import TYPE_CHECKING, Literal
 
 import click
 
-# --- Assuming your project structure allows these imports ---
-from tetris.cli.helpers import (
-    create_rules_and_callbacks_for_game,
-    get_available_controller_specs,
-    manage_process_pool,
-    parse_and_create_controllers,
-)
+from tetris.cli.common import BoardSize
 from tetris.clock.simple import SimpleClock
+from tetris.controllers.heuristic_bot.controller import HeuristicBotController
 from tetris.controllers.keyboard.pynput import PynputKeyboardController
 from tetris.game_logic.components import Board
+from tetris.game_logic.components.block import Block
 from tetris.game_logic.game import Game
+from tetris.game_logic.interfaces.callback import Callback
 from tetris.game_logic.interfaces.controller import Controller
 from tetris.game_logic.interfaces.dependency_manager import DEPENDENCY_MANAGER, DependencyManager
+from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
+from tetris.game_logic.interfaces.rule_sequence import RuleSequence
+from tetris.game_logic.rules.core.move_rotate_rules import MoveRule, RotateRule
+from tetris.game_logic.rules.core.spawn_drop_merge.spawn import SpawnStrategyImpl
+from tetris.game_logic.rules.core.spawn_drop_merge.spawn_drop_merge_rule import SpawnDropMergeRule
 from tetris.game_logic.rules.monitoring.track_performance_rule import TrackPerformanceCallback
+from tetris.game_logic.rules.monitoring.track_score_rule import ScoreTracker
+from tetris.game_logic.rules.multiplayer.tetris99_rule import Tetris99Rule
 from tetris.game_logic.runtime import Runtime
 from tetris.ui.cli import CLI
 
-# --- Constants ---
+if TYPE_CHECKING:
+    from tetris.game_logic.interfaces.rule import Rule
+
 LOGGER = logging.getLogger(__name__)
-DEFAULT_FPS = 60.0
-FUZZ_TEST_FPS = 100000.0  # Effectively unlimited
-DEFAULT_SPAWN_DELAY = 0
-DEFAULT_BOARD_WIDTH = 10
-DEFAULT_BOARD_HEIGHT = 20
+
+type ControllerParameter = Literal["arrows", "wasd", "vim", "bot", "gamepad"]
 
 
 @click.command()
-@click.option("-n", "--num-games", type=int, default=1, show_default=True, help="Number of concurrent games.")
+@click.option(
+    "-n",
+    "--num-games",
+    type=click.IntRange(min=1),
+    default=None,
+    help=(
+        "Number of games. If controllers are specified, it defaults to the number of specified controllers. If higher "
+        "than the number of controllers, the remaining number of games is filled up with bot controllers."
+    ),
+)
 @click.option(
     "-c",
-    "--controllers",
+    "--controller",
+    type=click.Choice(["arrows", "wasd", "vim", "bot", "gamepad"], case_sensitive=False),
     multiple=True,
-    help=f"Controller types (space-separated). Choices: {', '.join(get_available_controller_specs())}. Defaults based on num_games.",
+    help=(
+        "Controller(s) to use. "
+        "Case 1: --num-games is not specified: "
+        "If specified, it determines the number of games and their controllers. If not specified, a single game with "
+        "keyboard controller is created. "
+        "Case 2: --num-games is specified: "
+        "If specified once, all games will use that same controller. If specified multiple times, specifies the first "
+        "N games' controllers, with the rest being filled up with bots. If not specified, all available keyboard and "
+        "gamepad controllers are used, and the rest of games are filled up with bots. "
+        "Note: 'gamepad' can be specified more than once if and only if more than one gamepad is connected."
+    ),
 )
 @click.option(
-    "--use-tetris99/--no-tetris99", default=True, show_default=True, help="Enable/disable Tetris99 attack rules."
+    "--tetris99/--no-tetris99", default=False, show_default=True, help="Enable/disable Tetris99 attack rules."
 )
 @click.option(
-    "--bot-process-pool/--no-bot-process-pool",
+    "--process-pool/--no-process-pool",
     default=True,
     show_default=True,
-    help="Use a process pool for Bot controllers.",
+    help=(
+        "Whether to use a process pool for Bot controllers, speeding up their planning, giving them a higher chance "
+        "to react in time."
+    ),
 )
 @click.option(
-    "--bot-ensure-consistent/--no-bot-ensure-consistent",
-    default=False,
+    "--fps",
+    type=click.FloatRange(min=0, min_open=True),
+    default=60,
     show_default=True,
-    help="Ensure consistent bot behavior with process pool (can be slower).",
+    help=(
+        "Target frames per second. "
+        "Note that the game is designed with 60 FPS in mind and increasing FPS speeds up gameplay."
+    ),
 )
-@click.option("--fps", type=float, default=DEFAULT_FPS, show_default=True, help="Target frames per second.")
 @click.option(
-    "--spawn-delay",
-    type=int,
-    default=DEFAULT_SPAWN_DELAY,
+    "--board-size",
+    type=BoardSize(),
+    default="20x10",
     show_default=True,
-    help="Frames after merge before next spawn.",
-)
-@click.option("--seed", type=int, default=None, help="Master seed for block generation (for reproducibility).")
-@click.option(
-    "--board-width", type=int, default=DEFAULT_BOARD_WIDTH, show_default=True, help="Width of the game board."
+    help="Height and width of the tetris board, separated by 'x' (same for all games).",
 )
 @click.option(
-    "--board-height", type=int, default=DEFAULT_BOARD_HEIGHT, show_default=True, help="Height of the game board."
+    "--block-selection",
+    type=click.Choice(["truly_random", "from_shuffled_bag"]),
+    default="truly_random",
+    show_default=True,
+    help="How to choose blocks to spawn.",
 )
 @click.option(
-    "--fuzz-test",
-    is_flag=True,
-    default=False,
-    help="Run in high-speed fuzz testing mode (bots, high FPS, process pool).",
+    "--seed",
+    type=str,
+    multiple=True,
+    help=(
+        "Seed for block spawning algorithm. If provided once, all games use that same seed. If provided multiple "
+        "times, the number of seeds must match with the number of games (specified via --num-games of the number of "
+        "--controllers), and each game gets the respective specified seed. If not provided, a random seed is "
+        "used for each game."
+    ),
 )
-def play(
-    num_games: int,
-    controllers: tuple[str, ...],
-    use_tetris99: bool,
-    bot_process_pool: bool,
-    bot_ensure_consistent: bool,
+def play(  # noqa: PLR0913
+    *,
+    num_games: int | None,
+    controller: tuple[ControllerParameter, ...],
+    tetris99: bool,
+    process_pool: bool,
     fps: float,
-    spawn_delay: int,
-    seed: int | None,
-    board_width: int,
-    board_height: int,
-    fuzz_test: bool,
+    board_size: tuple[int, int],
+    seed: tuple[str, ...],
+    block_selection: Literal["truly_random", "from_shuffled_bag"],
 ) -> None:
     """Play Tetris with configurable rules and controllers."""
-    active_controllers = controllers
-    active_fps = fps
-    active_bot_process_pool = bot_process_pool
+    boards, controllers = _create_boards_and_controllers(
+        board_size=board_size, num_games_parameter=num_games, controllers_parameter=controller
+    )
+    any_bots = any(isinstance(controller, HeuristicBotController) for controller in controllers)
 
-    if fuzz_test:
-        LOGGER.warning("Running in FUZZ TEST mode!")
-        active_controllers = ("bot",) * num_games
-        active_fps = FUZZ_TEST_FPS
-        active_bot_process_pool = True  # Force process pool for fuzz testing
-        # Keep other settings like tetris99 as per user flag or default
+    seeds = _create_seeds(seed_parameters=seed, num_games=len(boards))
+    block_selection_fns = [getattr(SpawnStrategyImpl, f"{block_selection}_selection_fn")(seed) for seed in seeds]
+    # block_selection_fns = [lambda: Block(BlockType.I) for seed in seeds]
 
-    # --- Setup ---
-    DEPENDENCY_MANAGER.reset()
-    LOGGER.info("Starting game setup for %d game(s).", num_games)
-    boards = [Board.create_empty(board_height, board_width) for _ in range(num_games)]
+    # note: max_workers defaults to number of processors
+    with ProcessPoolExecutor() if process_pool and any_bots else contextlib.nullcontext() as process_pool_or_none:
+        # If process pool is used, set the process pool for all HeuristicBotControllers
+        if process_pool_or_none:
+            for controller_ in controllers:
+                if isinstance(controller_, HeuristicBotController):
+                    controller_.process_pool = process_pool_or_none
 
-    # Manage process pool context
-    pool_manager = manage_process_pool(active_bot_process_pool)
-    try:
-        with pool_manager as process_pool_instance:  # Enter the context
-            # Create controllers
-            controller_instances = parse_and_create_controllers(
-                active_controllers,
-                num_games,
-                boards,
-                use_process_pool=active_bot_process_pool,
-                ensure_consistent=bot_ensure_consistent,
-                process_pool_instance=process_pool_instance,
-            )
+        games = _create_games(
+            boards=boards, controllers=controllers, block_selection_fns=block_selection_fns, tetris99=tetris99
+        )
 
-            # Create games
-            games = _create_games(
-                num_games,
-                boards,
-                controller_instances,
-                spawn_delay,
-                seed,
-                use_tetris99,
-            )
+        runtime = _create_runtime(games, fps=fps)
 
-            # Create Runtime
-            runtime = _create_runtime(games, active_fps)
+        DEPENDENCY_MANAGER.wire_up(runtime=runtime, games=games)
 
-            # --- Wire Dependencies ---
-            LOGGER.info("Wiring dependencies...")
-            DEPENDENCY_MANAGER.wire_up(runtime=runtime, games=games)
+        runtime.run()
 
-            # --- Run ---
-            LOGGER.info("Starting runtime with %d game(s) at %.1f FPS. Press Ctrl+C to exit.", num_games, active_fps)
-            runtime.run()
 
-    except Exception:
-        LOGGER.exception("An error occurred during gameplay setup or execution.")
-        # traceback.print_exc() # Logger should capture this
-    finally:
-        # Process pool is automatically shut down by the 'with' statement
-        DEPENDENCY_MANAGER.reset()
-        LOGGER.info("Play command finished.")
+def _create_boards_and_controllers(
+    board_size: tuple[int, int],
+    num_games_parameter: int | None,
+    controllers_parameter: tuple[ControllerParameter, ...],
+) -> tuple[list[Board], list[Controller]]:
+    num_games = num_games_parameter or (len(controllers_parameter) if controllers_parameter else 1)
+    if len(controllers_parameter) > num_games:
+        msg = "Number of controllers cannot exceed number of games."
+        raise click.BadParameter(msg)
+
+    boards = [Board.create_empty(*board_size) for _ in range(num_games)]
+
+    if num_games_parameter is None:
+        # Case 1: --num-games is not specified
+        controllers: list[Controller] = (
+            # If controller is specified, it determines the number of games and their controllers.
+            [
+                _create_controller(controller_parameter, board)
+                for controller_parameter, board in zip(controllers_parameter, boards, strict=True)
+            ]
+            if controllers_parameter
+            # If not specified, a single game with keyboard controller is created.
+            else [PynputKeyboardController()]
+        )
+    else:  # noqa: PLR5501
+        # Case 2: --num-games is specified
+        if controllers_parameter is not None:
+            # If controller is specified once, all games will use that same controller.
+            if len(controllers_parameter) == 1:
+                controllers_parameter *= num_games
+
+            # If specified multiple times, specifies the first N games' controllers, with the rest being filled up with
+            # bots.
+            controllers = [
+                _create_controller(controller_parameter, board)
+                for controller_parameter, board in zip(
+                    controllers_parameter, boards[: len(controllers_parameter)], strict=True
+                )
+            ]
+            if len(controllers) < num_games:
+                controllers += [HeuristicBotController(board) for board in boards[len(controllers_parameter) :]]
+        else:
+            # If not specified, all available keyboard and gamepad controllers are used, and the rest of games are
+            # filled up with bots.
+            controllers = _default_controllers()[:num_games]
+            if len(controllers) < num_games:
+                controllers += [HeuristicBotController(board) for board in boards[len(controllers) :]]
+
+    return boards, controllers
+
+
+def _create_controller(controller_parameter: ControllerParameter, board: Board) -> Controller:
+    match controller_parameter:
+        case "arrows":
+            return PynputKeyboardController.arrow_keys()
+        case "wasd":
+            return PynputKeyboardController.wasd()
+        case "vim":
+            return PynputKeyboardController.vim()
+        case "bot":
+            return HeuristicBotController(board)
+        case "gamepad":
+            from inputs import devices
+
+            from tetris.controllers.gamepad import GamepadController
+
+            _create_controller.gamepad_index = getattr(_create_controller, "gamepad_index", -1) + 1
+            if _create_controller.gamepad_index >= (num_gamepads := len(devices.gamepads)):
+                msg = (
+                    f"Specified more than {num_gamepads} gamepad controllers with only {num_gamepads} gamepads "
+                    "connected."
+                )
+                raise click.BadParameter(msg)
+
+            return GamepadController(gamepad_index=_create_controller.gamepad_index)
+
+
+def _default_controllers() -> list[Controller]:
+    default_controllers: list[Controller] = [PynputKeyboardController.arrow_keys()]
+
+    with contextlib.suppress(ImportError):
+        from inputs import devices
+
+        from tetris.controllers.gamepad import GamepadController
+
+        default_controllers.extend(GamepadController(gamepad_index=i) for i in range(len(devices.gamepads)))
+
+    default_controllers.append(PynputKeyboardController.wasd())
+    default_controllers.append(PynputKeyboardController.vim())
+
+    return default_controllers
+
+
+def _create_seeds(seed_parameters: tuple[str, ...], num_games: int) -> tuple[int, ...]:
+    if not seed_parameters:
+        return tuple(random.randrange(2**32) for _ in range(num_games))
+
+    if seed_parameters == ("same",):
+        seeds = (random.randrange(2**32),) * num_games
+    else:
+        try:
+            seeds = tuple(int(s) for s in seed_parameters)
+        except ValueError as e:
+            msg = "Seeds must be integers."
+            raise click.BadParameter(msg) from e
+
+        if len(seeds) == 1:
+            seeds *= num_games
+        elif len(seeds) != num_games:
+            msg = "Number of seeds must match number of games or be 1."
+            raise click.BadParameter(msg)
+
+    return seeds
 
 
 def _create_games(
-    num_games: int,
     boards: list[Board],
     controllers: list[Controller],
-    spawn_delay: int,
-    seed: int | None,
-    use_tetris_99: bool,
+    block_selection_fns: list[Callable[[], Block]],
+    *,
+    tetris99: bool,
 ) -> list[Game]:
-    """Helper to create Game instances."""
     games: list[Game] = []
-    for i in range(num_games):
-        rule_sequence = create_rules_and_callbacks_for_game(
-            game_index=i, num_games=num_games, spawn_delay=spawn_delay, seed=seed, use_tetris_99_rules=use_tetris_99
+
+    for idx, (controller, board, block_selection_fn) in enumerate(
+        zip(controllers, boards, block_selection_fns, strict=True)
+    ):
+        DEPENDENCY_MANAGER.current_game_index = idx
+
+        # not useless; Dependency manager will keep track of it and it will be subscribed to line clear events and
+        # publish its score to the ui aggregator
+        ScoreTracker()
+
+        if isinstance(controller, Callback | Subscriber | Publisher):
+            controller.game_index = idx
+
+        rule_sequence = _create_rules_and_callbacks(
+            num_games=len(boards), create_tetris_99_rule=tetris99, block_selection_fn=block_selection_fn
         )
-        games.append(Game(board=boards[i], controller=controllers[i], rule_sequence=rule_sequence))
-        LOGGER.debug("Created game %d.", i)
+
+        games.append(Game(board=board, controller=controller, rule_sequence=rule_sequence))
+
     return games
 
 
-def _create_runtime(games: list[Game], fps: float) -> Runtime:
-    """Helper to create the Runtime instance."""
+def _create_rules_and_callbacks(
+    num_games: int, *, create_tetris_99_rule: bool = True, block_selection_fn: Callable[[], Block] = Block.create_random
+) -> RuleSequence:
+    """Get rules relevant for one instance of a game.
+
+    Optionally also create (but don't return) callbacks to be added to game's/runtime's callback collection by wire-up
+    function.
+
+    Args:
+        num_games: Total number of games being created overall.
+        create_tetris_99_rule: Whether to create a Tetris99Rule in case there are multiple games.
+
+    Returns:
+        A RuleSequence to be passed to the Game.
+    """
+    rules: list[Rule] = [
+        MoveRule(),
+        RotateRule(),
+        SpawnDropMergeRule(spawn_strategy=SpawnStrategyImpl(block_selection_fn)),
+    ]
+
+    if create_tetris_99_rule and num_games > 1:
+        rules.append(Tetris99Rule(target_idxs=list(set(range(num_games)) - {DEPENDENCY_MANAGER.current_game_index})))
+
+    return RuleSequence(rules)
+
+
+def _create_runtime(games: list[Game], *, controller: Controller | None = None, fps: float = 60000) -> Runtime:
     DEPENDENCY_MANAGER.current_game_index = DependencyManager.RUNTIME_INDEX
-    # Register runtime-specific callbacks
-    TrackPerformanceCallback(fps)
-    runtime_controller = PynputKeyboardController()  # For pause/menu interaction
-    LOGGER.debug("Creating runtime with UI: %s, Clock: %s", CLI.__name__, SimpleClock.__name__)
-    return Runtime(ui=CLI(), clock=SimpleClock(fps), games=games, controller=runtime_controller)
+
+    TrackPerformanceCallback(fps)  # not useless; will be added to DEPENDENCY_MANAGER.all_callbacks
+
+    return Runtime(ui=CLI(), clock=SimpleClock(fps), games=games, controller=controller or PynputKeyboardController())

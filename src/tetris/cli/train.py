@@ -24,10 +24,13 @@ class _CommonOptions(TypedDict):
 @click.group()
 @click.option(
     "--population-size",
+    "-n",
     type=click.IntRange(min=1),
-    default=50,
-    show_default=True,
-    help="Number of heuristics per generation.",
+    default=None,
+    help=(
+        "Number of heuristics per generation. Default: 50 when training from scratch, otherwise the population size as "
+        "read from the checkpoint file."
+    ),
 )
 @click.option(
     "--checkpoint-dir",
@@ -70,7 +73,7 @@ def from_scratch(
 ) -> None:
     common_options = cast("_CommonOptions", ctx.obj)
     HeuristicGym(
-        population_size=common_options["population_size"],
+        population_size=common_options["population_size"] or 50,
         evaluator=evaluator,
         genetic_algorithm=genetic_algorithm,
         checkpoint_dir=common_options["checkpoint_dir"],

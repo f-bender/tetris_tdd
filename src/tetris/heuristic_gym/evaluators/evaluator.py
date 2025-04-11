@@ -16,7 +16,7 @@ from tetris.game_logic.rules.core.move_rotate_rules import MoveRule, RotateRule
 from tetris.game_logic.rules.core.spawn_drop_merge.spawn import SpawnStrategyImpl
 from tetris.game_logic.rules.core.spawn_drop_merge.spawn_drop_merge_rule import SpawnDropMergeRule
 from tetris.game_logic.rules.core.spawn_drop_merge.speed import SpeedStrategyImpl
-from tetris.game_logic.rules.monitoring.track_score_rule import TrackScoreRule
+from tetris.game_logic.rules.monitoring.track_score_rule import ScoreTracker
 from tetris.heuristic_gym.evaluator import Evaluator
 from tetris.heuristic_gym.evaluators.runners.parallel import ParallelRunner
 from tetris.heuristic_gym.evaluators.runners.synchronous import SynchronousRunner
@@ -122,7 +122,7 @@ class EvaluatorImpl(Evaluator):
         self._heuristic_bot_controllers: list[HeuristicBotController] = []
         self._games: list[Game] = []
         # come up with a better way than keeping track of these separately?
-        self._score_trackers: list[TrackScoreRule] = []
+        self._score_trackers: list[ScoreTracker] = []
         self._spawn_strategies: list[SpawnStrategyImpl] = []
 
         process_pool = (
@@ -139,7 +139,7 @@ class EvaluatorImpl(Evaluator):
                 # small performance penalty, but the benefit is reproducibility
                 ensure_consistent_behaviour=True,
             )
-            track_score_callback = TrackScoreRule()
+            track_score_callback = ScoreTracker()
             spawn_strategy = SpawnStrategyImpl()
 
             self._heuristic_bot_controllers.append(controller)

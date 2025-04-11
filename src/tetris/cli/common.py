@@ -19,10 +19,6 @@ class BoardSize(click.ParamType):
         param: click.Parameter | None,  # noqa: ARG002
         ctx: click.Context | None,  # noqa: ARG002
     ) -> tuple[int, int]:
-        # # TODO not sure if this is required. check it and uncomment if necessary. (for when default=None)
-        # if value is None:
-        #     return None
-
         try:
             height, width = map(int, value.split("x"))
         except (TypeError, ValueError) as e:

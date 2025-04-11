@@ -20,7 +20,7 @@ from tetris.game_logic.interfaces.rule_sequence import RuleSequence
 from tetris.game_logic.rules.core.move_rotate_rules import MoveRule, RotateRule
 from tetris.game_logic.rules.core.spawn_drop_merge.spawn import SpawnStrategyImpl
 from tetris.game_logic.rules.core.spawn_drop_merge.spawn_drop_merge_rule import SpawnDropMergeRule
-from tetris.game_logic.rules.monitoring.track_score_rule import TrackScoreRule
+from tetris.game_logic.rules.monitoring.track_score_rule import ScoreTracker
 from tetris.game_logic.rules.multiplayer.tetris99_rule import Tetris99Rule
 from tetris.game_logic.rules.special.parry_rule import ParryRule
 
@@ -167,7 +167,7 @@ def create_rules_and_callbacks_for_game(
     LOGGER.debug("Setting up rules and callbacks for game_index %d", game_index)
 
     # Register callbacks (they add themselves to DEPENDENCY_MANAGER)
-    TrackScoreRule(header=f"Game {game_index}")
+    ScoreTracker(header=f"Game {game_index}")
 
     # Create Spawn Strategy with seed if provided
     if seed is not None:

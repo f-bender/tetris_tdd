@@ -2,11 +2,12 @@ import contextlib
 import random
 import shutil
 import traceback
+from dataclasses import dataclass
 from itertools import count
 from pathlib import Path
 from pprint import pformat
 from time import sleep
-from typing import NamedTuple, Self
+from typing import Self
 
 import numpy as np
 from numpy.typing import NDArray
@@ -17,27 +18,39 @@ from tetris.space_filling_coloring.four_colorizer import FourColorizer
 from tetris.space_filling_coloring.tetromino_space_filler import TetrominoSpaceFiller
 
 
-class TestConfig(NamedTuple):
+@dataclass
+class TestConfig:
     fill_and_colorize_rng_seed: int
     minimum_separation_steps: int
     size: tuple[int, int]
     holes: list[tuple[int, int, int, int]]
     inverted: bool = False
 
+    def __post_init__(self) -> None:
+        self.holes = [self._normalize_hole(hole) for hole in self.holes]
+
+    @staticmethod
+    def _normalize_hole(hole: tuple[int, int, int, int]) -> tuple[int, int, int, int]:
+        y1, x1, y2, x2 = hole
+        return min(y1, y2), min(x1, x2), max(y1, y2), max(x1, x2)
+
     @property
     def num_holes(self) -> int:
         return len(self.holes)
 
     @classmethod
-    def from_main_rng_seed(
-        cls, main_rng_seed: int, max_holes: int, size_limits: tuple[tuple[int, int], tuple[int, int]]
+    def create_random(
+        cls,
+        rng_seed: int | None = None,
+        max_holes: int = 10,
+        size_limits: tuple[tuple[int, int], tuple[int, int]] = ((10, 80), (10, 150)),
     ) -> Self:
-        main_rng = random.Random(main_rng_seed)
+        main_rng = random.Random(rng_seed)
 
         fill_and_colorize_rng_seed = main_rng.randrange(2**32)
         num_holes = main_rng.randint(0, max_holes)
 
-        inverted = num_holes > 0 and main_rng.randint(0, 1) == 1
+        inverted = num_holes > 1 and main_rng.randint(0, 1) == 1
         minimum_separation_steps = main_rng.randint(0, 10) * 10
 
         while True:
@@ -96,12 +109,7 @@ def fuzz_test(
             size_limits = (min(max_height, 10), max_height), (min(max_width, 10), max_width)
 
         assert size_limits is not None
-        _seeded_test(
-            test_config=TestConfig.from_main_rng_seed(
-                random.randrange(2**32), max_holes=max_holes, size_limits=size_limits
-            ),
-            draw=draw,
-        )
+        _seeded_test(test_config=TestConfig.create_random(max_holes=max_holes, size_limits=size_limits), draw=draw)
 
         if draw:
             # if we draw, sleep to let the user look at the result drawn for a second

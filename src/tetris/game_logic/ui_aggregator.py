@@ -27,18 +27,18 @@ class UiAggregator(Subscriber):
     def should_be_subscribed_to(self, publisher: Publisher) -> bool:
         from tetris.game_logic.rules.board_manipulations.clear_lines import ClearFullLines
         from tetris.game_logic.rules.core.spawn_drop_merge.spawn import SpawnStrategyImpl
-        from tetris.game_logic.rules.monitoring.track_score_rule import TrackScoreRule
+        from tetris.game_logic.rules.monitoring.track_score_rule import ScoreTracker
 
         return (
-            isinstance(publisher, TrackScoreRule | SpawnStrategyImpl | ClearFullLines)
+            isinstance(publisher, ScoreTracker | SpawnStrategyImpl | ClearFullLines)
             and publisher.game_index == self.game_index
         )
 
     def verify_subscriptions(self, publishers: list[Publisher]) -> None:
         from tetris.game_logic.rules.core.spawn_drop_merge.spawn import SpawnStrategyImpl
-        from tetris.game_logic.rules.monitoring.track_score_rule import TrackScoreRule
+        from tetris.game_logic.rules.monitoring.track_score_rule import ScoreTracker
 
-        if not any(isinstance(publisher, TrackScoreRule) for publisher in publishers):
+        if not any(isinstance(publisher, ScoreTracker) for publisher in publishers):
             msg = f"{type(self).__name__} of game {self.game_index} has no subscription to TrackScoreRule."
             raise RuntimeError(msg)
 
