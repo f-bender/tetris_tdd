@@ -50,92 +50,52 @@ class Block:
     def __init__(self, block_type: BlockType) -> None:
         match block_type:
             case BlockType.T:
-                self.cells = (
-                    np.array(
-                        [
-                            [0, 0, 0],
-                            [1, 1, 1],
-                            [0, 1, 0],
-                        ],
-                        dtype=np.uint8,
-                    )
-                    * block_type
-                )
+                cells = [
+                    [0, 0, 0],
+                    [1, 1, 1],
+                    [0, 1, 0],
+                ]
             case BlockType.O:
-                self.cells = (
-                    np.array(
-                        [
-                            [1, 1],
-                            [1, 1],
-                        ],
-                        dtype=np.uint8,
-                    )
-                    * block_type
-                )
+                cells = [
+                    [1, 1],
+                    [1, 1],
+                ]
             case BlockType.I:
-                self.cells = (
-                    np.array(
-                        [
-                            [0, 0, 0, 0],
-                            [0, 0, 0, 0],
-                            [1, 1, 1, 1],
-                            [0, 0, 0, 0],
-                        ],
-                        dtype=np.uint8,
-                    )
-                    * block_type
-                )
+                cells = [
+                    [0, 0, 0, 0],
+                    [0, 0, 0, 0],
+                    [1, 1, 1, 1],
+                    [0, 0, 0, 0],
+                ]
             case BlockType.L:
-                self.cells = (
-                    np.array(
-                        [
-                            [0, 0, 0],
-                            [1, 1, 1],
-                            [1, 0, 0],
-                        ],
-                        dtype=np.uint8,
-                    )
-                    * block_type
-                )
+                cells = [
+                    [0, 0, 0],
+                    [1, 1, 1],
+                    [1, 0, 0],
+                ]
             case BlockType.S:
-                self.cells = (
-                    np.array(
-                        [
-                            [0, 0, 0],
-                            [0, 1, 1],
-                            [1, 1, 0],
-                        ],
-                        dtype=np.uint8,
-                    )
-                    * block_type
-                )
+                cells = [
+                    [0, 0, 0],
+                    [0, 1, 1],
+                    [1, 1, 0],
+                ]
             case BlockType.J:
-                self.cells = (
-                    np.array(
-                        [
-                            [0, 0, 0],
-                            [1, 1, 1],
-                            [0, 0, 1],
-                        ],
-                        dtype=np.uint8,
-                    )
-                    * block_type
-                )
+                cells = [
+                    [0, 0, 0],
+                    [1, 1, 1],
+                    [0, 0, 1],
+                ]
             case BlockType.Z:
-                self.cells = (
-                    np.array(
-                        [
-                            [0, 0, 0],
-                            [1, 1, 0],
-                            [0, 1, 1],
-                        ],
-                        dtype=np.uint8,
-                    )
-                    * block_type
-                )
+                cells = [
+                    [0, 0, 0],
+                    [1, 1, 0],
+                    [0, 1, 1],
+                ]
             case _:
                 msg = f"Unknown block type: {block_type}"
                 raise ValueError(msg)
+
+        self.cells = (np.array(cells) * block_type).astype(np.uint8)
 
         # all blocks should have a square box of cells within which they are rotated (even if there would be a smaller
         # rectangular bounding box for the shape)
