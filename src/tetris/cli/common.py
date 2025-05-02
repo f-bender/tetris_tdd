@@ -110,8 +110,8 @@ def genetic_algorithm_options(*, default_none: bool = False, assemble_object: bo
             default=0.5,
             show_default=not default_none,
             help=(
-                "Fraction of the population that should survive after each generation. The rest of the population will be"
-                "filled up with mutated versions of these survivors."
+                "Fraction of the population that should survive after each generation. The rest of the population will "
+                "be filled up with mutated versions of these survivors."
             ),
         )
         @click.option(
@@ -122,8 +122,8 @@ def genetic_algorithm_options(*, default_none: bool = False, assemble_object: bo
             help=(
                 "How much to favor the best individuals. "
                 "A factor of 0 means that all individuals have the same chance of surviving. "
-                "A factor of `inf` means that exactly the best `round(survival_rate * len(population_size))` individuals "
-                "survive."
+                "A factor of `inf` means that exactly the best `round(survival_rate * len(population_size))` "
+                "individuals survive."
             ),
         )
         @functools.wraps(command)

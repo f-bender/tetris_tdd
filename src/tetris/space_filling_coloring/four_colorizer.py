@@ -34,7 +34,7 @@ class FourColorizer:
         total_blocks_to_color: int | None = None,
         closeness_threshold: int = 6,
     ) -> None:
-        """Initialize the four-colorer.
+        """Initialize the FourColorizer.
 
         Args:
             space: The space to be colored. It will not be modified inplace. Values <= 0 are ignored and will not be
@@ -46,12 +46,12 @@ class FourColorizer:
             cycle_offset: Whether to cycle through different starting offsets when choosing which color to use for a
                 block. If True, the first attempt to color each block is a different color. If False, all blocks are
                 first attempted to be colored with color 1, then 2, and so on. Defaults to True.
-            use_rng: Whether to use randomness in the color offset selection. Only applies, and should only be specified
-                if cycle_offset is True. Defaults to True.
+            use_rng: Whether to use randomness in the color offset selection. Ignored if cycle_offset is False, as this
+                color offset selection is the only place where randomness is potentially applied. Defaults to True.
             rng_seed: Optional seed to use for all RNG. Only applies, and should only be specified if cycle_offset
-                and use_rng are True.
+                and use_rng are True. Ignored if use_rng or cycle_offset is False.
             space_updated_callback: Callback function which is called each time after the colored space has been updated
-                (a block has been colord or uncolored). This effectively temporarily hands control back to the user of
+                (a block has been colored or uncolored). This effectively temporarily hands control back to the user of
                 this class, letting it act one the latest space update (e.g. for drawing).
             total_blocks_to_color: The total number of blocks that need to be colored. If not provided, it is
                 determined from the given `space` array. A higher value than would be automatically determined can be
@@ -59,15 +59,11 @@ class FourColorizer:
                 will only be considered finished after this number of blocks has been colored.
             closeness_threshold: The maximum manhattan distance between two blocks for them to be considered "close" to
                 each other. This is used as a heuristic to determine whether the change/removal of a block could make
-                another (previously uncolorable) block colorable while backtracking. 1.5 * the largest occuring blocks
+                another (previously uncolorable) block colorable while backtracking. 1.5 * the largest occurring blocks
                 seems to be a reasonable value. High values may severely degrade performance due to many unnecessary
                 backtracks. Low values may make the algorithm fail. Defaults to 6, assuming that blocks have size 4.
                 Change at your own risk!
         """
-        if (not cycle_offset or not use_rng) and rng_seed is not None:
-            msg = "rng_seed should only be set when cycle_offset and use_rng are True"
-            raise ValueError(msg)
-
         max_value = int(np.max(space))
 
         if total_blocks_to_color is not None and total_blocks_to_color < max_value:

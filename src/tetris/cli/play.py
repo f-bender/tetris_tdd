@@ -130,7 +130,6 @@ def play(  # noqa: PLR0913
 
     seeds = _create_seeds(seed_parameters=seed, num_games=len(boards))
     block_selection_fns = [getattr(SpawnStrategyImpl, f"{block_selection}_selection_fn")(seed) for seed in seeds]
-    # block_selection_fns = [lambda: Block(BlockType.I) for seed in seeds]
 
     # note: max_workers defaults to number of processors
     with ProcessPoolExecutor() if process_pool and any_bots else contextlib.nullcontext() as process_pool_or_none:
@@ -177,7 +176,7 @@ def _create_boards_and_controllers(
         )
     else:  # noqa: PLR5501
         # Case 2: --num-games is specified
-        if controllers_parameter is not None:
+        if controllers_parameter:
             # If controller is specified once, all games will use that same controller.
             if len(controllers_parameter) == 1:
                 controllers_parameter *= num_games
@@ -217,15 +216,15 @@ def _create_controller(controller_parameter: ControllerParameter, board: Board) 
 
             from tetris.controllers.gamepad import GamepadController
 
-            _create_controller.gamepad_index = getattr(_create_controller, "gamepad_index", -1) + 1
-            if _create_controller.gamepad_index >= (num_gamepads := len(devices.gamepads)):
+            _create_controller.gamepad_index = getattr(_create_controller, "gamepad_index", -1) + 1  # type: ignore[attr-defined]
+            if _create_controller.gamepad_index >= (num_gamepads := len(devices.gamepads)):  # type: ignore[attr-defined]
                 msg = (
                     f"Specified more than {num_gamepads} gamepad controllers with only {num_gamepads} gamepads "
                     "connected."
                 )
                 raise click.BadParameter(msg)
 
-            return GamepadController(gamepad_index=_create_controller.gamepad_index)
+            return GamepadController(gamepad_index=_create_controller.gamepad_index)  # type: ignore[attr-defined]
 
 
 def _default_controllers() -> list[Controller]:
@@ -307,6 +306,7 @@ def _create_rules_and_callbacks(
     Args:
         num_games: Total number of games being created overall.
         create_tetris_99_rule: Whether to create a Tetris99Rule in case there are multiple games.
+        block_selection_fn: Function to select blocks to spawn.
 
     Returns:
         A RuleSequence to be passed to the Game.

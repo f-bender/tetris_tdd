@@ -11,7 +11,7 @@ from numpy.typing import NDArray
 
 from tetris.ansi_extensions import cursor as cursorx
 from tetris.game_logic.interfaces.ui import UI, UiElements
-from tetris.space_filling_coloring import concurrent_fill_and_colorize
+from tetris.space_filling_coloring import fill_and_colorize
 from tetris.ui.cli.animations import Overlay
 from tetris.ui.cli.buffered_printing import BufferedPrint
 from tetris.ui.cli.color_palette import ColorPalette
@@ -219,7 +219,7 @@ class CLI(UI):
 
         outer_background_mask = self._create_outer_background_mask()
 
-        self._startup_animation_iter = concurrent_fill_and_colorize.fill_and_colorize(
+        self._startup_animation_iter = fill_and_colorize.fill_and_colorize_concurrently(
             outer_background_mask, minimum_separation_steps=15
         )
 

@@ -54,7 +54,7 @@ class HeuristicGym:
         initial_population_fitnesses: list[float] | None = None,
         num_generations: int | None = None,
     ) -> None:
-        initial_population = initial_population or [Heuristic()]  # type: ignore[call-arg]
+        initial_population = initial_population or [Heuristic()]
 
         if len(initial_population) > self._population_size:
             initial_population = initial_population[: self._population_size]

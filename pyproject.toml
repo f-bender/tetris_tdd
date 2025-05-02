@@ -60,9 +60,7 @@ unfixable = [
 # prints are allowed in CLI UI, and space-filling-coloring fuzz test and drawer
 "src/tetris/ui/cli/*" = ["T201"]
 "src/tetris/space_filling_coloring/drawer.py" = ["T201"]
-"src/tetris/space_filling_coloring/fuzz_test_concurrent_fill_and_colorize.py" = [
-    "T201",
-]
+"src/tetris/space_filling_coloring/fill_and_colorize_config.py" = ["T201"]
 # unused method arguments are ok (required to conform to protocols, but not necessarily used)
 "src/tetris/game_logic/rules/*" = ["ARG002"]
 "src/tetris/controllers/*" = ["ARG002"]

@@ -43,7 +43,7 @@ class _CommonOptions(TypedDict):
     "--generations", type=click.IntRange(min=1), default=None, help="Number of generations to run (default: infinite)."
 )
 @click.pass_context
-def train(ctx: click.Context, **common_options: _CommonOptions) -> None:
+def train(ctx: click.Context, /, **common_options: _CommonOptions) -> None:
     """Train Heuristics for an automatic tetris bot using a genetic algorithm."""
     ctx.obj = common_options
 

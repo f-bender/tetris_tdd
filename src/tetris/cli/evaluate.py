@@ -52,6 +52,7 @@ def evaluate(
 )
 @click.option(
     "--top-k",
+    "-k",
     type=click.IntRange(min=1),
     default=10,
     show_default=True,
@@ -71,6 +72,7 @@ def from_train_checkpoint(ctx: click.Context, checkpoints: tuple[Path, ...], top
 @click.argument("report-file", type=click.Path(exists=True, dir_okay=False, path_type=Path))
 @click.option(
     "--top-k",
+    "-k",
     type=click.IntRange(min=0),
     default=5,
     show_default=True,

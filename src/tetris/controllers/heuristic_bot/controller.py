@@ -83,7 +83,7 @@ class HeuristicBotController(Controller, Subscriber):
         """
         super().__init__()
         self._real_board: Final = board
-        self.heuristic = heuristic or Heuristic()  # type: ignore[call-arg]
+        self.heuristic = heuristic or Heuristic()
 
         self._current_block: Block | None = None
         self._next_block: Block | None = None

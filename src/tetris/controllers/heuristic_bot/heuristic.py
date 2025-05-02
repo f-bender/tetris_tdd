@@ -1,7 +1,8 @@
 """An automated controller that uses a heuristic approach to try and fit the current block into the optimal position."""
 
 import ast
-from typing import NamedTuple, Self
+from dataclasses import dataclass
+from typing import ClassVar, Self
 
 import numpy as np
 from numpy.typing import NDArray
@@ -9,11 +10,9 @@ from numpy.typing import NDArray
 from tetris.game_logic.components.board import Board
 
 
-class Heuristic(NamedTuple):
+@dataclass(frozen=True, kw_only=True, slots=True)
+class Heuristic:
     """A Heuristic for evaluating a board state."""
-
-    # mypy doesn't seem to understand that this is a class variables
-    CRITICAL_GAP_HEIGHT = 3  # type: ignore[misc]
 
     # These default parameters have been obtained through a genetic algorithm optimization
     # and are the (so far) best ones according to a detailed evaluation.
@@ -38,6 +37,8 @@ class Heuristic(NamedTuple):
     sum_of_adjacent_height_differences_weight: float = 2.9046525787750297
 
     close_to_top_threshold: int = 2
+
+    _CRITICAL_GAP_HEIGHT: ClassVar[int] = 3
 
     @classmethod
     def from_repr(cls, heuristic_repr: str) -> Self:
@@ -107,12 +108,12 @@ class Heuristic(NamedTuple):
         return (
             np.sum(
                 np.logical_and(
-                    adjacent_height_differences[:-1] <= -Heuristic.CRITICAL_GAP_HEIGHT,
-                    adjacent_height_differences[1:] >= Heuristic.CRITICAL_GAP_HEIGHT,
+                    adjacent_height_differences[:-1] <= -Heuristic._CRITICAL_GAP_HEIGHT,
+                    adjacent_height_differences[1:] >= Heuristic._CRITICAL_GAP_HEIGHT,
                 )
             )
-            + int(adjacent_height_differences[0] >= Heuristic.CRITICAL_GAP_HEIGHT)
-            + int(adjacent_height_differences[-1] <= -Heuristic.CRITICAL_GAP_HEIGHT)
+            + int(adjacent_height_differences[0] >= Heuristic._CRITICAL_GAP_HEIGHT)
+            + int(adjacent_height_differences[-1] <= -Heuristic._CRITICAL_GAP_HEIGHT)
         )
 
     @staticmethod
@@ -140,7 +141,7 @@ class Heuristic(NamedTuple):
 def mutated_heuristic(heuristic: Heuristic, mutation_rate: float = 1.0) -> Heuristic:
     rng = np.random.default_rng()
 
-    return Heuristic(  # type: ignore[call-arg]
+    return Heuristic(
         sum_of_cell_heights_close_to_top_weight=_mutate_weight(
             weight=heuristic.sum_of_cell_heights_close_to_top_weight,
             mutation_rate=mutation_rate,

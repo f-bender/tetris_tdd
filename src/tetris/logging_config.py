@@ -26,6 +26,6 @@ def configure_logging(log_dir: Path = Path(__file__).parents[2] / "logs") -> Non
     logging.getLogger().addHandler(info_handler)
 
     # Make sure uncaught exceptions are logged
-    sys.excepthook = lambda exctype, value, traceback: logging.error(
+    sys.excepthook = lambda exctype, value, traceback: logging.error(  # noqa: LOG015
         "Uncaught exception:", exc_info=(exctype, value, traceback)
     )

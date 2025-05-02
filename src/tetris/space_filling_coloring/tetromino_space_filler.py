@@ -55,7 +55,7 @@ class TetrominoSpaceFiller:
                 will be left as is.
             use_rng: Whether to use randomness in the selection of tetromino, selection of tetromino rotation/transpose,
                 and selection of neighboring spot to fill next.
-            rng_seed: Optional seed to use for all RNG.
+            rng_seed: Optional seed to use for all RNG. Ignored if use_rng is False.
             top_left_tendency: Whether to have a slight bias towards selecting spots top left of the last placed
                 tetromino as the next spot to be filled. This causes a tendency for the algorithm to gravitate towards
                 the top left of the space. This makes the filling up more predictable, but also reduces the likelihood
@@ -65,10 +65,6 @@ class TetrominoSpaceFiller:
                 tetromino has been placed or removed). This effectively temporarily hands control back to the user of
                 this class, letting it act one the latest space update (e.g. for drawing).
         """
-        if not use_rng and rng_seed is not None:
-            msg = "rng_seed should only be set when use_rng is True"
-            raise ValueError(msg)
-
         values = set(np.unique(space))
         if not values <= {-1, 0}:
             msg = "Space must consist of -1s and 0s only."

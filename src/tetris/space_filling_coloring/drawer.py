@@ -7,26 +7,28 @@ from numpy.typing import NDArray
 from tetris.ansi_extensions import color as colorx
 from tetris.ansi_extensions import cursor as cursorx
 
-last_drawn_array: NDArray[np.int32] | None = None
-rng = random.Random()
+# whether to draw the last 2 digits of the int values in the array (for debugging purposes)
 draw_value: bool = False
+
+_last_drawn_array: NDArray[np.int32] | None = None
+_RNG = random.Random()
 
 
 def draw_array_fancy(array: NDArray[np.int32], *, rgb_range: tuple[int, int] = (50, 150)) -> None:
-    global last_drawn_array  # noqa: PLW0603
+    global _last_drawn_array  # noqa: PLW0603
 
-    if last_drawn_array is None or last_drawn_array.shape != array.shape:
+    if _last_drawn_array is None or _last_drawn_array.shape != array.shape:
         print(cursor.erase(""), end="")
         print(cursor.goto(1, 1), end="")
 
         draw_full_array_raw(array, rgb_range=rgb_range)
     else:
-        _draw_differences(array, last_drawn_array, rgb_range=rgb_range)
+        _draw_differences(array, _last_drawn_array, rgb_range=rgb_range)
 
     # move cursor below the drawn array, such that prints outside this function show up there
     print(cursor.goto(array.shape[0] + 1) + cursorx.erase_to_end(""), end="", flush=True)
 
-    last_drawn_array = array.copy()
+    _last_drawn_array = array.copy()
 
 
 def draw_full_array_raw(array: NDArray[np.int32], *, rgb_range: tuple[int, int] = (50, 150)) -> None:
@@ -54,7 +56,7 @@ def _draw_differences(
 
 
 def _ansi_color_for(value: int, *, rgb_range: tuple[int, int]) -> str:
-    global rng  # noqa: PLW0602
+    global _RNG  # noqa: PLW0602
 
     if value == 0:
         return colorx.bg.rgb_truecolor(*[rgb_range[0] // 2] * 3)
@@ -62,5 +64,5 @@ def _ansi_color_for(value: int, *, rgb_range: tuple[int, int]) -> str:
     if value < 0:
         return colorx.bg.rgb_truecolor(*[(255 + rgb_range[1]) // 2] * 3)
 
-    rng.seed(value)
-    return colorx.bg.rgb_truecolor(*(rng.randrange(*rgb_range) for _ in range(3)))
+    _RNG.seed(value)
+    return colorx.bg.rgb_truecolor(*(_RNG.randrange(*rgb_range) for _ in range(3)))
