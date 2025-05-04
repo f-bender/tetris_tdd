@@ -22,6 +22,7 @@ from tetris.game_logic.interfaces.rule_sequence import RuleSequence
 from tetris.game_logic.rules.core.move_rotate_rules import MoveRule, RotateRule
 from tetris.game_logic.rules.core.spawn_drop_merge.spawn import SpawnStrategyImpl
 from tetris.game_logic.rules.core.spawn_drop_merge.spawn_drop_merge_rule import SpawnDropMergeRule
+from tetris.game_logic.rules.core.spawn_drop_merge.synchronized_spawn import SynchronizedSpawning
 from tetris.game_logic.rules.monitoring.track_performance_rule import TrackPerformanceCallback
 from tetris.game_logic.rules.monitoring.track_score_rule import ScoreTracker
 from tetris.game_logic.rules.multiplayer.tetris99_rule import Tetris99Rule
@@ -66,6 +67,12 @@ type ControllerParameter = Literal["arrows", "wasd", "vim", "bot", "gamepad"]
 )
 @click.option(
     "--tetris99/--no-tetris99", default=False, show_default=True, help="Enable/disable Tetris99 attack rules."
+)
+@click.option(
+    "--synchronize-spawning/--no-synchronize-spawning",
+    default=False,
+    show_default=True,
+    help="Enable/disable synchronization of block spawning across games.",
 )
 @click.option(
     "--process-pool/--no-process-pool",
@@ -116,6 +123,7 @@ def play(  # noqa: PLR0913
     num_games: int | None,
     controller: tuple[ControllerParameter, ...],
     tetris99: bool,
+    synchronize_spawning: bool,
     process_pool: bool,
     fps: float,
     board_size: tuple[int, int],
@@ -140,7 +148,11 @@ def play(  # noqa: PLR0913
                     controller_.process_pool = process_pool_or_none
 
         games = _create_games(
-            boards=boards, controllers=controllers, block_selection_fns=block_selection_fns, tetris99=tetris99
+            boards=boards,
+            controllers=controllers,
+            block_selection_fns=block_selection_fns,
+            tetris99=tetris99,
+            synchronize_spawning=synchronize_spawning,
         )
 
         runtime = _create_runtime(games, fps=fps)
@@ -271,6 +283,7 @@ def _create_games(
     block_selection_fns: list[Callable[[], Block]],
     *,
     tetris99: bool,
+    synchronize_spawning: bool,
 ) -> list[Game]:
     games: list[Game] = []
 
@@ -287,7 +300,10 @@ def _create_games(
             controller.game_index = idx
 
         rule_sequence = _create_rules_and_callbacks(
-            num_games=len(boards), create_tetris_99_rule=tetris99, block_selection_fn=block_selection_fn
+            num_games=len(boards),
+            create_tetris_99_rule=tetris99,
+            synchronize_spawning=synchronize_spawning,
+            block_selection_fn=block_selection_fn,
         )
 
         games.append(Game(board=board, controller=controller, rule_sequence=rule_sequence))
@@ -296,7 +312,11 @@ def _create_games(
 
 
 def _create_rules_and_callbacks(
-    num_games: int, *, create_tetris_99_rule: bool = True, block_selection_fn: Callable[[], Block] = Block.create_random
+    num_games: int,
+    *,
+    create_tetris_99_rule: bool,
+    synchronize_spawning: bool,
+    block_selection_fn: Callable[[], Block] = Block.create_random,
 ) -> RuleSequence:
     """Get rules relevant for one instance of a game.
 
@@ -306,19 +326,27 @@ def _create_rules_and_callbacks(
     Args:
         num_games: Total number of games being created overall.
         create_tetris_99_rule: Whether to create a Tetris99Rule in case there are multiple games.
+        synchronize_spawning: Whether to synchronize spawning in case there are multiple games.
         block_selection_fn: Function to select blocks to spawn.
 
     Returns:
         A RuleSequence to be passed to the Game.
     """
+    synchronize_spawning = synchronize_spawning and num_games > 1
+
     rules: list[Rule] = [
         MoveRule(),
         RotateRule(),
-        SpawnDropMergeRule(spawn_strategy=SpawnStrategyImpl(block_selection_fn)),
+        SpawnDropMergeRule(
+            spawn_strategy=SpawnStrategyImpl(block_selection_fn), synchronized_spawn=synchronize_spawning
+        ),
     ]
 
     if create_tetris_99_rule and num_games > 1:
         rules.append(Tetris99Rule(target_idxs=list(set(range(num_games)) - {DEPENDENCY_MANAGER.current_game_index})))
+
+    if synchronize_spawning:
+        SynchronizedSpawning()
 
     return RuleSequence(rules)
 

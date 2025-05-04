@@ -7,7 +7,7 @@ from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.game_logic.rules.board_manipulations.board_manipulation import BoardManipulation
 from tetris.game_logic.rules.board_manipulations.gravity import Gravity
 from tetris.game_logic.rules.core.spawn_drop_merge.spawn_drop_merge_rule import SpawnDropMergeRule
-from tetris.game_logic.rules.messages import MergeMessage, Speed
+from tetris.game_logic.rules.messages import Speed, StartMergeMessage
 
 
 class ParryRule(Subscriber):
@@ -55,6 +55,6 @@ class ParryRule(Subscriber):
         return 0 < action_counter.held_since(self.PARRY_ACTION) <= self._leeway_frames + 1
 
     def notify(self, message: NamedTuple) -> None:
-        if isinstance(message, MergeMessage) and message.speed is Speed.NORMAL:
+        if isinstance(message, StartMergeMessage) and message.speed is Speed.NORMAL:
             self._just_merged = True
             self._already_applied = False

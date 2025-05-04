@@ -156,7 +156,7 @@ class EvaluatorImpl(Evaluator):
                             SpawnDropMergeRule(
                                 spawn_strategy=spawn_strategy,
                                 speed_strategy=SpeedStrategyImpl(base_interval=10),
-                                spawn_delay=0,
+                                merge_delay=0,
                             ),
                         )
                     ),

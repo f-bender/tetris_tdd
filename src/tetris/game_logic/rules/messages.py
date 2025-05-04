@@ -20,9 +20,16 @@ class Speed(Enum):
     INSTANT = auto()
 
 
-class MergeMessage(NamedTuple):
+class StartMergeMessage(NamedTuple):
     speed: Speed
-    next_spawn_frame_counter: int
+
+
+class FinishedMergeMessage(NamedTuple):
+    pass
+
+
+class WaitingForSpawnMessage(NamedTuple):
+    game_index: int
 
 
 class InstantSpawnMessage(NamedTuple):
@@ -32,6 +39,10 @@ class InstantSpawnMessage(NamedTuple):
 class SpawnMessage(NamedTuple):
     block: Block
     next_block: Block
+
+
+class SynchronizedSpawnCommandMessage(NamedTuple):
+    pass
 
 
 class BoardTranslationMessage(NamedTuple):
