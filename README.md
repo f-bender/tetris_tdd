@@ -1,137 +1,144 @@
 # Tetris
 
-## Description
+## Overview
 
-Custom implementation of tetris with basic decoupled UIs.
+A custom implementation of Tetris featuring an ANSI-powered terminal UI and flexible controller support. Includes tools for playing, training and evaluating Tetris bots, and visualizing a custom space filling and coloring algorithm used in the startup animation of the Tetris UI.
 
 ## Prerequisites
 
-Install [uv](https://docs.astral.sh/uv/getting-started/installation/)
+- [Install uv](https://docs.astral.sh/uv/getting-started/installation/) (for dependency management and running commands)
 
 ## Usage
 
-Running
+To see available CLI commands, run:
 
 ```sh
 uv run tetris
 ```
 
-shows the available CLI commands. Using one of the commands with `--help` shows their available subcommands and options.
+Use `--help` with any command to view its subcommands and options.
 
 ### Examples
 
 #### Play
 
-Play a number of tetris games in parallel, with configurable controllers (like keyboard, gamepad, automated bot).
+Run one or more Tetris games in parallel, each with configurable controllers (keyboard, gamepad, or automated bot).
 
-Play a basic game of tetris alone (using keyboard controls (WASD, vim keys, or arrow keys)):
+- **Single-player (keyboard controls: WASD, vim keys, or arrows):**
 
-```sh
-uv run tetris play
-```
+  ```sh
+  uv run tetris play
+  ```
 
-Have 2 players (one on keyboard (WASD), one on gamepad) and one bot compete:
+- **Multiplayer (keyboard, gamepad, and bot):**
 
-```sh
-uv run tetris play --controller wasd --controller gamepad --controller bot
-```
+  ```sh
+  uv run tetris play --controller wasd --controller gamepad --controller bot
+  ```
 
-Note that this requires the extra dependency `gamepad` to be installed using `uv sync --extra gamepad`.
+  > *Note: Gamepad support requires the `gamepad` extra. Install with:*
+  >
+  > ```sh
+  > uv sync --extra gamepad
+  > ```
 
-Let 5 bots compete one the same seed, sped up 10x, on a custom 40x20 board:
+- **Bot competition (5 bots, same seed, fast-forward, custom board size):**
 
-```sh
-uv run tetris play -n5 -cbot --seed same --fps 600 --board-size 40x20
-```
+  ```sh
+  uv run tetris play -n5 -cbot --seed same --fps 600 --board-size 40x20
+  ```
 
 #### Fill Space
 
-The animation that plays on startup shown when playing tetris is an algorithm that fills a given 2-dimensional space with tetrominoes, and colors than with 4 different colors such that no neighboring tetrominoes have the same color. It can be executed on its own, with user-defined parameters.
+Visualize an algorithm that fills a 2D space with tetrominoes and colors them using four colors so that no adjacent pieces share a color. This animation is shown at startup but can also be run independently.
 
-Continuously fill and color random spaces, with random parameters:
+- **Fuzz test (random spaces and parameters):**
 
-```sh
-uv run tetris fill-space fuzz-test
-```
+  ```sh
+  uv run tetris fill-space fuzz-test
+  ```
 
-Fill a space with the size of the current terminal window with tetrominoes, but don't 4-color them (every single tetromino is colored differently):
+- **No 4-coloring (each tetromino gets a unique color):**
 
-```sh
-uv run tetris fill-space no-color
-```
+  ```sh
+  uv run tetris fill-space no-color
+  ```
 
-First fill a space with the size of the current terminal window with tetrominoes, then 4-color them as a separate step:
+- **Sequential coloring (fill, then color):**
 
-```sh
-uv run tetris fill-space color subsequent
-```
+  ```sh
+  uv run tetris fill-space color subsequent
+  ```
 
-Fill a space with the size of the current terminal window with tetrominoes, and concurrently color the so far placed tetrominoes:  
-(Note that this is less performant than `subsequent`)
+- **Concurrent coloring (color as you fill; less performant):**
 
-```sh
-uv run tetris fill-space color concurrent
-```
+  ```sh
+  uv run tetris fill-space color concurrent
+  ```
 
 #### Train
 
-Bots use a heuristic to decide where to place tetris pieces. This heuristic can be trained to become more optimal using a genetic algorithm.
+Train a bot's heuristic using a genetic algorithm to optimize its Tetris gameplay.
 
-Train the tetris heuristic bot from scratch (i.e. from default heuristic parameters which have been found through training, so not truly from scratch), using a genetic algorithm and a population size of 100:
+- **Start training from default parameters (population size 100):**
 
-```sh
-uv run tetris train from-scratch --population-size 100
-```
+  ```sh
+  uv run tetris train from-scratch --population-size 100
+  ```
 
-Continue training from the latest saved checkpoint at the default checkpoint directory:
+- **Continue training from the latest checkpoint:**
 
-```sh
-uv run tetris train from-checkpoint
-```
+  ```sh
+  uv run tetris train from-checkpoint
+  ```
 
 #### Evaluate
 
-Evaluate a bot with a given heuristic on a number of tetris games with different seeds in parallel, to get a good idea of how well it performs. This produces an evaluation report that contains mean, median, max, and min scores, and more info.
+Assess a bot's performance by running it on multiple games with different seeds. Generates a report with statistics (mean, median, max, min scores, etc.).
 
-Evaluate the default heuristic (previously trained to perform well) on 50 games:
+- **Evaluate the default heuristic on 50 games:**
 
-```sh
-uv run tetris evaluate explicit
-```
+  ```sh
+  uv run tetris evaluate explicit
+  ```
 
-Evaluate the top 15 best performing bots from a training checkpoint:
+- **Evaluate top 15 bots from a training checkpoint:**
 
-```sh
-uv run tetris evaluate from-train-checkpoint path/to/checkpoint.pkl --top-k 15
-```
+  ```sh
+  uv run tetris evaluate from-train-checkpoint path/to/checkpoint.pkl --top-k 15
+  ```
 
-Re-Evaluate the top 5 best performing bots from a previous evaluation report file, on a different board size:
+- **Re-evaluate top 5 bots from a previous report on a different board size:**
 
-```sh
-uv run tetris evaluate --board-size 30x15 from-evaluation-report path/to/report.csv --top-k 5
-```
+  ```sh
+  uv run tetris evaluate --board-size 30x15 from-evaluation-report path/to/report.csv --top-k 5
+  ```
 
-## Pre-commit hooks
+## Development
 
-Pre-commit hooks can be installed using
+### Pre-commit Hooks
+
+Install hooks:
 
 ```sh
 uvx pre-commit install
 ```
 
-manually run using
+Run hooks manually:
 
 ```sh
 uvx pre-commit run --all-files
 ```
 
-and kept up-to-date using
+Update hooks:
 
 ```sh
 uvx pre-commit autoupdate
 ```
 
-## Testing
+### Testing
+
+Run all tests:
 
 ```sh
 uv run pytest
