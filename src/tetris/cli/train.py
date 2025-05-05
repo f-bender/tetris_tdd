@@ -130,6 +130,10 @@ def from_checkpoint(  # noqa: PLR0913
             **kwargs_to_overwrite,
         )
     else:
+        if not common_options["checkpoint_dir"].is_dir():
+            msg = "Checkpoint directory must exist if checkpoint_file is not specified!"
+            raise click.BadParameter(msg)
+
         HeuristicGym.continue_from_latest_checkpoint(
             checkpoint_dir=common_options["checkpoint_dir"],
             new_population_size=common_options["population_size"],
