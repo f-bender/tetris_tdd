@@ -1,40 +1,33 @@
-[tool.poetry]
+[project]
 name = "tetris"
 version = "0.1.0"
-description = ""
-authors = ["Florian Bender <benderflorian70@gmail.com>"]
+description = "Custom Tetris game"
 readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "ansi>=0.3.7",
+    "click>=8.1.8",
+    "keyboard>=0.13.5",
+    "numpy>=2.2.5",
+    "pandas>=2.2.3",
+    "pynput>=1.8.1",
+    "scikit-image>=0.25.2",
+]
 
-[tool.poetry.dependencies]
-python = "^3.12"
-numpy = "^2.0.0"
-ansi = "^0.3.7"
-keyboard = "^0.13.5"
-scikit-image = "^0.24.0"
-google-generativeai = { version = "^0.8.3", optional = true }
-inputs = { version = "^0.5", optional = true }
-pynput = "^1.7.7"
-pandas = "^2.2.3"
-click = "^8.1.8"
+[project.optional-dependencies]
+gemini = ["google-generativeai>=0.8.5"]
+gamepad = ["inputs>=0.5"]
 
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.2.2"
-pre-commit = "^3.8.0"
-
-[tool.poetry.extras]
-gemini = ["google-generativeai"]
-gamepad = ["inputs"]
-
-[tool.poetry.scripts]
+[project.scripts]
 tetris = "tetris.main:main"
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [tool.ruff]
 line-length = 120
-target-version = "py312"
+target-version = "py313"
 src = ["src"]
 fix = true
 unsafe-fixes = true
@@ -52,6 +45,7 @@ ignore = [
 unfixable = [
     "T201",   # no automatic removing prints
     "FLY002", # no automatic changing string literals
+    "F841",   # no automatic removing unused variables
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -77,3 +71,8 @@ unfixable = [
 strict = true
 warn_return_any = false
 mypy_path = "src"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.5",
+]

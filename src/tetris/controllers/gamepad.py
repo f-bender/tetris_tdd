@@ -2,8 +2,8 @@ try:
     from inputs import devices
 except ImportError as e:
     msg = (
-        "The Gamepad controller requires the optional `gamepad` dependency to be installed using "
-        "`pip install tetris[gamepad]`!"
+        "The Gamepad controller requires the extra `gamepad` dependency to be installed using "
+        "`pip install tetris[gamepad]` or `uv sync --extra gamepad`!"
     )
     raise ImportError(msg) from e
 

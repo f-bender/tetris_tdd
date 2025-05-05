@@ -224,7 +224,14 @@ def _create_controller(controller_parameter: ControllerParameter, board: Board) 
         case "bot":
             return HeuristicBotController(board)
         case "gamepad":
-            from inputs import devices
+            try:
+                from inputs import devices
+            except ImportError as e:
+                msg = (
+                    "The Gamepad controller requires the extra `gamepad` dependency to be installed using "
+                    "`pip install tetris[gamepad]` or `uv sync --extra gamepad`!"
+                )
+                raise click.BadParameter(msg) from e
 
             from tetris.controllers.gamepad import GamepadController
 
