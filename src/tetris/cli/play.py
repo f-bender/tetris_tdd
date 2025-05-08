@@ -9,6 +9,7 @@ import click
 
 from tetris.cli.common import BoardSize
 from tetris.clock.simple import SimpleClock
+from tetris.controllers.bot_assisted import BotAssistedController
 from tetris.controllers.heuristic_bot.controller import HeuristicBotController
 from tetris.controllers.keyboard.pynput import PynputKeyboardController
 from tetris.game_logic.components import Board
@@ -34,7 +35,17 @@ if TYPE_CHECKING:
 
 LOGGER = logging.getLogger(__name__)
 
-type ControllerParameter = Literal["arrows", "wasd", "vim", "bot", "gamepad"]
+type ControllerParameter = Literal[
+    "arrows",
+    "wasd",
+    "vim",
+    "gamepad",
+    "bot",
+    "arrows+",
+    "wasd+",
+    "vim+",
+    "gamepad+",
+]
 
 
 @click.command()
@@ -51,7 +62,20 @@ type ControllerParameter = Literal["arrows", "wasd", "vim", "bot", "gamepad"]
 @click.option(
     "-c",
     "--controller",
-    type=click.Choice(["arrows", "wasd", "vim", "bot", "gamepad"], case_sensitive=False),
+    type=click.Choice(
+        [
+            "arrows",
+            "wasd",
+            "vim",
+            "gamepad",
+            "bot",
+            "arrows+",
+            "wasd+",
+            "vim+",
+            "gamepad+",
+        ],
+        case_sensitive=False,
+    ),
     multiple=True,
     help=(
         "Controller(s) to use. "
@@ -62,7 +86,9 @@ type ControllerParameter = Literal["arrows", "wasd", "vim", "bot", "gamepad"]
         "If specified once, all games will use that same controller. If specified multiple times, specifies the first "
         "N games' controllers, with the rest being filled up with bots. If not specified, all available keyboard and "
         "gamepad controllers are used, and the rest of games are filled up with bots. "
-        "Note: 'gamepad' can be specified more than once if and only if more than one gamepad is connected."
+        "Note: 'gamepad' can be specified more than once if and only if more than one gamepad is connected. "
+        "Add a '+' suffix to make the controller bot-assisted, i.e. allow handing over the controls to a bot by "
+        "pressing down + left + confirm + cancel (simultaneously)."
     ),
 )
 @click.option(
@@ -134,7 +160,7 @@ def play(  # noqa: PLR0913
     boards, controllers = _create_boards_and_controllers(
         board_size=board_size, num_games_parameter=num_games, controllers_parameter=controller
     )
-    any_bots = any(isinstance(controller, HeuristicBotController) for controller in controllers)
+    any_bots = any(isinstance(controller, HeuristicBotController | BotAssistedController) for controller in controllers)
 
     seeds = _create_seeds(seed_parameters=seed, num_games=len(boards))
     block_selection_fns = [getattr(SpawnStrategyImpl, f"{block_selection}_selection_fn")(seed) for seed in seeds]
@@ -146,6 +172,8 @@ def play(  # noqa: PLR0913
             for controller_ in controllers:
                 if isinstance(controller_, HeuristicBotController):
                     controller_.process_pool = process_pool_or_none
+                if isinstance(controller_, BotAssistedController):
+                    controller_.bot_controller.process_pool = process_pool_or_none
 
         games = _create_games(
             boards=boards,
@@ -214,36 +242,44 @@ def _create_boards_and_controllers(
 
 
 def _create_controller(controller_parameter: ControllerParameter, board: Board) -> Controller:
-    match controller_parameter:
-        case "arrows":
-            return PynputKeyboardController.arrow_keys()
-        case "wasd":
-            return PynputKeyboardController.wasd()
-        case "vim":
-            return PynputKeyboardController.vim()
-        case "bot":
-            return HeuristicBotController(board)
-        case "gamepad":
-            try:
-                from inputs import devices
-            except ImportError as e:
-                msg = (
-                    "The Gamepad controller requires the extra `gamepad` dependency to be installed using "
-                    "`pip install tetris[gamepad]` or `uv sync --extra gamepad`!"
-                )
-                raise click.BadParameter(msg) from e
+    if controller_parameter == "bot":
+        return HeuristicBotController(board)
 
-            from tetris.controllers.gamepad import GamepadController
+    bot_assisted = controller_parameter.endswith("+")
 
-            _create_controller.gamepad_index = getattr(_create_controller, "gamepad_index", -1) + 1  # type: ignore[attr-defined]
-            if _create_controller.gamepad_index >= (num_gamepads := len(devices.gamepads)):  # type: ignore[attr-defined]
-                msg = (
-                    f"Specified more than {num_gamepads} gamepad controllers with only {num_gamepads} gamepads "
-                    "connected."
-                )
-                raise click.BadParameter(msg)
+    controller: Controller
+    if controller_parameter.startswith("arrows"):
+        controller = PynputKeyboardController.arrow_keys()
+    elif controller_parameter.startswith("wasd"):
+        controller = PynputKeyboardController.wasd()
+    elif controller_parameter.startswith("vim"):
+        controller = PynputKeyboardController.vim()
+    elif controller_parameter.startswith("gamepad"):
+        try:
+            from inputs import devices
+        except ImportError as e:
+            msg = (
+                "The Gamepad controller requires the extra `gamepad` dependency to be installed using "
+                "`pip install tetris[gamepad]` or `uv sync --extra gamepad`!"
+            )
+            raise click.BadParameter(msg) from e
 
-            return GamepadController(gamepad_index=_create_controller.gamepad_index)  # type: ignore[attr-defined]
+        from tetris.controllers.gamepad import GamepadController
+
+        _create_controller.gamepad_index = getattr(_create_controller, "gamepad_index", -1) + 1  # type: ignore[attr-defined]
+        if _create_controller.gamepad_index >= (num_gamepads := len(devices.gamepads)):  # type: ignore[attr-defined]
+            msg = f"Specified more than {num_gamepads} gamepad controllers with only {num_gamepads} gamepads connected."
+            raise click.BadParameter(msg)
+
+        controller = GamepadController(gamepad_index=_create_controller.gamepad_index)  # type: ignore[attr-defined]
+    else:
+        msg = "Unknown controller parameter."
+        raise AssertionError(msg)
+
+    if bot_assisted:
+        controller = BotAssistedController(controller, HeuristicBotController(board))
+
+    return controller
 
 
 def _default_controllers() -> list[Controller]:
@@ -305,6 +341,9 @@ def _create_games(
 
         if isinstance(controller, Callback | Subscriber | Publisher):
             controller.game_index = idx
+
+        if isinstance(controller, BotAssistedController):
+            controller.bot_controller.game_index = idx
 
         rule_sequence = _create_rules_and_callbacks(
             num_games=len(boards),
