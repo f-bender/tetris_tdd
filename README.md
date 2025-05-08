@@ -2,7 +2,7 @@
 
 ## Overview
 
-A custom implementation of Tetris featuring an ANSI-powered terminal UI and flexible controller support. Includes tools for playing, training and evaluating Tetris bots, and visualizing a custom space filling and coloring algorithm used in the startup animation of the Tetris UI.
+A custom implementation of Tetris featuring an ANSI-powered terminal UI and flexible controller support. Includes commands for playing, training and evaluating Tetris bots, and visualizing a custom space filling and coloring algorithm used in the startup animation of the Tetris UI.
 
 ## Prerequisites
 
@@ -42,10 +42,10 @@ Run one or more Tetris games in parallel, each with configurable controllers (ke
   > uv sync --extra gamepad
   > ```
 
-- **Bot competition (5 bots, same seed, fast-forward, custom board size):**
+- **Bot competition (5 bots, same seed, fast-forward, custom board size, with Tetris99 rules (cleared lines are sent to an opponent)):**
 
   ```sh
-  uv run tetris play -n5 -cbot --seed same --fps 600 --board-size 40x20
+  uv run tetris play -n5 -cbot --seed same --fps 600 --board-size 40x20 --tetris99
   ```
 
 #### Fill Space
@@ -143,3 +143,52 @@ Run all tests:
 ```sh
 uv run pytest
 ```
+
+## Code structure
+
+This section is meant to give a broad, non-exhaustive overview over the structure of the project.
+
+- **[src/tetris/cli/](src/tetris/cli/)**  
+  Implementation of the above described Tetris commandline interface, implemented using `click`.
+
+- **[src/tetris/game_logic/](src/tetris/game_logic/)**  
+  Scaffolding for the game loop: a `Runtime` class which contains a number of `Game` classes, which in turn contain `Rule`s and `Callback`s that are called every frame, and a `UI` that is used to draw the current game state every frame.
+
+  - **[src/tetris/game_logic/components/](src/tetris/game_logic/components/)**  
+    Core building blocks that the tetris game is made of (tetris pieces and the board they are placed on).
+
+  - **[src/tetris/game_logic/interfaces/](src/tetris/game_logic/interfaces/)**  
+    Interfaces (ABCs / Protocols) for classes used by the game loop scaffolding. Includes `Publisher` and `Subscriber` superclasses, which are the main way that different objects communicate.
+
+  - **[src/tetris/game_logic/rules/](src/tetris/game_logic/rules/)**  
+    Implementations of the `Rule` protocol. Rules are called every frame and define how the game works. They for example make pieces drop, clear full lines, and define how pieces move based on controller input. Also, message tuples that are passed between rules (and other objects) for communication.
+
+- **[src/tetris/ui/](src/tetris/ui/)**  
+  Implementations of the `UI` interface. Includes a CLI implementation powered by ANSI codes.
+
+- **[src/tetris/ansi_extensions/](src/tetris/ansi_extensions/)**  
+  Custom extension to the `ansi` package, adding more codes in the same style.
+
+- **[src/tetris/clock/](src/tetris/clock/)**  
+  Implementations of the `Clock` interface.
+
+- **[src/tetris/controllers/](src/tetris/controllers/)**  
+  Implementations of the `Controller` interface. Includes keyboard and gamepad controllers, as well as LLM and Heuristic-based bot controllers.
+
+- **[src/tetris/genetic_algorithm.py](src/tetris/genetic_algorithm.py)**  
+  Generic implementation of Genetic Algorithm.
+
+- **[src/tetris/heuristic_gym/](src/tetris/heuristic_gym/)**  
+  Code related to training (using Genetic Algorithm) and evaluating heuristic bot controllers.
+
+- **[src/tetris/space_filling_coloring/](src/tetris/space_filling_coloring/)**  
+  Code related to filling a space with tetrominoes and 4-coloring it, corresponding to the `fill-space` CLI command.
+
+- **[tests/](tests/)**  
+  Unit tests.
+
+- **[logs/](logs/)**  
+  Default location for log files.
+
+- **[data/](data/)**  
+  Default location for train checkpoint and evaluation report files.

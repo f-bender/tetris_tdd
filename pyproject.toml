@@ -18,6 +18,9 @@ dependencies = [
 gemini = ["google-generativeai>=0.8.5"]
 gamepad = ["inputs>=0.5"]
 
+[dependency-groups]
+dev = ["pytest>=8.3.5"]
+
 [project.scripts]
 tetris = "tetris.main:main"
 
@@ -71,8 +74,3 @@ unfixable = [
 strict = true
 warn_return_any = false
 mypy_path = "src"
-
-[dependency-groups]
-dev = [
-    "pytest>=8.3.5",
-]
