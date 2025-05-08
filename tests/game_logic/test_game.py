@@ -6,26 +6,12 @@ import pytest
 from tetris.game_logic.components.block import Block, BlockType
 from tetris.game_logic.components.board import Board
 from tetris.game_logic.game import Game, GameOverError
-from tetris.game_logic.interfaces.controller import Action, Controller
+from tetris.game_logic.interfaces.controller import Action
 from tetris.game_logic.interfaces.rule_sequence import RuleSequence
-from tetris.rules.core.move_rotate_rules import HeldInputPolicy, MoveRule, RotateRule
-from tetris.rules.core.spawn_drop_merge.spawn import SpawnStrategyImpl
-from tetris.rules.core.spawn_drop_merge.spawn_drop_merge_rule import SpawnDropMergeRule
-from tetris.rules.core.spawn_drop_merge.speed import SpeedStrategy
-
-
-class DummyController(Controller):
-    def get_action(self, board: Board | None = None) -> Action:  # noqa: ARG002
-        return Action()
-
-
-@pytest.fixture
-def dummy_game() -> Game:
-    return Game(
-        board=Board.create_empty(20, 10),
-        controller=DummyController(),
-        rule_sequence=RuleSequence([]),
-    )
+from tetris.game_logic.rules.core.move_rotate_rules import HeldInputPolicy, MoveRule, RotateRule
+from tetris.game_logic.rules.core.spawn_drop_merge.spawn import SpawnStrategyImpl
+from tetris.game_logic.rules.core.spawn_drop_merge.spawn_drop_merge_rule import SpawnDropMergeRule
+from tetris.game_logic.rules.core.spawn_drop_merge.speed import SpeedStrategyImpl
 
 
 def test_game_runs_as_expected() -> None:
@@ -77,8 +63,8 @@ def test_game_runs_as_expected() -> None:
                 MoveRule(held_input_policy=trigger_every_frame_policy),
                 RotateRule(held_input_policy=trigger_every_frame_policy),
                 SpawnDropMergeRule(
-                    speed_strategy=SpeedStrategy(base_interval=1),
-                    spawn_delay=1,
+                    speed_strategy=SpeedStrategyImpl(base_interval=1),
+                    merge_delay=1,
                     spawn_strategy=SpawnStrategyImpl(select_block_fn=Mock(side_effect=blocks_to_spawn)),
                 ),
             ],
@@ -552,6 +538,6 @@ def test_game_runs_as_expected() -> None:
         assert str(board) == "\n".join(expected_board_state)
         assert game.frame_counter == idx + 1
 
-    # THEN the game raises GameOver after the last game-ending board-state
+    # THEN the game raises GameOverError after the last game-ending board-state
     with pytest.raises(GameOverError):
         game.advance_frame()

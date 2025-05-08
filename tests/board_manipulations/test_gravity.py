@@ -1,6 +1,6 @@
 import numpy as np
 
-from tetris.board_manipulations.gravity import Gravity
+from tetris.game_logic.rules.board_manipulations.gravity import Gravity
 
 
 def test_gravity_manipulation_01() -> None:

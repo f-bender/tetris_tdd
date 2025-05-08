@@ -3,6 +3,7 @@
 ## Overview
 
 A custom implementation of Tetris featuring an ANSI-powered terminal UI and flexible controller support. Includes commands for playing, training and evaluating Tetris bots, and visualizing a custom space filling and coloring algorithm used in the startup animation of the Tetris UI.
+Developed and mainly tested on Windows. Using Windows Terminal is recommended.
 
 ## Prerequisites
 

@@ -6,10 +6,14 @@ class DummyController(Controller):
     def get_action(self, board: Board | None = None) -> Action:  # noqa: ARG002
         return Action()
 
+    @property
+    def symbol(self) -> str:
+        return "Dummy"
+
 
 def test_button_description_default_implementation() -> None:
     controller = DummyController()
-    assert controller.get_button_description(Action()) == ""
+    assert controller.get_button_description(Action()) == "<nothing>"
     assert controller.get_button_description(Action(left_shoulder=True)) == "Left Shoulder"
     assert controller.get_button_description(Action(left=True, right_shoulder=True)) == "Left + Right Shoulder"
     assert (

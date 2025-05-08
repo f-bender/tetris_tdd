@@ -1,11 +1,11 @@
 from unittest.mock import Mock
 
-from tetris.rules.core.spawn_drop_merge.spawn_drop_merge_rule import SpawnDropMergeRule
-from tetris.rules.core.spawn_drop_merge.speed import SpeedStrategy
+from tetris.game_logic.rules.core.spawn_drop_merge.spawn_drop_merge_rule import SpawnDropMergeRule
+from tetris.game_logic.rules.core.spawn_drop_merge.speed import SpeedStrategyImpl
 
 
 def test_drop_triggered_on_correct_frames() -> None:
-    drop_rule = SpawnDropMergeRule(speed_strategy=SpeedStrategy(base_interval=6, quick_interval_factor=2))
+    drop_rule = SpawnDropMergeRule(speed_strategy=SpeedStrategyImpl(base_interval=6, quick_interval_factor=2))
 
     # fmt: off
     assert_whether_drop_triggered_after(drop_rule, frame_counter= 0, quick_drop_held_since= 0, should_trigger=False)
