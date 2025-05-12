@@ -3,7 +3,7 @@
 ## Overview
 
 A custom implementation of Tetris featuring an ANSI-powered terminal UI and flexible controller support. Includes commands for playing, training and evaluating Tetris bots, and visualizing a custom space filling and coloring algorithm used in the startup animation of the Tetris UI.
-Developed and mainly tested on Windows. Using Windows Terminal is recommended.
+Developed and mainly tested on Windows. Windows Terminal was used for development and is recommended, but most modern terminals should work fine (e.g. VS Code integrated terminal works mostly fine).
 
 ## Prerequisites
 
@@ -16,6 +16,8 @@ To see available CLI commands, run:
 ```sh
 uv run tetris
 ```
+
+> *Note: when running for the first time, you might have to wait a bit for dependencies to be installed*
 
 Use `--help` with any command to view its subcommands and options.
 
