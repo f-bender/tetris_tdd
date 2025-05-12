@@ -11,12 +11,12 @@ from tetris.cli.common import BoardSize
 from tetris.clock.simple import SimpleClock
 from tetris.controllers.bot_assisted import BotAssistedController
 from tetris.controllers.heuristic_bot.controller import HeuristicBotController
-from tetris.controllers.keyboard.pynput import PynputKeyboardController
+from tetris.controllers.stub import StubController
 from tetris.game_logic.components import Board
 from tetris.game_logic.components.block import Block
 from tetris.game_logic.game import Game
 from tetris.game_logic.interfaces.callback import Callback
-from tetris.game_logic.interfaces.controller import Controller
+from tetris.game_logic.interfaces.controller import Action, Controller
 from tetris.game_logic.interfaces.dependency_manager import DEPENDENCY_MANAGER, DependencyManager
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.game_logic.interfaces.rule_sequence import RuleSequence
@@ -202,18 +202,22 @@ def _create_boards_and_controllers(
 
     boards = [Board.create_empty(*board_size) for _ in range(num_games)]
 
+    # NOTE: we avoid importing the keyboard controller unless we actually need it, to avoid unnecessary crashes on
+    # systems where keyboard input is not supported (e.g. headless servers)
+
     if num_games_parameter is None:
         # Case 1: --num-games is not specified
-        controllers: list[Controller] = (
+        if controllers_parameter:
             # If controller is specified, it determines the number of games and their controllers.
-            [
+            controllers: list[Controller] = [
                 _create_controller(controller_parameter, board)
                 for controller_parameter, board in zip(controllers_parameter, boards, strict=True)
             ]
-            if controllers_parameter
-            # If not specified, a single game with keyboard controller is created.
-            else [PynputKeyboardController()]
-        )
+        else:
+            # If controller is not specified, a single game with keyboard controller is created.
+            from tetris.controllers.keyboard.pynput import PynputKeyboardController
+
+            controllers = [PynputKeyboardController()]
     else:  # noqa: PLR5501
         # Case 2: --num-games is specified
         if controllers_parameter:
@@ -249,10 +253,16 @@ def _create_controller(controller_parameter: ControllerParameter, board: Board) 
 
     controller: Controller
     if controller_parameter.startswith("arrows"):
+        from tetris.controllers.keyboard.pynput import PynputKeyboardController
+
         controller = PynputKeyboardController.arrow_keys()
     elif controller_parameter.startswith("wasd"):
+        from tetris.controllers.keyboard.pynput import PynputKeyboardController
+
         controller = PynputKeyboardController.wasd()
     elif controller_parameter.startswith("vim"):
+        from tetris.controllers.keyboard.pynput import PynputKeyboardController
+
         controller = PynputKeyboardController.vim()
     elif controller_parameter.startswith("gamepad"):
         try:
@@ -283,6 +293,8 @@ def _create_controller(controller_parameter: ControllerParameter, board: Board) 
 
 
 def _default_controllers() -> list[Controller]:
+    from tetris.controllers.keyboard.pynput import PynputKeyboardController
+
     default_controllers: list[Controller] = [PynputKeyboardController.arrow_keys()]
 
     with contextlib.suppress(ImportError):
@@ -392,7 +404,7 @@ def _create_rules_and_callbacks(
         rules.append(Tetris99Rule(target_idxs=list(set(range(num_games)) - {DEPENDENCY_MANAGER.current_game_index})))
 
     if synchronize_spawning:
-        SynchronizedSpawning()
+        SynchronizedSpawning()  # not useless; will be added to DEPENDENCY_MANAGER.all_callbacks
 
     return RuleSequence(rules)
 
@@ -402,4 +414,12 @@ def _create_runtime(games: list[Game], *, controller: Controller | None = None, 
 
     TrackPerformanceCallback(fps)  # not useless; will be added to DEPENDENCY_MANAGER.all_callbacks
 
-    return Runtime(ui=CLI(), clock=SimpleClock(fps), games=games, controller=controller or PynputKeyboardController())
+    if controller is not None:
+        return Runtime(ui=CLI(), clock=SimpleClock(fps), games=games, controller=controller)
+
+    try:
+        from tetris.controllers.keyboard.pynput import PynputKeyboardController
+    except Exception:  # noqa: BLE001
+        return Runtime(ui=CLI(), clock=SimpleClock(fps), games=games, controller=StubController(Action()))
+
+    return Runtime(ui=CLI(), clock=SimpleClock(fps), games=games, controller=PynputKeyboardController())
