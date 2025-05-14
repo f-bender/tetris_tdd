@@ -1,7 +1,6 @@
 import contextlib
-import logging
 import random
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 from concurrent.futures import ProcessPoolExecutor
 from typing import TYPE_CHECKING, Literal
 
@@ -28,12 +27,12 @@ from tetris.game_logic.rules.monitoring.track_performance_rule import TrackPerfo
 from tetris.game_logic.rules.monitoring.track_score_rule import ScoreTracker
 from tetris.game_logic.rules.multiplayer.tetris99_rule import Tetris99Rule
 from tetris.game_logic.runtime import Runtime
+from tetris.game_logic.sound_manager import SoundManager
 from tetris.ui.cli import CLI
 
 if TYPE_CHECKING:
+    from tetris.game_logic.interfaces.audio_output import AudioOutput
     from tetris.game_logic.interfaces.rule import Rule
-
-LOGGER = logging.getLogger(__name__)
 
 type ControllerParameter = Literal[
     "arrows",
@@ -46,6 +45,8 @@ type ControllerParameter = Literal[
     "vim+",
     "gamepad+",
 ]
+
+type AudioBackendParameter = Literal["playsound3", "pygame", "winsound"]
 
 
 @click.command()
@@ -144,6 +145,38 @@ type ControllerParameter = Literal[
         "used for each game."
     ),
 )
+@click.option(
+    "--sounds",
+    default="tetris_nes",
+    show_default=True,
+    help=(
+        "Name the sound pack to use for sounds (directory with sound files in data/sounds directory, "
+        "or a known online sound pack (currently just 'tetris_nes')). Use the special value 'off' to disable sounds."
+    ),
+)
+@click.option(
+    "--sounded-game",
+    type=click.IntRange(min=0),
+    multiple=True,
+    help=(
+        "Index of a game for which to produce sounds (0-based, i.e. first game is index 0). "
+        "Can be specified multiple times to enable sound for multiple games. "
+        "If not specified, all games have sound. "
+        "Note: It is recommended to not enable sound for more than 4 games at once (especially with fast-playing bots)."
+    ),
+)
+@click.option(
+    "--audio-backend",
+    type=click.Choice(["playsound3", "pygame", "winsound"], case_sensitive=False),
+    default="playsound3",
+    show_default=True,
+    help=(
+        "Backend to use for playing sounds. Notes: "
+        "'pygame' requires the 'pygame' extra to be installed "
+        "(`pip install tetris[pygame]` or `uv sync --extra pygame`). "
+        "'winsound' only works on Windows, and only with 'wav' files."
+    ),
+)
 def play(  # noqa: PLR0913
     *,
     num_games: int | None,
@@ -155,11 +188,23 @@ def play(  # noqa: PLR0913
     board_size: tuple[int, int],
     seed: tuple[str, ...],
     block_selection: Literal["truly_random", "from_shuffled_bag"],
+    sounds: str,
+    sounded_game: tuple[int, ...],
+    audio_backend: AudioBackendParameter,
 ) -> None:
     """Play Tetris with configurable rules and controllers."""
     boards, controllers = _create_boards_and_controllers(
         board_size=board_size, num_games_parameter=num_games, controllers_parameter=controller
     )
+
+    if not all(0 <= game_index < len(boards) for game_index in sounded_game):
+        invalid_indices = [str(game_index) for game_index in sounded_game if 0 <= game_index < len(boards)]
+        msg = (
+            f"Invalid game indices provided to --sounded-game: {', '.join(invalid_indices)}. "
+            f"Indices must be within [0, {len(boards) - 1}] as there are {len(boards)} games."
+        )
+        raise click.BadParameter(msg)
+
     any_bots = any(isinstance(controller, HeuristicBotController | BotAssistedController) for controller in controllers)
 
     seeds = _create_seeds(seed_parameters=seed, num_games=len(boards))
@@ -183,7 +228,15 @@ def play(  # noqa: PLR0913
             synchronize_spawning=synchronize_spawning,
         )
 
-        runtime = _create_runtime(games, fps=fps)
+        sound_manager = (
+            None
+            if sounds == "off"
+            else _create_sound_manager(
+                sounds=sounds, sounded_game_indices=sounded_game or None, audio_backend=audio_backend
+            )
+        )
+
+        runtime = _create_runtime(games, fps=fps, sound_manager=sound_manager)
 
         DEPENDENCY_MANAGER.wire_up(runtime=runtime, games=games)
 
@@ -409,17 +462,49 @@ def _create_rules_and_callbacks(
     return RuleSequence(rules)
 
 
-def _create_runtime(games: list[Game], *, controller: Controller | None = None, fps: float = 60000) -> Runtime:
+def _create_sound_manager(
+    sounds: str, sounded_game_indices: Collection[int] | None, audio_backend: AudioBackendParameter
+) -> SoundManager | None:
+    match audio_backend:
+        case "playsound3":
+            from tetris.audio_outputs.playsound3 import Playsound3AudioOutput
+
+            audio_output: AudioOutput = Playsound3AudioOutput()
+        case "pygame":
+            from tetris.audio_outputs.pygame import PygameAudioOutput
+
+            audio_output = PygameAudioOutput()
+        case "winsound":
+            from tetris.audio_outputs.winsound import WinsoundAudioOutput
+
+            audio_output = WinsoundAudioOutput()
+
+    return SoundManager(audio_output, sound_pack=sounds, game_indices=sounded_game_indices)
+
+
+def _create_runtime(
+    games: list[Game],
+    *,
+    controller: Controller | None = None,
+    fps: float = 60,
+    sound_manager: SoundManager | None = None,
+) -> Runtime:
     DEPENDENCY_MANAGER.current_game_index = DependencyManager.RUNTIME_INDEX
+    if sound_manager is not None:
+        # NOTE: SoundManager's game_index is never actually used, but for consistency's sake still change it
+        sound_manager.game_index = DependencyManager.RUNTIME_INDEX
 
     TrackPerformanceCallback(fps)  # not useless; will be added to DEPENDENCY_MANAGER.all_callbacks
 
-    if controller is not None:
-        return Runtime(ui=CLI(), clock=SimpleClock(fps), games=games, controller=controller)
+    ui = CLI()
+    clock = SimpleClock(fps)
 
-    try:
-        from tetris.controllers.keyboard.pynput import PynputKeyboardController
-    except Exception:  # noqa: BLE001
-        return Runtime(ui=CLI(), clock=SimpleClock(fps), games=games, controller=StubController(Action()))
+    if controller is None:
+        try:
+            from tetris.controllers.keyboard.pynput import PynputKeyboardController
+        except Exception:  # noqa: BLE001
+            controller = StubController(Action())
+        else:
+            controller = PynputKeyboardController()
 
-    return Runtime(ui=CLI(), clock=SimpleClock(fps), games=games, controller=PynputKeyboardController())
+    return Runtime(ui=ui, clock=clock, games=games, controller=controller, sound_manager=sound_manager)

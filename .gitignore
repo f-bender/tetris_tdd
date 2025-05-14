@@ -5,3 +5,4 @@ logs/**/*.log*
 .checkpoints/
 train_checkpoints/
 *.egg-info/
+/data/sounds

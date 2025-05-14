@@ -135,17 +135,21 @@ class Board:
                 self.active_block = None
                 raise CannotSpawnBlockError from e
 
-    def try_move_active_block_left(self) -> None:
-        self._move(-1)
+    def try_move_active_block_left(self) -> bool:
+        """Return whether the move was successful."""
+        return self._move(-1)
 
-    def try_move_active_block_right(self) -> None:
-        self._move(1)
+    def try_move_active_block_right(self) -> bool:
+        """Return whether the move was successful."""
+        return self._move(1)
 
-    def try_rotate_active_block_left(self) -> None:
-        self._rotate("left")
+    def try_rotate_active_block_left(self) -> bool:
+        """Return whether the rotation was successful."""
+        return self._rotate("left")
 
-    def try_rotate_active_block_right(self) -> None:
-        self._rotate("right")
+    def try_rotate_active_block_right(self) -> bool:
+        """Return whether the rotation was successful."""
+        return self._rotate("right")
 
     def drop_active_block(self) -> None:
         if self.active_block is None:
@@ -205,7 +209,7 @@ class Board:
             )
         )
 
-    def _move(self, x_offset: Literal[-1, 1]) -> None:
+    def _move(self, x_offset: Literal[-1, 1]) -> bool:
         if self.active_block is None:
             raise NoActiveBlockError
 
@@ -213,8 +217,10 @@ class Board:
 
         if self._positioned_block_is_in_valid_position(moved_block):
             self.active_block = moved_block
+            return True
+        return False
 
-    def _rotate(self, direction: Literal["left", "right"]) -> None:
+    def _rotate(self, direction: Literal["left", "right"]) -> bool:
         if self.active_block is None:
             raise NoActiveBlockError
 
@@ -231,6 +237,8 @@ class Board:
                     self.active_block.block.rotate_right()
                 else:
                     self.active_block.block.rotate_left()
+                return False
+        return True
 
     def _positioned_block_is_in_valid_position(self, positioned_block: PositionedBlock) -> bool:
         return self._bbox_in_bounds(

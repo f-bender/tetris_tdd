@@ -45,10 +45,10 @@ Run one or more Tetris games in parallel, each with configurable controllers (ke
   > uv sync --extra gamepad
   > ```
 
-- **Bot competition (5 bots, same seed, fast-forward, custom board size, with Tetris99 rules (cleared lines are sent to an opponent)):**
+- **Bot competition (5 bots, same seed, fast-forward, custom board size, with Tetris99 rules (cleared lines are sent to an opponent), without sound):**
 
   ```sh
-  uv run tetris play -n5 -cbot --seed same --fps 600 --board-size 40x20 --tetris99
+  uv run tetris play -n5 -cbot --seed same --fps 600 --board-size 40x20 --tetris99 --sounds off
   ```
 
 #### Fill Space
@@ -194,4 +194,4 @@ This section is meant to give a broad, non-exhaustive overview over the structur
   Default location for log files.
 
 - **[data/](data/)**  
-  Default location for train checkpoint and evaluation report files.
+  Default location for train checkpoint, evaluation report, and sound files.

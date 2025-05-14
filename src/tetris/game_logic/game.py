@@ -28,7 +28,7 @@ class Game:
 
         self._frame_counter = 0
         self._alive = True
-        self.callback_collection.on_game_start()
+        self._game_over_frame_count = 0
 
         self._ui_aggregator = UiAggregator(board=board.as_array(), controller_symbol=self._controller.symbol)
 
@@ -43,6 +43,10 @@ class Game:
     @property
     def frame_counter(self) -> int:
         return self._frame_counter
+
+    @property
+    def game_over_frame_count(self) -> int:
+        return self._game_over_frame_count
 
     @property
     def action_counter(self) -> ActionCounter:
@@ -62,19 +66,26 @@ class Game:
         self._frame_counter = 0
         self._alive = True
         self._ui_aggregator.reset()
-        self.callback_collection.on_game_start()
 
     def advance_frame(self) -> None:
+        if self._frame_counter == 0:
+            self.callback_collection.on_game_start()
+
         self._frame_counter += 1
 
         self._action_counter.update(self._controller.get_action(self._board))
         self.callback_collection.on_action_counter_updated()
 
+        if not self._alive:
+            return
+
         try:
             self._rule_sequence.apply(self._frame_counter, self._action_counter, self._board)
         except GameOverError:
+            self.callback_collection.on_game_over()
             self._alive = False
-            raise
+            self._game_over_frame_count = self._frame_counter
+            return
         self.callback_collection.on_rules_applied()
 
         self._ui_aggregator.update(self._board.as_array())

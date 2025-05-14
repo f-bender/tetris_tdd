@@ -6,10 +6,12 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "ansi>=0.3.7",
-    "click>=8.1.8",
+    "click>=8.2.0",
+    "httpx>=0.28.1",
     "keyboard>=0.13.5",
     "numpy>=2.2.5",
     "pandas>=2.2.3",
+    "playsound3>=3.2.3",
     "pynput>=1.8.1",
     "scikit-image>=0.25.2",
 ]
@@ -17,6 +19,7 @@ dependencies = [
 [project.optional-dependencies]
 gemini = ["google-generativeai>=0.8.5"]
 gamepad = ["inputs>=0.5"]
+pygame = ["pygame>=2.6.1"]
 
 [dependency-groups]
 dev = ["pytest>=8.3.5"]

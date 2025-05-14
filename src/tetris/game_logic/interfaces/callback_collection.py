@@ -32,3 +32,7 @@ class CallbackCollection:
     def on_frame_end(self) -> None:
         for callback in self._callbacks:
             callback.on_frame_end()
+
+    def on_game_over(self) -> None:
+        for callback in self._callbacks:
+            callback.on_game_over()

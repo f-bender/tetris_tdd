@@ -1,6 +1,8 @@
 from tetris.game_logic.action_counter import ActionCounter
 from tetris.game_logic.components.board import Board
 from tetris.game_logic.interfaces.controller import Action
+from tetris.game_logic.interfaces.pub_sub import Publisher
+from tetris.game_logic.rules.messages import Direction, MoveMessage, RotateMessage
 
 
 class HeldInputPolicy:
@@ -32,7 +34,7 @@ class HeldInputPolicy:
         )
 
 
-class MoveRule:
+class MoveRule(Publisher):
     def __init__(self, held_input_policy: HeldInputPolicy | None = None) -> None:
         """Initialize the Move Rule.
 
@@ -41,6 +43,7 @@ class MoveRule:
                 been held for. The default values of repeat_interval_frames=4 and single_press_delay_frames=15 are
                 fine-tuned for 60 FPS gameplay.
         """
+        super().__init__()
         self._held_input_policy = held_input_policy or HeldInputPolicy(
             repeat_interval_frames=3,
             single_press_delay_frames=10,
@@ -55,14 +58,20 @@ class MoveRule:
         if not board.has_active_block():
             return
 
-        if self._held_input_policy.should_trigger(held_since_frames=action_counter.held_since(Action(left=True))):
-            board.try_move_active_block_left()
+        if (
+            self._held_input_policy.should_trigger(held_since_frames=action_counter.held_since(Action(left=True)))
+            and board.try_move_active_block_left()
+        ):
+            self.notify_subscribers(MoveMessage(direction=Direction.LEFT))
 
-        if self._held_input_policy.should_trigger(held_since_frames=action_counter.held_since(Action(right=True))):
-            board.try_move_active_block_right()
+        if (
+            self._held_input_policy.should_trigger(held_since_frames=action_counter.held_since(Action(right=True)))
+            and board.try_move_active_block_right()
+        ):
+            self.notify_subscribers(MoveMessage(direction=Direction.RIGHT))
 
 
-class RotateRule:
+class RotateRule(Publisher):
     def __init__(self, held_input_policy: HeldInputPolicy | None = None) -> None:
         """Initialize the Rotate Rule.
 
@@ -70,6 +79,7 @@ class RotateRule:
             held_input_policy: Policy when to trigger the move action based on how long the corresponding button has
                 been held for. The default value of repeat_interval_frames=20 is fine-tuned for 60 FPS gameplay.
         """
+        super().__init__()
         self._held_input_policy = held_input_policy or HeldInputPolicy(repeat_interval_frames=15)
 
     def apply(
@@ -81,15 +91,21 @@ class RotateRule:
         if not board.has_active_block():
             return
 
-        if self._held_input_policy.should_trigger(
-            held_since_frames=action_counter.held_since(Action(left_shoulder=True)),
+        if (
+            self._held_input_policy.should_trigger(
+                held_since_frames=action_counter.held_since(Action(left_shoulder=True)),
+            )
+            and board.try_rotate_active_block_left()
         ):
-            board.try_rotate_active_block_left()
+            self.notify_subscribers(RotateMessage(direction=Direction.LEFT))
 
-        if self._held_input_policy.should_trigger(
-            held_since_frames=max(
-                action_counter.held_since(Action(right_shoulder=True)),
-                action_counter.held_since(Action(up=True)),  # up can be used for right rotation as well
-            ),
+        if (
+            self._held_input_policy.should_trigger(
+                held_since_frames=max(
+                    action_counter.held_since(Action(right_shoulder=True)),
+                    action_counter.held_since(Action(up=True)),  # up can be used for right rotation as well
+                ),
+            )
+            and board.try_rotate_active_block_right()
         ):
-            board.try_rotate_active_block_right()
+            self.notify_subscribers(RotateMessage(direction=Direction.RIGHT))

@@ -22,6 +22,7 @@ class Speed(Enum):
 
 class StartMergeMessage(NamedTuple):
     speed: Speed
+    duration: int
 
 
 class FinishedMergeMessage(NamedTuple):
@@ -48,3 +49,16 @@ class SynchronizedSpawnCommandMessage(NamedTuple):
 class BoardTranslationMessage(NamedTuple):
     x_offset: int = 0
     y_offset: int = 0
+
+
+class Direction(Enum):
+    LEFT = auto()
+    RIGHT = auto()
+
+
+class MoveMessage(NamedTuple):
+    direction: Direction
+
+
+class RotateMessage(NamedTuple):
+    direction: Direction

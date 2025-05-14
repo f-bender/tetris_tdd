@@ -2,21 +2,24 @@ from itertools import count
 from typing import Protocol
 
 from tetris.game_logic.action_counter import ActionCounter
-from tetris.game_logic.game import Game, GameOverError
+from tetris.game_logic.game import Game
 from tetris.game_logic.interfaces.callback_collection import CallbackCollection
 from tetris.game_logic.interfaces.clock import Clock
 from tetris.game_logic.interfaces.controller import Action, Controller
 from tetris.game_logic.interfaces.ui import UI, UiElements
+from tetris.game_logic.sound_manager import SoundManager
 
 
 class Runtime:
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
+        *,
         ui: UI,
         clock: Clock,
         games: list[Game],
         controller: Controller,  # for menu navigation or startup acceleration
         callback_collection: CallbackCollection | None = None,
+        sound_manager: SoundManager | None = None,
     ) -> None:
         if not games:
             msg = "At least one game must be provided"
@@ -40,6 +43,8 @@ class Runtime:
 
         self._controller = controller
         self._action_counter = ActionCounter()
+
+        self._sound_manager = sound_manager
 
     @property
     def action_counter(self) -> ActionCounter:
@@ -110,14 +115,15 @@ PAUSE_ACTION = Action(cancel=True)
 
 
 class PlayingState:
+    _GAME_OVER_DELAY_FRAMES = 120
+
     def advance(self, runtime: Runtime) -> None:
         if runtime.action_counter.held_since(PAUSE_ACTION) == 1:
             runtime.state = PAUSED_STATE
 
         for game in runtime.games:
-            try:
-                game.advance_frame()
-            except GameOverError:
+            game.advance_frame()
+            if not game.alive and game.frame_counter - game.game_over_frame_count >= self._GAME_OVER_DELAY_FRAMES:
                 game.reset()
 
 

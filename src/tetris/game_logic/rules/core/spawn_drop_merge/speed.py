@@ -51,14 +51,14 @@ class SpeedStrategy(Protocol):
 class SpeedStrategyImpl(Callback):
     """Strategy for whether to drop/merge the current block, given the number of frames since it was spawned."""
 
-    def __init__(self, base_interval: float = 25, quick_interval_factor: float = 8) -> None:
+    def __init__(self, base_interval: float = 30, quick_interval_factor: float = 8) -> None:
         """Initialize the SpeedStrategy.
 
         Needs to be registered as a callback to the game in order to work correctly.
 
         Args:
             base_interval: Initial value for the number of frames between drops while the quick-drop-action is *not*
-                held. The default value of 25 is fine-tuned for 60 FPS gameplay. If changed by a subclass, that interval
+                held. The default value of 30 is fine-tuned for 60 FPS gameplay. If changed by a subclass, that interval
                 will be changed to this base value again whenever a new game starts.
             quick_interval_factor: `normal_interval` is divided by this factor to obtain the number of frames between
                 drops while the quick-drop-action *is* held.

@@ -28,7 +28,7 @@ class SpawnDropMergeRule(Callback, Publisher, Subscriber):
     def __init__(  # noqa: PLR0913
         self,
         *,
-        merge_delay: int = 25,
+        merge_delay: int = 30,
         synchronized_spawn: bool = False,
         spawn_strategy: SpawnStrategy | None = None,
         drop_strategy: DropStrategy | None = None,
@@ -156,6 +156,7 @@ class SpawnDropMergeRule(Callback, Publisher, Subscriber):
         self.notify_subscribers(
             StartMergeMessage(
                 speed=Speed.INSTANT if instant_drop_and_merge else (Speed.QUICK if quick_drop_held else Speed.NORMAL),
+                duration=self._merge_delay,
             )
         )
         self.board_manipulation_after_merge.manipulate_gradually(
