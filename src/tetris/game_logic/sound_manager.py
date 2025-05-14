@@ -1,4 +1,5 @@
 import asyncio
+import random
 from collections.abc import Collection, Mapping
 from enum import StrEnum
 from pathlib import Path
@@ -22,7 +23,9 @@ from tetris.game_logic.rules.messages import (
 
 
 class Sound(StrEnum):
-    MUSIC = "music"
+    MUSIC1 = "music1"
+    MUSIC2 = "music2"
+    MUSIC3 = "music3"
     MOVE = "move"
     ROTATE = "rotate"
     MERGE = "merge"
@@ -38,7 +41,9 @@ class SoundManager(Subscriber, Callback):
     _ONLINE_SOUND_PACKS: Mapping[str, Mapping[Sound, str]] = MappingProxyType(
         {
             "tetris_nes": {
-                Sound.MUSIC: "https://fi.zophar.net/soundfiles/nintendo-nes-nsf/tetris-1989-Nintendo/1%20-%20Music%201.mp3",
+                Sound.MUSIC1: "https://fi.zophar.net/soundfiles/nintendo-nes-nsf/tetris-1989-Nintendo/1%20-%20Music%201.mp3",
+                Sound.MUSIC2: "https://fi.zophar.net/soundfiles/nintendo-nes-nsf/tetris-1989-Nintendo/2%20-%20Music%202.mp3",
+                Sound.MUSIC3: "https://fi.zophar.net/soundfiles/nintendo-nes-nsf/tetris-1989-Nintendo/3%20-%20Music%203.mp3",
                 Sound.MOVE: "https://fi.zophar.net/soundfiles/nintendo-nes-nsf/tetris-1989-Nintendo/SFX%204.mp3",
                 Sound.ROTATE: "https://fi.zophar.net/soundfiles/nintendo-nes-nsf/tetris-1989-Nintendo/SFX%206.mp3",
                 Sound.MERGE: "https://fi.zophar.net/soundfiles/nintendo-nes-nsf/tetris-1989-Nintendo/SFX%208.mp3",
@@ -142,6 +147,16 @@ class SoundManager(Subscriber, Callback):
         self._play_sound(Sound.GAME_OVER)
 
     def on_game_start(self) -> None:
-        if not self._music_playing:
-            self._play_sound(Sound.MUSIC, loop=True)
-            self._music_playing = True
+        if self._music_playing:
+            return
+
+        music_files = [
+            music_file
+            for sound in (Sound.MUSIC1, Sound.MUSIC2, Sound.MUSIC3)
+            if (music_file := self._sound_files[sound]) is not None
+        ]
+        if not music_files:
+            return
+
+        self._audio_output.play_on_loop(random.choice(music_files))
+        self._music_playing = True
