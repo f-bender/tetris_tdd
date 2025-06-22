@@ -74,8 +74,8 @@ class LLMController(Controller):
         rf"(?P<action>(?:{MOVE_KEY}|{ROTATE_KEY})) (?P<direction>(?:{LEFT_KEY}|{RIGHT_KEY})) (?P<count>\d+)"
     )
 
-    def __init__(self, llm: LLM) -> None:
-        self._board: Board | None = None
+    def __init__(self, board: Board, llm: LLM) -> None:
+        self._board = board
         self._active_frame = True
         self._last_response: str | None = None
 
@@ -91,8 +91,6 @@ class LLMController(Controller):
         clock = AmortizingClock(fps=llm.requests_per_minute_limit / 60, window_size=10)
         while True:
             clock.tick()
-            if self._board is None:
-                continue
 
             try:
                 commands_str = llm.send_message(str(self._board))
@@ -127,8 +125,7 @@ class LLMController(Controller):
         msg = f"Invalid action: {action}"
         raise ValueError(msg)
 
-    def get_action(self, board: Board | None = None) -> Action:
-        self._board = board
+    def get_action(self) -> Action:
         if self._last_response:
             print("LLM response:", self._last_response)  # noqa: T201
 

@@ -1,9 +1,8 @@
-from tetris.game_logic.components.board import Board
 from tetris.game_logic.interfaces.controller import Action, Controller
 
 
 class DummyController(Controller):
-    def get_action(self, board: Board | None = None) -> Action:  # noqa: ARG002
+    def get_action(self) -> Action:
         return Action()
 
     @property

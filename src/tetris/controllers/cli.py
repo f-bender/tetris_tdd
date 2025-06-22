@@ -13,7 +13,6 @@ from threading import Thread
 from time import perf_counter
 from typing import NoReturn
 
-from tetris.game_logic.components.board import Board
 from tetris.game_logic.interfaces.controller import Action, Controller
 
 if os.name == "nt":
@@ -95,7 +94,7 @@ class CliController(Controller):
     def symbol(self) -> str:
         return "⌨"
 
-    def get_action(self, board: Board | None = None) -> Action:
+    def get_action(self) -> Action:
         match self._button_listener.get_held_char():
             case "a":
                 return Action(left=True)

@@ -1,8 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import NamedTuple, Self
 
-from tetris.game_logic.components.board import Board
-
 
 class Action(NamedTuple):
     left: bool = False
@@ -24,7 +22,7 @@ class Controller(ABC):
     def symbol(self) -> str: ...
 
     @abstractmethod
-    def get_action(self, board: Board | None = None) -> Action: ...
+    def get_action(self) -> Action: ...
 
     # the Game class uses this to display a message what button to press in order to trigger something (e.g. start a
     # new game on game over screen)

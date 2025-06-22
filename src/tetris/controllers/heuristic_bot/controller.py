@@ -494,7 +494,7 @@ class HeuristicBotController(Controller, Subscriber):
         board.merge_active_block()
         board.clear_lines(board.get_full_line_idxs())
 
-    def get_action(self, board: Board | None = None) -> Action:
+    def get_action(self) -> Action:
         if self._ready_for_instand_drop_and_merge:
             # lightning mode has set up the block for us, so we can instantly drop and merge it
             self._ready_for_instand_drop_and_merge = False

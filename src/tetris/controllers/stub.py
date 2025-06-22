@@ -1,4 +1,3 @@
-from tetris.game_logic.components.board import Board
 from tetris.game_logic.interfaces.controller import Action, Controller
 
 
@@ -18,5 +17,5 @@ class StubController(Controller):
         )
         return description or "<nothing>"
 
-    def get_action(self, board: Board | None = None) -> Action:
+    def get_action(self) -> Action:
         return self._action

@@ -1,7 +1,6 @@
 import time
 
 from tetris.controllers.heuristic_bot.controller import HeuristicBotController
-from tetris.game_logic.components.board import Board
 from tetris.game_logic.interfaces.controller import Action, Controller
 
 
@@ -22,12 +21,12 @@ class BotAssistedController(Controller):
     def bot_controller(self) -> HeuristicBotController:
         return self._bot_controller
 
-    def get_action(self, board: Board | None = None) -> Action:
+    def get_action(self) -> Action:
         main_controller_action = self._main_controller.get_action()
 
         self._handle_bot_toggle(main_controller_action)
 
-        return self._bot_controller.get_action(board) if self._using_bot else main_controller_action
+        return self._bot_controller.get_action() if self._using_bot else main_controller_action
 
     def _handle_bot_toggle(self, main_controller_action: Action) -> None:
         if main_controller_action == self._BOT_TOGGLE_ACTION and (

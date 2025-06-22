@@ -73,7 +73,7 @@ class Game:
 
         self._frame_counter += 1
 
-        self._action_counter.update(self._controller.get_action(self._board))
+        self._action_counter.update(self._controller.get_action())
         self.callback_collection.on_action_counter_updated()
 
         if not self._alive:

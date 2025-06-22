@@ -4,7 +4,6 @@ from typing import Self, cast
 
 from pynput import keyboard
 
-from tetris.game_logic.components.board import Board
 from tetris.game_logic.interfaces.controller import Action, Controller
 
 LOGGER = logging.getLogger(__name__)
@@ -158,7 +157,7 @@ class PynputKeyboardController(Controller):
             symbol="Vim",
         )
 
-    def get_action(self, board: Board | None = None) -> Action:
+    def get_action(self) -> Action:
         return Action(
             **{
                 action_name: any(

@@ -1,11 +1,9 @@
 from itertools import cycle
 from unittest.mock import Mock
 
-import pytest
-
 from tetris.game_logic.components.block import Block, BlockType
 from tetris.game_logic.components.board import Board
-from tetris.game_logic.game import Game, GameOverError
+from tetris.game_logic.game import Game
 from tetris.game_logic.interfaces.controller import Action
 from tetris.game_logic.interfaces.rule_sequence import RuleSequence
 from tetris.game_logic.rules.core.move_rotate_rules import HeldInputPolicy, MoveRule, RotateRule
@@ -538,6 +536,6 @@ def test_game_runs_as_expected() -> None:
         assert str(board) == "\n".join(expected_board_state)
         assert game.frame_counter == idx + 1
 
-    # THEN the game raises GameOverError after the last game-ending board-state
-    with pytest.raises(GameOverError):
-        game.advance_frame()
+    # THEN the game is no longer alive after the last game-ending board-state
+    game.advance_frame()
+    assert not game.alive

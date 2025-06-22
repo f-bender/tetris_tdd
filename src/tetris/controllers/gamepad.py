@@ -12,7 +12,6 @@ from dataclasses import asdict, dataclass
 from threading import Thread
 from time import sleep
 
-from tetris.game_logic.components.board import Board
 from tetris.game_logic.interfaces.controller import Action, Controller
 
 LOGGER = logging.getLogger(__name__)
@@ -114,5 +113,5 @@ class GamepadController(Controller):
             case _:
                 pass
 
-    def get_action(self, board: Board | None = None) -> Action:
+    def get_action(self) -> Action:
         return Action(**asdict(self._current_action))

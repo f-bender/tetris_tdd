@@ -3,7 +3,6 @@ from typing import Self
 
 import keyboard
 
-from tetris.game_logic.components.board import Board
 from tetris.game_logic.interfaces.controller import Action, Controller
 
 
@@ -101,7 +100,7 @@ class KeyboardKeyboardController(Controller):
             symbol="Vim",
         )
 
-    def get_action(self, board: Board | None = None) -> Action:
+    def get_action(self) -> Action:
         return Action(
             **{
                 action_name: any(keyboard.is_pressed(key) for key in key_list)
