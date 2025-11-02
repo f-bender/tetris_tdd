@@ -67,8 +67,9 @@ class UiAggregator(Subscriber):
                 self._ui_elements.num_cleared_lines = num_cleared_lines
             case NewLevelMessage(level=level):
                 self._ui_elements.level = level
-            case ScoreMessage(score=score):
+            case ScoreMessage(score=score, session_high_score=session_high_score):
                 self._ui_elements.score = score
+                self._ui_elements.session_high_score = session_high_score
             case SpawnMessage(next_block=next_block):
                 self._ui_elements.next_block = next_block
             case FinishedLineClearMessage(cleared_lines=cleared_lines):

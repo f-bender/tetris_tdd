@@ -19,6 +19,7 @@ class SingleUiElements:
     num_cleared_lines: int = 0
     level: int = 0
     score: int = 0
+    session_high_score: int = 0
     animations: list[AnimationSpec] = field(default_factory=list[AnimationSpec])
     # potential additions in the future: hold_block, level
 

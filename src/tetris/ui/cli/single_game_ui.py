@@ -34,33 +34,42 @@ class SingleGameUI:
     RIGHT_GAP_WIDTH = 2
     RIGHT_ELEMENTS_WIDTH = 6
 
-    DISPLAY_GAP_HEIGHT = 1
-    SCORE_HEIGHT = 4
-    NEXT_BLOCK_HEIGHT = 5
+    LINES_HEIGHT = 3
     CONTROLLER_SYMBOL_HEIGHT = 3
+    DISPLAY_GAP_HEIGHT = 1
+    SCORE_HEIGHT = 6
+    NEXT_BLOCK_HEIGHT = 5
+    LEVEL_HEIGHT = 4
 
     # What the UI looks like:
 
-    #                 board_size[1] (width)      RIGHT_ELEMENTS_WIDTH
-    #                  <------------------>        <---------->
+    #                 board_size[1] (width)  RIGHT_ELEMENTS_WIDTH
+    #                  <------------------>    <---------->
     #
-    #               ^  ####################........____________  ^
-    #               |  ####################........____WASD____  | CONTROLLER_SYMBOL_HEIGHT
-    #               |  ####################........____________  v
-    #               |  ####################....................    | DISPLAY_GAP_HEIGHT
-    #               |  ####################........____________  ^
-    #               |  ####################........__Score_____  | SCORE_HEIGHT
-    #               |  ####################........__99999999__  |
-    #               |  ####################........____________  v
-    # board_size[0] |  ####################....................    | DISPLAY_GAP_HEIGHT
-    # (height)      |  ####################........____________  ^
-    #               |  ####################........__Next______  |
-    #               |  ####################........____##______  | NEXT_BLOCK_HEIGHT
-    #               |  ####################........__######____  |
-    #               v  ####################........____________  v
+    #               ^  ____________________....____________  ^
+    #  LINES_HEIGHT |  __Lines_________99__....____WASD____  | CONTROLLER_SYMBOL_HEIGHT
+    #               v  ____________________....____________  v
+    #                  ....................................    | DISPLAY_GAP_HEIGHT
+    #               ^  ####################....____________  ^
+    #               |  ####################....__Top_______  |
+    #               |  ####################....__99999999__  | SCORE_HEIGHT
+    #               |  ####################....__Score_____  |
+    #               |  ####################...._____12345__  |
+    #               |  ####################....____________  v
+    # board_size[0] |  ####################................    | DISPLAY_GAP_HEIGHT
+    # (height)      |  ####################....____________  ^
+    #               |  ####################....__Next______  |
+    #               |  ####################....____##______  | NEXT_BLOCK_HEIGHT
+    #               |  ####################....__######____  |
+    #               |  ####################....____________  v
+    #               |  ####################................    | DISPLAY_GAP_HEIGHT
+    #               |  ####################....____________  ^
+    #               |  ####################....__Level_____  | LEVEL_HEIGHT
+    #               |  ####################...._________9__  |
+    #               v  ####################....____________  v
     #
-    #                                      <------>
-    #                                   RIGHT_GAP_WIDTH
+    #                                      <-->
+    #                                 RIGHT_GAP_WIDTH
 
     # legend:
     # # board/block
@@ -76,25 +85,37 @@ class SingleGameUI:
     def total_size(self) -> tuple[int, int]:
         return (
             max(
-                self.board_size[0],
-                self.CONTROLLER_SYMBOL_HEIGHT
-                + self.DISPLAY_GAP_HEIGHT
-                + self.SCORE_HEIGHT
-                + self.DISPLAY_GAP_HEIGHT
-                + self.NEXT_BLOCK_HEIGHT,
+                self.LINES_HEIGHT + self.DISPLAY_GAP_HEIGHT + self.board_size[0],
+                (
+                    self.CONTROLLER_SYMBOL_HEIGHT
+                    + self.DISPLAY_GAP_HEIGHT
+                    + self.SCORE_HEIGHT
+                    + self.DISPLAY_GAP_HEIGHT
+                    + self.NEXT_BLOCK_HEIGHT
+                    + self.DISPLAY_GAP_HEIGHT
+                    + self.LEVEL_HEIGHT
+                ),
             ),
             self.board_size[1] + self.RIGHT_GAP_WIDTH + self.RIGHT_ELEMENTS_WIDTH,
         )
 
     @cached_property
-    def controller_symbol_display_position(self) -> Vec:
+    def lines_position(self) -> Vec:
+        return Vec(0, 0)
+
+    @cached_property
+    def board_position(self) -> Vec:
+        return Vec(self.LINES_HEIGHT + self.DISPLAY_GAP_HEIGHT, 0)
+
+    @cached_property
+    def controller_symbol_position(self) -> Vec:
         return Vec(
             0,
             self.board_size[1] + self.RIGHT_GAP_WIDTH,
         )
 
     @cached_property
-    def score_display_position(self) -> Vec:
+    def score_position(self) -> Vec:
         return Vec(
             self.CONTROLLER_SYMBOL_HEIGHT + self.DISPLAY_GAP_HEIGHT,
             self.board_size[1] + self.RIGHT_GAP_WIDTH,
@@ -108,23 +129,46 @@ class SingleGameUI:
         )
 
     @cached_property
+    def level_position(self) -> Vec:
+        return Vec(
+            (
+                self.CONTROLLER_SYMBOL_HEIGHT
+                + self.DISPLAY_GAP_HEIGHT
+                + self.SCORE_HEIGHT
+                + self.DISPLAY_GAP_HEIGHT
+                + self.NEXT_BLOCK_HEIGHT
+                + self.DISPLAY_GAP_HEIGHT
+            ),
+            self.board_size[1] + self.RIGHT_GAP_WIDTH,
+        )
+
+    @cached_property
     def mask(self) -> NDArray[np.bool]:
         mask = np.zeros(self.total_size, dtype=np.bool)
 
-        mask[: self.board_size[0], : self.board_size[1]] = True
         mask[
-            self.controller_symbol_display_position.y : self.controller_symbol_display_position.y
-            + self.CONTROLLER_SYMBOL_HEIGHT,
-            self.controller_symbol_display_position.x : self.controller_symbol_display_position.x
-            + self.RIGHT_ELEMENTS_WIDTH,
+            self.lines_position.y : self.lines_position.y + self.LINES_HEIGHT,
+            self.lines_position.x : self.lines_position.x + self.board_size[1],
         ] = True
         mask[
-            self.score_display_position.y : self.score_display_position.y + self.SCORE_HEIGHT,
-            self.score_display_position.x : self.score_display_position.x + self.RIGHT_ELEMENTS_WIDTH,
+            self.board_position.y : self.board_position.y + self.board_size[0],
+            self.board_position.x : self.board_position.x + self.board_size[1],
+        ] = True
+        mask[
+            self.controller_symbol_position.y : self.controller_symbol_position.y + self.CONTROLLER_SYMBOL_HEIGHT,
+            self.controller_symbol_position.x : self.controller_symbol_position.x + self.RIGHT_ELEMENTS_WIDTH,
+        ] = True
+        mask[
+            self.score_position.y : self.score_position.y + self.SCORE_HEIGHT,
+            self.score_position.x : self.score_position.x + self.RIGHT_ELEMENTS_WIDTH,
         ] = True
         mask[
             self.next_block_position.y : self.next_block_position.y + self.NEXT_BLOCK_HEIGHT,
             self.next_block_position.x : self.next_block_position.x + self.RIGHT_ELEMENTS_WIDTH,
+        ] = True
+        mask[
+            self.level_position.y : self.level_position.y + self.LEVEL_HEIGHT,
+            self.level_position.x : self.level_position.x + self.RIGHT_ELEMENTS_WIDTH,
         ] = True
 
         return mask
@@ -135,48 +179,75 @@ class SingleGameUI:
         ui_array = np.empty(self.total_size, dtype=np.uint8)
         texts: list[Text] = []
 
+        self._add_lines_display(num_cleared_lines=elements.num_cleared_lines, ui_array=ui_array, texts=texts)
         self._add_board(board=elements.board, ui_array=ui_array)
         self._add_controller_symbol_display(
             controller_symbol=elements.controller_symbol, ui_array=ui_array, texts=texts
         )
-        self._add_score_display(score=elements.score, ui_array=ui_array, texts=texts)
+        self._add_score_display(
+            score=elements.score, session_high_score=elements.session_high_score, ui_array=ui_array, texts=texts
+        )
         self._add_next_block_display(next_block=elements.next_block, ui_array=ui_array, texts=texts)
+        self._add_level_display(level=elements.level, ui_array=ui_array, texts=texts)
         overlay_animations = self._add_animations(elements.animations)
 
         return ui_array, texts, overlay_animations
 
-    def _add_board(self, board: NDArray[np.uint8], ui_array: NDArray[np.uint8]) -> None:
-        ui_array[: self.board_size[0], : self.board_size[1]] = np.where(
-            board, board + ColorPalette.block_color_index_offset() - 1, self.board_background
+    def _add_lines_display(self, num_cleared_lines: int, ui_array: NDArray[np.uint8], texts: list[Text]) -> None:
+        ui_array[
+            self.lines_position.y : self.lines_position.y + self.LINES_HEIGHT,
+            self.lines_position.x : self.lines_position.x + self.board_size[1],
+        ] = ColorPalette.index_of_color("display_bg")
+        texts.append(Text(text="Lines", position=self.lines_position + Vec(1, 1)))
+        texts.append(
+            Text(
+                text=str(num_cleared_lines),
+                position=self.lines_position + Vec(1, self.board_size[1] - 1),
+                alignment=Alignment.RIGHT,
+            )
         )
+
+    def _add_board(self, board: NDArray[np.uint8], ui_array: NDArray[np.uint8]) -> None:
+        ui_array[
+            self.board_position.y : self.board_position.y + self.board_size[0],
+            self.board_position.x : self.board_position.x + self.board_size[1],
+        ] = np.where(board, board + ColorPalette.block_color_index_offset() - 1, self.board_background)
 
     def _add_controller_symbol_display(
         self, controller_symbol: str, ui_array: NDArray[np.uint8], texts: list[Text]
     ) -> None:
         ui_array[
-            self.controller_symbol_display_position.y : self.controller_symbol_display_position.y
-            + self.CONTROLLER_SYMBOL_HEIGHT,
-            self.controller_symbol_display_position.x : self.controller_symbol_display_position.x
-            + self.RIGHT_ELEMENTS_WIDTH,
+            self.controller_symbol_position.y : self.controller_symbol_position.y + self.CONTROLLER_SYMBOL_HEIGHT,
+            self.controller_symbol_position.x : self.controller_symbol_position.x + self.RIGHT_ELEMENTS_WIDTH,
         ] = ColorPalette.index_of_color("display_bg")
         texts.append(
             Text(
                 text=controller_symbol,
-                position=self.controller_symbol_display_position + Vec(1, self.RIGHT_ELEMENTS_WIDTH // 2),
+                position=self.controller_symbol_position + Vec(1, self.RIGHT_ELEMENTS_WIDTH // 2),
                 alignment=Alignment.CENTER,
             )
         )
 
-    def _add_score_display(self, score: int, ui_array: NDArray[np.uint8], texts: list[Text]) -> None:
+    def _add_score_display(
+        self, score: int, session_high_score: int, ui_array: NDArray[np.uint8], texts: list[Text]
+    ) -> None:
         ui_array[
-            self.score_display_position.y : self.score_display_position.y + self.SCORE_HEIGHT,
-            self.score_display_position.x : self.score_display_position.x + self.RIGHT_ELEMENTS_WIDTH,
+            self.score_position.y : self.score_position.y + self.SCORE_HEIGHT,
+            self.score_position.x : self.score_position.x + self.RIGHT_ELEMENTS_WIDTH,
         ] = ColorPalette.index_of_color("display_bg")
-        texts.append(Text(text="Score", position=self.score_display_position + Vec(1, 1)))
+        texts.append(Text(text="Top", position=self.score_position + Vec(1, 1)))
+        texts.append(
+            Text(
+                text=str(session_high_score),
+                position=self.score_position + Vec(2, self.RIGHT_ELEMENTS_WIDTH - 1),
+                alignment=Alignment.RIGHT,
+            )
+        )
+        texts.append(Text(text="Score", position=self.score_position + Vec(3, 1)))
         texts.append(
             Text(
                 text=str(score),
-                position=self.score_display_position + Vec(2, self.RIGHT_ELEMENTS_WIDTH - 1),
+                position=self.score_position + Vec(4, self.RIGHT_ELEMENTS_WIDTH - 1),
                 alignment=Alignment.RIGHT,
             )
         )
@@ -204,6 +275,20 @@ class SingleGameUI:
                 where=next_block.actual_cells.view(bool),
             )
             # fmt: on
+
+    def _add_level_display(self, level: int, ui_array: NDArray[np.uint8], texts: list[Text]) -> None:
+        ui_array[
+            self.level_position.y : self.level_position.y + self.LEVEL_HEIGHT,
+            self.level_position.x : self.level_position.x + self.RIGHT_ELEMENTS_WIDTH,
+        ] = ColorPalette.index_of_color("display_bg")
+        texts.append(Text(text="Level", position=self.level_position + Vec(1, 1)))
+        texts.append(
+            Text(
+                text=str(level),
+                position=self.level_position + Vec(2, self.RIGHT_ELEMENTS_WIDTH - 1),
+                alignment=Alignment.RIGHT,
+            )
+        )
 
     def _add_animations(self, animations: list[AnimationSpec]) -> list[Overlay]:
         overlay_animations: list[Overlay] = []
