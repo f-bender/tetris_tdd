@@ -8,6 +8,8 @@ from tetris.controllers.heuristic_bot.heuristic import Heuristic, mutated_heuris
 from tetris.game_logic.rules.core.spawn_drop_merge.spawn import SpawnStrategyImpl
 from tetris.genetic_algorithm import GeneticAlgorithm
 from tetris.heuristic_gym.evaluators.evaluator import EvaluatorImpl
+from tetris.heuristic_gym.evaluators.runners.parallel import ParallelRunner
+from tetris.heuristic_gym.evaluators.runners.synchronous import SynchronousRunner
 
 
 class BoardSize(click.ParamType):
@@ -58,19 +60,27 @@ def evaluator_options(*, default_none: bool = False, assemble_object: bool = Tru
             show_default=not default_none,
             help="How to choose blocks to spawn in the tetris games the Heuristic is being evaluated on.",
         )
+        @click.option(
+            "--runner-type",
+            type=click.Choice(["synchronous", "parallel"]),
+            default=None if default_none else "parallel",
+            show_default=not default_none,
+            help="How to run the evaluation (synchronously or in parallel).",
+        )
         @functools.wraps(command)
         def wrapper(
             *args: Any,  # noqa: ANN401
             board_size: tuple[int, int] | None,
             max_frames: int | None,
             block_selection: str | None,
+            runner_type: str | None,
             **kwargs: Any,  # noqa: ANN401
         ) -> Any:  # noqa: ANN401
             if assemble_object:
-                if board_size is None or max_frames is None or block_selection is None:
+                if board_size is None or max_frames is None or block_selection is None or runner_type is None:
                     msg = (
                         "Since default_none=True and assemble_object=True, "
-                        "board-size, max-frames, and block-selection must all be specified."
+                        "board-size, max-frames, block-selection, and runner-type must all be specified."
                     )
                     raise click.BadParameter(msg)
                 return command(
@@ -79,6 +89,7 @@ def evaluator_options(*, default_none: bool = False, assemble_object: bool = Tru
                         board_size=board_size,
                         max_evaluation_frames=max_frames,
                         block_selection_fn_from_seed=getattr(SpawnStrategyImpl, f"{block_selection}_selection_fn"),
+                        runner=ParallelRunner() if runner_type == "parallel" else SynchronousRunner(),
                     ),
                     **kwargs,
                 )
