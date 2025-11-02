@@ -142,7 +142,7 @@ type AudioBackendParameter = Literal["playsound3", "pygame", "winsound"]
         "Seed for block spawning algorithm. If provided once, all games use that same seed. If provided multiple "
         "times, the number of seeds must match with the number of games (specified via --num-games of the number of "
         "--controllers), and each game gets the respective specified seed. If not provided, a random seed is "
-        "used for each game."
+        "used for each game. The special value 'same' can be provided to use the same random seed for all games."
     ),
 )
 @click.option(

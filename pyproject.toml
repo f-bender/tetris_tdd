@@ -72,6 +72,10 @@ unfixable = [
 "tests/space_filling_coloring/test_tetromino_space_filler.py" = ["SLF001"]
 "tests/space_filling_coloring/test_four_colorizer.py" = ["SLF001"]
 "tests/board_manipulations/test_gravity.py" = ["SLF001"]
+# allow inline imports, to avoid unnecessary imports
+"src/tetris/cli/play.py" = ["PLC0415"]
+# allow inline imports, to avoid circular imports
+"src/tetris/game_logic/*" = ["PLC0415"]
 
 [tool.mypy]
 strict = true

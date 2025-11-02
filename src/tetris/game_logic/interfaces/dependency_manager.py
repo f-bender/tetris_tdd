@@ -47,7 +47,7 @@ class DependencyManager:
         from tetris.game_logic.interfaces.callback_collection import CallbackCollection
 
         if runtime is not None:
-            runtime.callback_collection = CallbackCollection(  # type: ignore[has-type]
+            runtime.callback_collection = CallbackCollection(
                 tuple(callback for callback in self.all_callbacks if callback.should_be_called_by(self.RUNTIME_INDEX))
             )
 

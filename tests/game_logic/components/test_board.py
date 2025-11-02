@@ -1,3 +1,5 @@
+import re
+
 import numpy as np
 import pytest
 
@@ -72,7 +74,7 @@ def test_board_from_string_representation() -> None:
 
 
 def test_board_from_string_representation_exceptions() -> None:
-    with pytest.raises(ValueError, match="Must consist of only 'X', '.', spaces, and newlines"):
+    with pytest.raises(ValueError, match=re.escape("Must consist of only 'X', '.', spaces, and newlines")):
         Board.from_string_representation(
             """
                 ..........
