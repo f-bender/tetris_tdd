@@ -1,10 +1,11 @@
 from math import ceil, floor
-from typing import NamedTuple
+from typing import NamedTuple, override
 
 from tetris.game_logic.components.board import Board
 from tetris.game_logic.interfaces.callback import Callback
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.game_logic.rules.board_manipulations.board_manipulation import GradualBoardManipulation
+from tetris.game_logic.rules.core.scoring.track_score_rule import ScoreTracker
 from tetris.game_logic.rules.messages import FinishedLineClearMessage, StartingLineClearMessage
 
 
@@ -12,6 +13,15 @@ class ClearFullLines(Callback, Publisher, Subscriber, GradualBoardManipulation):
     def __init__(self) -> None:
         super().__init__()
         self._full_lines: list[int] | None = None
+
+    @override
+    def add_subscriber(self, subscriber: Subscriber) -> None:
+        # make sure the ScoreTracker (if it exists) is the first subscriber being notified, to ensure scoring happens
+        # before potential levelup
+        if isinstance(subscriber, ScoreTracker):
+            self._subscribers.insert(0, subscriber)
+        else:
+            self._subscribers.append(subscriber)
 
     def manipulate_gradually(self, board: Board, current_frame: int, total_frames: int) -> None:
         assert not board.has_active_block(), "manipulate_gradually was called with an active block on the board!"

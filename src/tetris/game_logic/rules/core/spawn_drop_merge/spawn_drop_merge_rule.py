@@ -11,7 +11,7 @@ from tetris.game_logic.rules.board_manipulations.clear_lines import ClearFullLin
 from tetris.game_logic.rules.core.spawn_drop_merge.drop import DropStrategy, DropStrategyImpl
 from tetris.game_logic.rules.core.spawn_drop_merge.merge import MergeStrategy, MergeStrategyImpl
 from tetris.game_logic.rules.core.spawn_drop_merge.spawn import SpawnStrategy, SpawnStrategyImpl
-from tetris.game_logic.rules.core.spawn_drop_merge.speed import LineClearSpeedUp, SpeedStrategy, SpeedStrategyImpl
+from tetris.game_logic.rules.core.spawn_drop_merge.speed import LevelSpeedUp, SpeedStrategy
 from tetris.game_logic.rules.core.spawn_drop_merge.synchronized_spawn import SynchronizedSpawning
 from tetris.game_logic.rules.messages import (
     FinishedMergeMessage,
@@ -60,7 +60,7 @@ class SpawnDropMergeRule(Callback, Publisher, Subscriber):
         self.spawn_strategy = spawn_strategy or SpawnStrategyImpl()
         self.drop_strategy = drop_strategy or DropStrategyImpl()
         self.merge_strategy = merge_strategy or MergeStrategyImpl()
-        self.speed_strategy = speed_strategy or LineClearSpeedUp(SpeedStrategyImpl())
+        self.speed_strategy = speed_strategy or LevelSpeedUp()
         self.board_manipulation_after_merge = board_manipulation_after_merge or ClearFullLines()
         self._animate_board_manipulation = animate_board_manipulation
 

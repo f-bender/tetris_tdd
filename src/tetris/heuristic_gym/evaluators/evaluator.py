@@ -13,10 +13,12 @@ from tetris.game_logic.interfaces.callback_collection import CallbackCollection
 from tetris.game_logic.interfaces.dependency_manager import DEPENDENCY_MANAGER
 from tetris.game_logic.interfaces.rule_sequence import RuleSequence
 from tetris.game_logic.rules.core.move_rotate_rules import MoveRule, RotateRule
+from tetris.game_logic.rules.core.scoring.level_rule import LevelTracker
+from tetris.game_logic.rules.core.scoring.track_cleared_lines_rule import ClearedLinesTracker
+from tetris.game_logic.rules.core.scoring.track_score_rule import ScoreTracker
 from tetris.game_logic.rules.core.spawn_drop_merge.spawn import SpawnStrategyImpl
 from tetris.game_logic.rules.core.spawn_drop_merge.spawn_drop_merge_rule import SpawnDropMergeRule
 from tetris.game_logic.rules.core.spawn_drop_merge.speed import SpeedStrategyImpl
-from tetris.game_logic.rules.monitoring.track_score_rule import ScoreTracker
 from tetris.heuristic_gym.evaluator import Evaluator
 from tetris.heuristic_gym.evaluators.runners.parallel import ParallelRunner
 from tetris.heuristic_gym.evaluators.runners.synchronous import SynchronousRunner
@@ -122,7 +124,7 @@ class EvaluatorImpl(Evaluator):
         self._heuristic_bot_controllers: list[HeuristicBotController] = []
         self._games: list[Game] = []
         # come up with a better way than keeping track of these separately?
-        self._score_trackers: list[ScoreTracker] = []
+        self._cleared_lines_trackers: list[ClearedLinesTracker] = []
         self._spawn_strategies: list[SpawnStrategyImpl] = []
 
         process_pool = (
@@ -139,11 +141,16 @@ class EvaluatorImpl(Evaluator):
                 # small performance penalty, but the benefit is reproducibility
                 ensure_consistent_behaviour=True,
             )
-            track_score_callback = ScoreTracker()
             spawn_strategy = SpawnStrategyImpl()
+            cleared_lines_tracker = ClearedLinesTracker()
+
+            # not useless; Dependency manager will keep track of them and subscribe them to line clear events and each
+            # other, and publish their values to the ui aggregator
+            LevelTracker()
+            ScoreTracker()
 
             self._heuristic_bot_controllers.append(controller)
-            self._score_trackers.append(track_score_callback)
+            self._cleared_lines_trackers.append(cleared_lines_tracker)
             self._spawn_strategies.append(spawn_strategy)
             self._games.append(
                 Game(
@@ -160,7 +167,7 @@ class EvaluatorImpl(Evaluator):
                             ),
                         )
                     ),
-                    callback_collection=CallbackCollection((track_score_callback,)),
+                    callback_collection=CallbackCollection((cleared_lines_tracker,)),
                 )
             )
 
@@ -191,8 +198,12 @@ class EvaluatorImpl(Evaluator):
         self._runner.run_games(
             games=self._games,
             max_frames=self._max_evaluation_frames,
-            interval_callback=lambda: LOGGER.debug("Scores: %s", [tracker.score for tracker in self._score_trackers]),
-            game_over_callback=lambda idx: LOGGER.debug("Game %d scored %d", idx, self._score_trackers[idx].score),
+            interval_callback=lambda: LOGGER.debug(
+                "Nums of cleared lines: %s", [tracker.num_cleared_lines for tracker in self._cleared_lines_trackers]
+            ),
+            game_over_callback=lambda idx: LOGGER.debug(
+                "Game %d cleared %d lines", idx, self._cleared_lines_trackers[idx].num_cleared_lines
+            ),
         )
 
-        return [tracker.score for tracker in self._score_trackers]
+        return [tracker.num_cleared_lines for tracker in self._cleared_lines_trackers]

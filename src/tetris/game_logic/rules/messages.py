@@ -62,3 +62,22 @@ class MoveMessage(NamedTuple):
 
 class RotateMessage(NamedTuple):
     direction: Direction
+
+
+class Tetris99Message(NamedTuple):
+    num_lines: int
+    target_id: int
+
+
+class NumClearedLinesMessage(NamedTuple):
+    num_cleared_lines: int
+    session_max_cleared_lines: int
+
+
+class NewLevelMessage(NamedTuple):
+    level: int
+
+
+class ScoreMessage(NamedTuple):
+    score: int
+    session_high_score: int

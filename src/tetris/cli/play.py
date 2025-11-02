@@ -20,11 +20,13 @@ from tetris.game_logic.interfaces.dependency_manager import DEPENDENCY_MANAGER, 
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.game_logic.interfaces.rule_sequence import RuleSequence
 from tetris.game_logic.rules.core.move_rotate_rules import MoveRule, RotateRule
+from tetris.game_logic.rules.core.scoring.level_rule import LevelTracker
+from tetris.game_logic.rules.core.scoring.track_cleared_lines_rule import ClearedLinesTracker
+from tetris.game_logic.rules.core.scoring.track_score_rule import ScoreTracker
 from tetris.game_logic.rules.core.spawn_drop_merge.spawn import SpawnStrategyImpl
 from tetris.game_logic.rules.core.spawn_drop_merge.spawn_drop_merge_rule import SpawnDropMergeRule
 from tetris.game_logic.rules.core.spawn_drop_merge.synchronized_spawn import SynchronizedSpawning
 from tetris.game_logic.rules.monitoring.track_performance_rule import TrackPerformanceCallback
-from tetris.game_logic.rules.monitoring.track_score_rule import ScoreTracker
 from tetris.game_logic.rules.multiplayer.tetris99_rule import Tetris99Rule
 from tetris.game_logic.runtime import Runtime
 from tetris.game_logic.sound_manager import SoundManager
@@ -400,8 +402,10 @@ def _create_games(
     ):
         DEPENDENCY_MANAGER.current_game_index = idx
 
-        # not useless; Dependency manager will keep track of it and it will be subscribed to line clear events and
-        # publish its score to the ui aggregator
+        # not useless; Dependency manager will keep track of them and subscribe them to line clear events and each
+        # other, and publish lines and score will be published to the ui aggregator
+        ClearedLinesTracker()
+        LevelTracker()
         ScoreTracker()
 
         if isinstance(controller, Callback | Subscriber | Publisher):

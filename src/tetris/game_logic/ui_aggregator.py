@@ -6,8 +6,14 @@ from numpy.typing import NDArray
 from tetris.game_logic.interfaces.animations import TetrisAnimationSpec
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.game_logic.interfaces.ui import SingleUiElements
-from tetris.game_logic.rules.messages import FinishedLineClearMessage, SpawnMessage, StartingLineClearMessage
-from tetris.game_logic.rules.monitoring.track_score_rule import ScoreMessage
+from tetris.game_logic.rules.messages import (
+    FinishedLineClearMessage,
+    NewLevelMessage,
+    NumClearedLinesMessage,
+    ScoreMessage,
+    SpawnMessage,
+    StartingLineClearMessage,
+)
 
 
 class UiAggregator(Subscriber):
@@ -26,20 +32,29 @@ class UiAggregator(Subscriber):
 
     def should_be_subscribed_to(self, publisher: Publisher) -> bool:
         from tetris.game_logic.rules.board_manipulations.clear_lines import ClearFullLines
+        from tetris.game_logic.rules.core.scoring.level_rule import LevelTracker
+        from tetris.game_logic.rules.core.scoring.track_cleared_lines_rule import ClearedLinesTracker
+        from tetris.game_logic.rules.core.scoring.track_score_rule import ScoreTracker
         from tetris.game_logic.rules.core.spawn_drop_merge.spawn import SpawnStrategyImpl
-        from tetris.game_logic.rules.monitoring.track_score_rule import ScoreTracker
 
         return (
-            isinstance(publisher, ScoreTracker | SpawnStrategyImpl | ClearFullLines)
+            isinstance(
+                publisher, ClearedLinesTracker | SpawnStrategyImpl | ClearFullLines | ScoreTracker | LevelTracker
+            )
             and publisher.game_index == self.game_index
         )
 
     def verify_subscriptions(self, publishers: list[Publisher]) -> None:
+        from tetris.game_logic.rules.core.scoring.track_cleared_lines_rule import ClearedLinesTracker
+        from tetris.game_logic.rules.core.scoring.track_score_rule import ScoreTracker
         from tetris.game_logic.rules.core.spawn_drop_merge.spawn import SpawnStrategyImpl
-        from tetris.game_logic.rules.monitoring.track_score_rule import ScoreTracker
+
+        if not any(isinstance(publisher, ClearedLinesTracker) for publisher in publishers):
+            msg = f"{type(self).__name__} of game {self.game_index} has no subscription to ClearedLinesTracker."
+            raise RuntimeError(msg)
 
         if not any(isinstance(publisher, ScoreTracker) for publisher in publishers):
-            msg = f"{type(self).__name__} of game {self.game_index} has no subscription to TrackScoreRule."
+            msg = f"{type(self).__name__} of game {self.game_index} has no subscription to ScoreTracker."
             raise RuntimeError(msg)
 
         if not any(isinstance(publisher, SpawnStrategyImpl) for publisher in publishers):
@@ -48,6 +63,10 @@ class UiAggregator(Subscriber):
 
     def notify(self, message: NamedTuple) -> None:
         match message:
+            case NumClearedLinesMessage(num_cleared_lines=num_cleared_lines):
+                self._ui_elements.num_cleared_lines = num_cleared_lines
+            case NewLevelMessage(level=level):
+                self._ui_elements.level = level
             case ScoreMessage(score=score):
                 self._ui_elements.score = score
             case SpawnMessage(next_block=next_block):

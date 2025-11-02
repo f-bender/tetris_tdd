@@ -8,7 +8,7 @@ from tetris.game_logic.components.board import Board
 from tetris.game_logic.game import GameOverError
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.game_logic.rules.board_manipulations.clear_lines import ClearFullLines
-from tetris.game_logic.rules.messages import BoardTranslationMessage, FinishedLineClearMessage
+from tetris.game_logic.rules.messages import BoardTranslationMessage, FinishedLineClearMessage, Tetris99Message
 
 
 class PlaceLinesManipulation:
@@ -30,11 +30,6 @@ class PlaceLinesManipulation:
         board_array[-self._num_lines :] = row_to_fill_in
 
         board.set_from_array(board_array, active_block_displacement=(-self._num_lines, 0))
-
-
-class Tetris99Message(NamedTuple):
-    num_lines: int
-    target_id: int
 
 
 class Tetris99Rule(Publisher, Subscriber):

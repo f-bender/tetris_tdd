@@ -1,11 +1,13 @@
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from math import ceil, floor
+from types import MappingProxyType
 from typing import NamedTuple, Protocol, Self
 
 from tetris.game_logic.interfaces.callback import Callback
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.game_logic.rules.board_manipulations.clear_lines import ClearFullLines
-from tetris.game_logic.rules.messages import FinishedLineClearMessage
+from tetris.game_logic.rules.core.scoring.level_rule import LevelTracker
+from tetris.game_logic.rules.messages import FinishedLineClearMessage, NewLevelMessage
 
 
 class IntIterWithFloatAverage(Iterator[int]):
@@ -51,7 +53,7 @@ class SpeedStrategy(Protocol):
 class SpeedStrategyImpl(Callback):
     """Strategy for whether to drop/merge the current block, given the number of frames since it was spawned."""
 
-    def __init__(self, base_interval: float = 30, quick_interval_factor: float = 8) -> None:
+    def __init__(self, base_interval: float = 48, quick_interval_factor: float = 8) -> None:
         """Initialize the SpeedStrategy.
 
         Needs to be registered as a callback to the game in order to work correctly.
@@ -158,6 +160,72 @@ class LineClearSpeedUp(Subscriber, Callback):
 
     def on_game_start(self) -> None:
         self._cleared_lines = 0
+
+    def should_trigger(self, frames_since_last_drop: int, *, quick_drop_held: bool) -> bool:
+        return self._speed_strategy_impl.should_trigger(
+            frames_since_last_drop=frames_since_last_drop, quick_drop_held=quick_drop_held
+        )
+
+
+class LevelSpeedUp(Subscriber, Callback):
+    """Decorator for the SpeedStrategyImpl class, which induces a speedup every level.
+
+    Its default values mirror the NES Tetris behavior, taken from https://tetris.fandom.com/wiki/Tetris_(NES,_Nintendo).
+    """
+
+    _DEFAULT_INTERVAL_BY_LEVEL = MappingProxyType(
+        {
+            0: 48,
+            1: 43,
+            2: 38,
+            3: 33,
+            4: 28,
+            5: 23,
+            6: 18,
+            7: 13,
+            8: 8,
+            9: 6,
+            10: 5,
+            13: 5,
+            16: 3,
+            19: 2,
+            29: 1,
+        }
+    )
+
+    def __init__(
+        self,
+        speed_strategy_impl: SpeedStrategyImpl | None = None,
+        interval_by_level: Mapping[int, float] = _DEFAULT_INTERVAL_BY_LEVEL,
+    ) -> None:
+        """Initialize the LevelSpeedUp strategy.
+
+        Args:
+            speed_strategy_impl: SpeedStrategyImpl instance being decorated.
+            interval_by_level: Mapping from level number to the number of frames between drops while the
+                quick-drop-action is *not* held. The default values mirror the NES Tetris behavior. Levels not present
+                in this mapping will not trigger a speed change when reached.
+        """
+        super().__init__()
+
+        if 0 not in interval_by_level:
+            msg = "LevelSpeedUp requires interval_by_level to define an initial interval for level 0."
+            raise ValueError(msg)
+
+        self._interval_by_level = interval_by_level
+        self._speed_strategy_impl = speed_strategy_impl or SpeedStrategyImpl(base_interval=self._interval_by_level[0])
+
+    def should_be_subscribed_to(self, publisher: Publisher) -> bool:
+        return isinstance(publisher, LevelTracker) and publisher.game_index == self.game_index
+
+    def verify_subscriptions(self, publishers: list[Publisher]) -> None:
+        if len(publishers) != 1:
+            msg = f"{type(self).__name__} of game {self.game_index} has {len(publishers)} subscriptions: {publishers}"
+            raise RuntimeError(msg)
+
+    def notify(self, message: NamedTuple) -> None:
+        if isinstance(message, NewLevelMessage) and message.level in self._interval_by_level:
+            self._speed_strategy_impl.set_interval(self._interval_by_level[message.level])
 
     def should_trigger(self, frames_since_last_drop: int, *, quick_drop_held: bool) -> bool:
         return self._speed_strategy_impl.should_trigger(

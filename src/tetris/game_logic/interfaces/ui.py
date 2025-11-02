@@ -16,12 +16,16 @@ class SingleUiElements:
     board: NDArray[np.uint8]
     controller_symbol: str
     next_block: Block | None = None
+    num_cleared_lines: int = 0
+    level: int = 0
     score: int = 0
-    animations: list[AnimationSpec] = field(default_factory=list)
+    animations: list[AnimationSpec] = field(default_factory=list[AnimationSpec])
     # potential additions in the future: hold_block, level
 
     def reset(self) -> None:
         self.next_block = None
+        self.num_cleared_lines = 0
+        self.level = 0
         self.score = 0
         self.animations = []
 
