@@ -301,13 +301,17 @@ class SingleGameUI:
                 ):
                     overlay_animations.append(
                         Overlay(
-                            position=Vec(top_line_idx, 0) + TetrisAnimationLeft.OFFSET,
+                            position=self.board_position + Vec(top_line_idx, 0) + TetrisAnimationLeft.OFFSET,
                             frame=TetrisAnimationLeft.get_frame(current_frame, total_frames),
                         )
                     )
                     overlay_animations.append(
                         Overlay(
-                            position=Vec(top_line_idx, self.board_size[1]) + TetrisAnimationRight.OFFSET,
+                            position=(
+                                self.board_position
+                                + Vec(top_line_idx, self.board_size[1])
+                                + TetrisAnimationRight.OFFSET
+                            ),
                             frame=TetrisAnimationRight.get_frame(current_frame, total_frames),
                         )
                     )
