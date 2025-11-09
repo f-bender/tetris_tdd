@@ -125,7 +125,7 @@ class SoundManager(Subscriber, Callback):
         match message:
             case StartMergeMessage():
                 self._play_sound(Sound.MERGE)
-            case NewLevelMessage():
+            case NewLevelMessage(level=level) if level > 0:
                 self._play_sound(Sound.NEXT_LEVEL)
             case StartingLineClearMessage(cleared_lines=cleared_lines):
                 num_lines_tetris_clear = 4
