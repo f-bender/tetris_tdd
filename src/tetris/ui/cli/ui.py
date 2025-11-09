@@ -47,24 +47,29 @@ class CLI(UI):
         self._single_game_ui: SingleGameUI | None = None
         self._game_ui_offsets: list[Vec] | None = None
 
-        self._color_palette = color_palette or ColorPalette.from_rgb(
-            **{f"outer_bg_progress_{i}": (127 + 10 * (i - 5),) * 3 for i in range(1, 11)},  # type: ignore[arg-type]
-            outer_bg_1=(46, 0, 2),
-            outer_bg_2=(39, 85, 10),
-            outer_bg_3=(123, 1, 6),
-            outer_bg_4=(15, 33, 4),
-            board_bg=(50, 50, 50),
-            board_bg_alt=(30, 30, 30),
-            block_1=(160, 1, 241),
-            block_2=(248, 230, 8),
-            block_3=(0, 255, 255),
-            block_4=(239, 130, 1),
-            block_5=(2, 241, 2),
-            block_6=(51, 153, 255),
-            block_7=(240, 0, 1),
-            block_neutral=(200, 200, 200),
-            tetris_sparkle=(255, 255, 0),
-            display_bg=(50, 50, 50),
+        self._color_palette = (
+            color_palette
+            or ColorPalette.from_rgb(
+                **{f"outer_bg_progress_{i}": (127 + 10 * (i - 5),) * 3 for i in range(1, 11)},  # type: ignore[arg-type]
+                # "christmats themed" outer background colors - will be overwritten by the randomized palette
+                outer_bg_1=(46, 0, 2),
+                outer_bg_2=(39, 85, 10),
+                outer_bg_3=(123, 1, 6),
+                outer_bg_4=(15, 33, 4),
+                # ---
+                board_bg=(50, 50, 50),
+                board_bg_alt=(30, 30, 30),
+                block_1=(160, 1, 241),
+                block_2=(248, 230, 8),
+                block_3=(0, 255, 255),
+                block_4=(239, 130, 1),
+                block_5=(2, 241, 2),
+                block_6=(51, 153, 255),
+                block_7=(240, 0, 1),
+                block_neutral=(200, 200, 200),
+                tetris_sparkle=(255, 255, 0),
+                display_bg=(50, 50, 50),
+            ).with_randomized_outer_bg_palette()
         )
         self._buffered_print = BufferedPrint()
         self._startup_animation_iter: (
@@ -76,6 +81,8 @@ class CLI(UI):
         self._target_aspect_ratio = target_aspect_ratio
 
         self._last_terminal_size = os.get_terminal_size()
+
+        self._level: int | None = None
 
     @staticmethod
     def _cursor_goto(vec: Vec) -> str:
@@ -252,6 +259,7 @@ class CLI(UI):
             self._outer_background = self._create_outer_background_mask().astype(np.uint8)
 
         self._handle_terminal_size_change()
+        self._handle_level_change(elements)
 
         image_buffer = self._outer_background.copy()
         text_buffer: NDArray[np.str_] = np.zeros_like(image_buffer, dtype=f"U{self.PIXEL_WIDTH}")
@@ -306,6 +314,14 @@ class CLI(UI):
 
         self._buffered_print.print_and_restart_buffering()
         self._setup_cursor_for_normal_printing(image_height=len(image_buffer))
+
+    def _handle_level_change(self, elements: UiElements) -> None:
+        combined_level = sum(game.level for game in elements.games)
+        if self._level is not None and combined_level != self._level:
+            self._color_palette = self._color_palette.with_randomized_outer_bg_palette()
+            self._last_image_buffer = None  # force full redraw on next draw call
+
+        self._level = combined_level
 
     @staticmethod
     def _add_text(text: Text, text_buffer: NDArray[np.str_]) -> None:
