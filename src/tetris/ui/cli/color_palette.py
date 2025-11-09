@@ -1,7 +1,12 @@
+import colorsys
+import logging
+import random
 from functools import cache
 from typing import Literal, NamedTuple, Self
 
 from tetris.ansi_extensions import color as colorx
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class ColorPalette(NamedTuple):
@@ -39,6 +44,8 @@ class ColorPalette(NamedTuple):
     tetris_sparkle: str
     # background that has not (yet) been filled or (four-)colored
     empty: str = colorx.bg.rgb_palette(0, 0, 0)
+    # save the mode being used
+    mode: Literal["palette", "truecolor"] = "truecolor"
 
     @classmethod
     def from_rgb(  # noqa: PLR0913
@@ -157,3 +164,45 @@ class ColorPalette(NamedTuple):
     @staticmethod
     def outer_bg_progress_index_offset() -> int:
         return ColorPalette.index_of_color("outer_bg_progress_1")
+
+    def with_randomized_outer_bg_palette(self) -> Self:
+        color_fn = colorx.bg.rgb_palette if self.mode == "palette" else colorx.bg.rgb_truecolor
+        rgb_1, rgb_2, rgb_3, rgb_4 = self._generate_random_outer_bg_palette()
+        return self._replace(
+            outer_bg_1=color_fn(*rgb_1),
+            outer_bg_2=color_fn(*rgb_2),
+            outer_bg_3=color_fn(*rgb_3),
+            outer_bg_4=color_fn(*rgb_4),
+        )
+
+    @staticmethod
+    def _generate_random_outer_bg_palette() -> tuple[
+        tuple[int, int, int], tuple[int, int, int], tuple[int, int, int], tuple[int, int, int]
+    ]:
+        hue_1 = random.random()
+        hue_2 = random.uniform(hue_1 + 0.25, hue_1 + 0.75) % 1.0
+
+        saturation_1 = random.uniform(0.8, 1.0)
+        saturation_2 = random.uniform(0.8, 1.0)
+
+        value_1 = random.uniform(0.4, 0.5)
+        value_2 = random.uniform(0.2, min(value_1 / 2, 0.3))
+
+        _LOGGER.debug(
+            "Generated outer background palette HSV values: "
+            "hue_1=%.2f, saturation_1=%.2f, value_1=%.2f; "
+            "hue_2=%.2f, saturation_2=%.2f, value_2=%.2f",
+            hue_1,
+            saturation_1,
+            value_1,
+            hue_2,
+            saturation_2,
+            value_2,
+        )
+
+        rgb_1 = colorsys.hsv_to_rgb(hue_1, saturation_1, value_1)
+        rgb_2 = colorsys.hsv_to_rgb(hue_1, saturation_1, value_2)
+        rgb_3 = colorsys.hsv_to_rgb(hue_2, saturation_2, value_1)
+        rgb_4 = colorsys.hsv_to_rgb(hue_2, saturation_2, value_2)
+
+        return tuple(tuple(round(c * 255) for c in rgb) for rgb in (rgb_1, rgb_2, rgb_3, rgb_4))  # type: ignore[return-value]
