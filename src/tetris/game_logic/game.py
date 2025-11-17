@@ -19,12 +19,16 @@ class Game:
         controller: Controller,
         rule_sequence: RuleSequence | None = None,
         callback_collection: CallbackCollection | None = None,
+        *,
+        show_ghost_block: bool = False,
     ) -> None:
         self._board = board
         self._controller = controller
         self._action_counter = ActionCounter()
         self._rule_sequence = rule_sequence or RuleSequence.standard()
         self.callback_collection = callback_collection or CallbackCollection(())
+
+        self._show_ghost_block = show_ghost_block
 
         self._frame_counter = 0
         self._alive = True
@@ -88,4 +92,4 @@ class Game:
             return
         self.callback_collection.on_rules_applied()
 
-        self._ui_aggregator.update(self._board.as_array())
+        self._ui_aggregator.update(self._board.as_array(include_ghost=self._show_ghost_block))

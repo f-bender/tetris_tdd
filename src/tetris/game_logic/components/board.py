@@ -28,6 +28,8 @@ class PositionedBlock:
 
 
 class Board:
+    GHOST_BLOCK_CELL_VALUE: int = np.iinfo(np.uint8).max
+
     def __init__(self) -> None:
         # initialized in a degenerate state - don't call constructor but rather one of the creation classmethods
         self._board: NDArray[np.uint8] = np.zeros((0, 0), dtype=np.uint8)
@@ -73,8 +75,8 @@ class Board:
 
         self.active_block = other.active_block
 
-    def as_array(self) -> NDArray[np.uint8]:
-        return self._board_with_block()
+    def as_array(self, *, include_ghost: bool = False) -> NDArray[np.uint8]:
+        return self._board_with_block(include_ghost=include_ghost)
 
     def array_view_without_active_block(self) -> NDArray[np.uint8]:
         return self._board
@@ -265,13 +267,23 @@ class Board:
 
         raise CannotNudgeError
 
-    def _board_with_block(self) -> NDArray[np.uint8]:
-        if self.active_block is not None:
-            board = self._board.copy()
-            self._merge_active_block_into_board(self.active_block, board)
-            return board
+    def _board_with_block(self, *, include_ghost: bool = False) -> NDArray[np.uint8]:
+        if self.active_block is None:
+            return self._board
 
-        return self._board
+        board = self._board.copy()
+
+        # Note: ghost block must be merged first so that the active block appears on top of it
+        if include_ghost:
+            dropped_block = self.get_active_block_fully_dropped()
+            ghost_block = PositionedBlock(
+                block=dropped_block.block.with_cell_value(self.GHOST_BLOCK_CELL_VALUE), position=dropped_block.position
+            )
+            self._merge_active_block_into_board(ghost_block, board)
+
+        self._merge_active_block_into_board(self.active_block, board)
+
+        return board
 
     def clear_lines(self, line_idxs: Iterable[int]) -> None:
         for line_idx in line_idxs:
@@ -302,5 +314,25 @@ class Board:
         # blocks are allowed to stretch beyond the top line; in this case the corresponding cells are not considered
         # part of the board
         top_cutoff = max(0, -top)
+        cells_to_be_inserted = positioned_block.block.actual_cells[top_cutoff:, :]
 
-        board[top + top_cutoff : bottom, left:right] |= positioned_block.block.actual_cells[top_cutoff:, :]
+        board[top + top_cutoff : bottom, left:right] = np.where(
+            cells_to_be_inserted, cells_to_be_inserted, board[top + top_cutoff : bottom, left:right]
+        )
+
+    def get_active_block_fully_dropped(self) -> PositionedBlock:
+        """Get the PositionedBlock representing the active block if it were dropped all the way down right now."""
+        if self.active_block is None:
+            raise NoActiveBlockError
+
+        active_block_before = self.active_block
+        while True:
+            try:
+                self.drop_active_block()
+            except CannotDropBlockError:
+                break
+
+        dropped_block = self.active_block
+        self.active_block = active_block_before
+
+        return dropped_block

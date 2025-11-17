@@ -185,6 +185,9 @@ type AudioBackendParameter = Literal["playsound3", "pygame", "winsound"]
     show_default=True,
     help="Enable/disable tracking of performance metrics.",
 )
+@click.option(
+    "--ghost-block/--no-ghost-block", default=True, show_default=True, help="Enable/disable display of ghost block."
+)
 def play(  # noqa: PLR0913
     *,
     num_games: int | None,
@@ -200,6 +203,7 @@ def play(  # noqa: PLR0913
     sounded_game: tuple[int, ...],
     audio_backend: AudioBackendParameter,
     track_performance: bool,
+    ghost_block: bool,
 ) -> None:
     """Play Tetris with configurable rules and controllers."""
     boards, controllers = _create_boards_and_controllers(
@@ -235,6 +239,7 @@ def play(  # noqa: PLR0913
             block_selection_fns=block_selection_fns,
             tetris99=tetris99,
             synchronize_spawning=synchronize_spawning,
+            ghost_block=ghost_block,
         )
 
         sound_manager = (
@@ -394,13 +399,14 @@ def _create_seeds(seed_parameters: tuple[str, ...], num_games: int) -> tuple[int
     return seeds
 
 
-def _create_games(
+def _create_games(  # noqa: PLR0913
     boards: list[Board],
     controllers: list[Controller],
     block_selection_fns: list[Callable[[], Block]],
     *,
     tetris99: bool,
     synchronize_spawning: bool,
+    ghost_block: bool,
 ) -> list[Game]:
     games: list[Game] = []
 
@@ -428,7 +434,9 @@ def _create_games(
             block_selection_fn=block_selection_fn,
         )
 
-        games.append(Game(board=board, controller=controller, rule_sequence=rule_sequence))
+        games.append(
+            Game(board=board, controller=controller, rule_sequence=rule_sequence, show_ghost_block=ghost_block)
+        )
 
     return games
 

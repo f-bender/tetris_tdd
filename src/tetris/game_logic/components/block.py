@@ -171,3 +171,9 @@ class Block:
     @classmethod
     def create_random(cls, rng: random.Random | None = None) -> Self:
         return cls((rng or random).choice(list(BlockType)))
+
+    def with_cell_value(self, value: int) -> Self:
+        """Returns a copy of the block with all active cells set to the given value."""
+        new_block = deepcopy(self)
+        new_block.cells[new_block.cells != 0] = value
+        return new_block

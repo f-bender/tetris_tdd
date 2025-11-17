@@ -7,6 +7,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from tetris.game_logic.components.block import Block
+from tetris.game_logic.components.board import Board
 from tetris.game_logic.interfaces.animations import AnimationSpec, TetrisAnimationSpec
 from tetris.game_logic.interfaces.ui import SingleUiElements
 from tetris.ui.cli.animations import Overlay, TetrisAnimationLeft, TetrisAnimationRight
@@ -29,7 +30,8 @@ class Text:
 
 @dataclass(frozen=True)
 class SingleGameUI:
-    board_background: NDArray[np.uint8]
+    board_height: int
+    board_width: int
 
     RIGHT_GAP_WIDTH = 2
     RIGHT_ELEMENTS_WIDTH = 6
@@ -43,7 +45,7 @@ class SingleGameUI:
 
     # What the UI looks like:
 
-    #                 board_size[1] (width)  RIGHT_ELEMENTS_WIDTH
+    #                      board_width       RIGHT_ELEMENTS_WIDTH
     #                  <------------------>    <---------->
     #
     #               ^  ____________________....____________  ^
@@ -56,8 +58,8 @@ class SingleGameUI:
     #               |  ####################....__Score_____  |
     #               |  ####################...._____12345__  |
     #               |  ####################....____________  v
-    # board_size[0] |  ####################................    | DISPLAY_GAP_HEIGHT
-    # (height)      |  ####################....____________  ^
+    #               |  ####################................    | DISPLAY_GAP_HEIGHT
+    # board_height  |  ####################....____________  ^
     #               |  ####################....__Next______  |
     #               |  ####################....____##______  | NEXT_BLOCK_HEIGHT
     #               |  ####################....__######____  |
@@ -78,14 +80,21 @@ class SingleGameUI:
     # note: 2 characters constitute one pixel
 
     @cached_property
-    def board_size(self) -> tuple[int, int]:
-        return tuple(self.board_background.shape)
+    def board_background(self) -> NDArray[np.uint8]:
+        board_background = np.full(
+            (self.board_height, self.board_width), ColorPalette.index_of_color("board_bg_1"), dtype=np.uint8
+        )
+
+        board_background[1::2, ::2] = ColorPalette.index_of_color("board_bg_2")
+        board_background[::2, 1::2] = ColorPalette.index_of_color("board_bg_2")
+
+        return board_background
 
     @cached_property
     def total_size(self) -> tuple[int, int]:
         return (
             max(
-                self.LINES_HEIGHT + self.DISPLAY_GAP_HEIGHT + self.board_size[0],
+                self.LINES_HEIGHT + self.DISPLAY_GAP_HEIGHT + self.board_height,
                 (
                     self.CONTROLLER_SYMBOL_HEIGHT
                     + self.DISPLAY_GAP_HEIGHT
@@ -96,7 +105,7 @@ class SingleGameUI:
                     + self.LEVEL_HEIGHT
                 ),
             ),
-            self.board_size[1] + self.RIGHT_GAP_WIDTH + self.RIGHT_ELEMENTS_WIDTH,
+            self.board_width + self.RIGHT_GAP_WIDTH + self.RIGHT_ELEMENTS_WIDTH,
         )
 
     @cached_property
@@ -111,21 +120,21 @@ class SingleGameUI:
     def controller_symbol_position(self) -> Vec:
         return Vec(
             0,
-            self.board_size[1] + self.RIGHT_GAP_WIDTH,
+            self.board_width + self.RIGHT_GAP_WIDTH,
         )
 
     @cached_property
     def score_position(self) -> Vec:
         return Vec(
             self.CONTROLLER_SYMBOL_HEIGHT + self.DISPLAY_GAP_HEIGHT,
-            self.board_size[1] + self.RIGHT_GAP_WIDTH,
+            self.board_width + self.RIGHT_GAP_WIDTH,
         )
 
     @cached_property
     def next_block_position(self) -> Vec:
         return Vec(
             self.CONTROLLER_SYMBOL_HEIGHT + self.DISPLAY_GAP_HEIGHT + self.SCORE_HEIGHT + self.DISPLAY_GAP_HEIGHT,
-            self.board_size[1] + self.RIGHT_GAP_WIDTH,
+            self.board_width + self.RIGHT_GAP_WIDTH,
         )
 
     @cached_property
@@ -139,7 +148,7 @@ class SingleGameUI:
                 + self.NEXT_BLOCK_HEIGHT
                 + self.DISPLAY_GAP_HEIGHT
             ),
-            self.board_size[1] + self.RIGHT_GAP_WIDTH,
+            self.board_width + self.RIGHT_GAP_WIDTH,
         )
 
     @cached_property
@@ -148,11 +157,11 @@ class SingleGameUI:
 
         mask[
             self.lines_position.y : self.lines_position.y + self.LINES_HEIGHT,
-            self.lines_position.x : self.lines_position.x + self.board_size[1],
+            self.lines_position.x : self.lines_position.x + self.board_width,
         ] = True
         mask[
-            self.board_position.y : self.board_position.y + self.board_size[0],
-            self.board_position.x : self.board_position.x + self.board_size[1],
+            self.board_position.y : self.board_position.y + self.board_height,
+            self.board_position.x : self.board_position.x + self.board_width,
         ] = True
         mask[
             self.controller_symbol_position.y : self.controller_symbol_position.y + self.CONTROLLER_SYMBOL_HEIGHT,
@@ -196,22 +205,33 @@ class SingleGameUI:
     def _add_lines_display(self, num_cleared_lines: int, ui_array: NDArray[np.uint8], texts: list[Text]) -> None:
         ui_array[
             self.lines_position.y : self.lines_position.y + self.LINES_HEIGHT,
-            self.lines_position.x : self.lines_position.x + self.board_size[1],
+            self.lines_position.x : self.lines_position.x + self.board_width,
         ] = ColorPalette.index_of_color("display_bg")
         texts.append(Text(text="Lines", position=self.lines_position + Vec(1, 1)))
         texts.append(
             Text(
                 text=str(num_cleared_lines),
-                position=self.lines_position + Vec(1, self.board_size[1] - 1),
+                position=self.lines_position + Vec(1, self.board_width - 1),
                 alignment=Alignment.RIGHT,
             )
         )
 
     def _add_board(self, board: NDArray[np.uint8], ui_array: NDArray[np.uint8]) -> None:
+        board_in_ui_array = np.where(board, board + ColorPalette.block_color_index_offset() - 1, self.board_background)
+
+        if Board.GHOST_BLOCK_CELL_VALUE in board:
+            # use ghost background color for ghost cells
+            board_in_ui_array = np.where(
+                board == Board.GHOST_BLOCK_CELL_VALUE,
+                self.board_background
+                + (ColorPalette.board_bg_ghost_index_offset() - ColorPalette.board_bg_index_offset()),
+                board_in_ui_array,
+            )
+
         ui_array[
-            self.board_position.y : self.board_position.y + self.board_size[0],
-            self.board_position.x : self.board_position.x + self.board_size[1],
-        ] = np.where(board, board + ColorPalette.block_color_index_offset() - 1, self.board_background)
+            self.board_position.y : self.board_position.y + self.board_height,
+            self.board_position.x : self.board_position.x + self.board_width,
+        ] = board_in_ui_array
 
     def _add_controller_symbol_display(
         self, controller_symbol: str, ui_array: NDArray[np.uint8], texts: list[Text]
@@ -308,9 +328,7 @@ class SingleGameUI:
                     overlay_animations.append(
                         Overlay(
                             position=(
-                                self.board_position
-                                + Vec(top_line_idx, self.board_size[1])
-                                + TetrisAnimationRight.OFFSET
+                                self.board_position + Vec(top_line_idx, self.board_width) + TetrisAnimationRight.OFFSET
                             ),
                             frame=TetrisAnimationRight.get_frame(current_frame, total_frames),
                         )

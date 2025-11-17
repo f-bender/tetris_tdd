@@ -31,12 +31,10 @@ LOGGER = logging.getLogger(__name__)
 
 
 class CLI(UI):
-    PIXEL_WIDTH = 2  # how many terminal characters together form one pixel
-    FRAME_WIDTH = 8  # width of the static frame around and between the single games' UIs, in pixels
+    _PIXEL_WIDTH = 2  # how many terminal characters together form one pixel
+    _FRAME_WIDTH = 8  # width of the static frame around and between the single games' UIs, in pixels
 
-    EMOJI_THRESHOLD = 0x2500  # characters with unicodes higher than this are considered emojis
-
-    MAX_GAMES_SINGLE_ROW = 3
+    _EMOJI_THRESHOLD = 0x2500  # characters with unicodes higher than this are considered emojis
 
     def __init__(self, color_palette: ColorPalette | None = None, target_aspect_ratio: float = 16 / 9) -> None:
         self._last_image_buffer: NDArray[np.uint8] | None = None
@@ -47,30 +45,7 @@ class CLI(UI):
         self._single_game_ui: SingleGameUI | None = None
         self._game_ui_offsets: list[Vec] | None = None
 
-        self._color_palette = (
-            color_palette
-            or ColorPalette.from_rgb(
-                **{f"outer_bg_progress_{i}": (127 + 10 * (i - 5),) * 3 for i in range(1, 11)},  # type: ignore[arg-type]
-                # "christmats themed" outer background colors - will be overwritten by the randomized palette
-                outer_bg_1=(46, 0, 2),
-                outer_bg_2=(39, 85, 10),
-                outer_bg_3=(123, 1, 6),
-                outer_bg_4=(15, 33, 4),
-                # ---
-                board_bg=(50, 50, 50),
-                board_bg_alt=(30, 30, 30),
-                block_1=(160, 1, 241),
-                block_2=(248, 230, 8),
-                block_3=(0, 255, 255),
-                block_4=(239, 130, 1),
-                block_5=(2, 241, 2),
-                block_6=(51, 153, 255),
-                block_7=(240, 0, 1),
-                block_neutral=(200, 200, 200),
-                tetris_sparkle=(255, 255, 0),
-                display_bg=(50, 50, 50),
-            ).with_randomized_outer_bg_palette()
-        )
+        self._color_palette = color_palette or ColorPalette.default().with_randomized_outer_bg_palette()
         self._buffered_print = BufferedPrint()
         self._startup_animation_iter: (
             Generator[tuple[NDArray[np.int32], NDArray[np.uint8]], None, tuple[NDArray[np.int32], NDArray[np.uint8]]]
@@ -87,25 +62,16 @@ class CLI(UI):
     @staticmethod
     def _cursor_goto(vec: Vec) -> str:
         # + 1 to make the interface 0-based (index of top CLI row, and left CLI column is actually 1, not 0)
-        return cursor.goto(vec.y + 1, vec.x * CLI.PIXEL_WIDTH + 1)
+        return cursor.goto(vec.y + 1, vec.x * CLI._PIXEL_WIDTH + 1)
 
     def initialize(self, board_height: int, board_width: int, num_boards: int) -> None:
         if num_boards <= 0:
             msg = "num_boards must be greater than 0"
             raise ValueError(msg)
 
-        # TODO move board background creation into single game ui
-        self._single_game_ui = SingleGameUI(self._create_board_background(board_height, board_width))
+        self._single_game_ui = SingleGameUI(board_height, board_width)
         self._initialize_board_ui_offsets(num_boards)
         self._initialize_terminal()
-
-    def _create_board_background(self, board_height: int, board_width: int) -> NDArray[np.uint8]:
-        board_background = np.full((board_height, board_width), ColorPalette.index_of_color("board_bg"), dtype=np.uint8)
-
-        board_background[1::2, ::2] = ColorPalette.index_of_color("board_bg_alt")
-        board_background[::2, 1::2] = ColorPalette.index_of_color("board_bg_alt")
-
-        return board_background
 
     def _initialize_board_ui_offsets(self, num_games: int) -> None:
         assert self._single_game_ui is not None
@@ -116,8 +82,8 @@ class CLI(UI):
 
         self._game_ui_offsets = [
             Vec(
-                self.FRAME_WIDTH + y * (game_ui_height + self.FRAME_WIDTH),
-                self.FRAME_WIDTH + x * (game_ui_width + self.FRAME_WIDTH),
+                self._FRAME_WIDTH + y * (game_ui_height + self._FRAME_WIDTH),
+                self._FRAME_WIDTH + x * (game_ui_width + self._FRAME_WIDTH),
             )
             for y in range(num_rows)
             for x in range(num_cols)
@@ -130,8 +96,8 @@ class CLI(UI):
             raise RuntimeError(msg)
 
         board_ui_height, board_ui_width = self._single_game_ui.total_size
-        total_height = max(offset.y for offset in self._game_ui_offsets) + board_ui_height + self.FRAME_WIDTH
-        total_width = max(offset.x for offset in self._game_ui_offsets) + board_ui_width + self.FRAME_WIDTH
+        total_height = max(offset.y for offset in self._game_ui_offsets) + board_ui_height + self._FRAME_WIDTH
+        total_width = max(offset.x for offset in self._game_ui_offsets) + board_ui_width + self._FRAME_WIDTH
 
         outer_background_mask = np.ones((total_height, total_width), dtype=np.bool)
 
@@ -154,14 +120,16 @@ class CLI(UI):
                 outer_background_mask[-1, -2] = False
                 outer_background_mask[-2, -1] = False
 
+        assert np.sum(outer_background_mask) % 4 == 0
+
         return outer_background_mask
 
     def _compute_num_rows_cols(self, num_games: int) -> tuple[int, int]:
         assert self._single_game_ui is not None
 
         single_game_ui_height, single_game_ui_width = self._single_game_ui.total_size
-        height_added_per_game = single_game_ui_height + self.FRAME_WIDTH
-        width_added_per_game = single_game_ui_width + self.FRAME_WIDTH
+        height_added_per_game = single_game_ui_height + self._FRAME_WIDTH
+        width_added_per_game = single_game_ui_width + self._FRAME_WIDTH
 
         # solution from WolframAlpha, prompted with
         # `(c * w + f) / (r * h + f) = a, r * c = n, solve for r, c`
@@ -171,11 +139,11 @@ class CLI(UI):
         num_cols = ceil(
             (
                 (
-                    (self._target_aspect_ratio - 1) ** 2 * self.FRAME_WIDTH**2
+                    (self._target_aspect_ratio - 1) ** 2 * self._FRAME_WIDTH**2
                     + 4 * self._target_aspect_ratio * height_added_per_game * num_games * width_added_per_game
                 )
                 ** 0.5
-                + (self._target_aspect_ratio - 1) * self.FRAME_WIDTH
+                + (self._target_aspect_ratio - 1) * self._FRAME_WIDTH
             )
             / (2 * width_added_per_game)
         )
@@ -262,7 +230,7 @@ class CLI(UI):
         self._handle_level_change(elements)
 
         image_buffer = self._outer_background.copy()
-        text_buffer: NDArray[np.str_] = np.zeros_like(image_buffer, dtype=f"U{self.PIXEL_WIDTH}")
+        text_buffer: NDArray[np.str_] = np.zeros_like(image_buffer, dtype=f"U{self._PIXEL_WIDTH}")
         all_overlays: list[Overlay] = []
 
         single_game_ui_height, single_game_ui_width = self._single_game_ui.total_size
@@ -328,8 +296,8 @@ class CLI(UI):
         characters, offset = CLI._processed_text_and_offset(text=text.text, alignment=text.alignment)
         position = text.position - Vec(0, offset)
 
-        text_buffer[position.y, position.x : position.x + ceil(len(characters) / CLI.PIXEL_WIDTH)] = [
-            characters[i : i + CLI.PIXEL_WIDTH] for i in range(0, len(characters), CLI.PIXEL_WIDTH)
+        text_buffer[position.y, position.x : position.x + ceil(len(characters) / CLI._PIXEL_WIDTH)] = [
+            characters[i : i + CLI._PIXEL_WIDTH] for i in range(0, len(characters), CLI._PIXEL_WIDTH)
         ]
 
     @lru_cache
@@ -345,19 +313,19 @@ class CLI(UI):
         else:
             character_offset = 0
 
-        pixel_offset = ceil(character_offset / CLI.PIXEL_WIDTH)
-        subpixel_offset = pixel_offset * CLI.PIXEL_WIDTH - character_offset
+        pixel_offset = ceil(character_offset / CLI._PIXEL_WIDTH)
+        subpixel_offset = pixel_offset * CLI._PIXEL_WIDTH - character_offset
         characters = CLI._pixel_align_emojis(" " * subpixel_offset + text)
 
         # in case emoji-pixel-alignment has increased the length of `characters`, increase the pixel offset (only full
         # pixel steps at this point)
         if alignment is Alignment.RIGHT:
             real_pixel_offset = pixel_offset + round(
-                (len(characters) - (min_characters_length + subpixel_offset)) / CLI.PIXEL_WIDTH
+                (len(characters) - (min_characters_length + subpixel_offset)) / CLI._PIXEL_WIDTH
             )
         elif alignment is Alignment.CENTER:
             real_pixel_offset = pixel_offset + round(
-                (len(characters) - (min_characters_length + subpixel_offset)) / CLI.PIXEL_WIDTH / 2
+                (len(characters) - (min_characters_length + subpixel_offset)) / CLI._PIXEL_WIDTH / 2
             )
         else:
             real_pixel_offset = pixel_offset
@@ -369,8 +337,8 @@ class CLI(UI):
         result: list[str] = []
 
         for char in text:
-            is_emoji = ord(char) > CLI.EMOJI_THRESHOLD
-            if is_emoji and len(result) % CLI.PIXEL_WIDTH == CLI.PIXEL_WIDTH - 1:
+            is_emoji = ord(char) > CLI._EMOJI_THRESHOLD
+            if is_emoji and len(result) % CLI._PIXEL_WIDTH == CLI._PIXEL_WIDTH - 1:
                 # if emoji is directly before a pixel border, insert a space to push it over the pixel border
                 # otherwise, the character that will be written on the other side of the pixel border will write over
                 # the emoji (even if that character is a space) (because the emoji takes up 2 spaces)
@@ -387,7 +355,7 @@ class CLI(UI):
     @staticmethod
     def _display_length(text: str) -> int:
         # emojis are displayed with a width of 2
-        return sum(2 if ord(char) > CLI.EMOJI_THRESHOLD else 1 for char in text)
+        return sum(2 if ord(char) > CLI._EMOJI_THRESHOLD else 1 for char in text)
 
     @staticmethod
     def _draw_overlay(overlay: Overlay, image_buffer: NDArray[np.uint8], text_buffer: NDArray[np.str_]) -> None:
@@ -431,7 +399,7 @@ class CLI(UI):
     def _draw_array_row(self, top_left: Vec, array_row: NDArray[np.uint8]) -> None:
         print(
             self._cursor_goto(top_left)
-            + "".join(self._color_palette[color_index] + " " * CLI.PIXEL_WIDTH for color_index in array_row),
+            + "".join(self._color_palette[color_index] + " " * CLI._PIXEL_WIDTH for color_index in array_row),
             end="",
         )
 
@@ -439,6 +407,6 @@ class CLI(UI):
         print(
             self._cursor_goto(position)
             + self._color_palette[color_index]
-            + ((text and text.ljust(CLI.PIXEL_WIDTH)) or " " * CLI.PIXEL_WIDTH),
+            + ((text and text.ljust(CLI._PIXEL_WIDTH)) or " " * CLI._PIXEL_WIDTH),
             end="",
         )

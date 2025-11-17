@@ -286,6 +286,7 @@ class HeuristicBotController(Controller, Subscriber):
 
                 internal_planning_board.active_block = positioned_block
 
+                # likely could be replaced with self._instant_drop_and_merge_block
                 while True:
                     try:
                         internal_planning_board.drop_active_block()

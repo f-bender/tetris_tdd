@@ -27,8 +27,11 @@ class ColorPalette(NamedTuple):
     outer_bg_3: str
     outer_bg_4: str
     # the 2 colors of the checkerboard-patterned board background
-    board_bg: str
-    board_bg_alt: str
+    board_bg_1: str
+    board_bg_2: str
+    # the 2 colors of the checkerboard-patterned board background, when showing the ghost piece
+    board_bg_1_ghost: str
+    board_bg_2_ghost: str
     # there are 7 different block types, each with a different color
     block_1: str
     block_2: str
@@ -37,15 +40,47 @@ class ColorPalette(NamedTuple):
     block_5: str
     block_6: str
     block_7: str
+    # neutral color for blocks of "unknown origin", not from the standard set (e.g. placed by tetris99 rule)
     block_neutral: str
     # background of score and next block display
     display_bg: str
     # animation colors
     tetris_sparkle: str
     # background that has not (yet) been filled or (four-)colored
-    empty: str = colorx.bg.rgb_palette(0, 0, 0)
+    empty: str
     # save the mode being used
     mode: Literal["palette", "truecolor"] = "truecolor"
+
+    @classmethod
+    def default(cls) -> Self:
+        return cls.from_rgb(
+            # progressive shades of gray for outer background during block placement
+            **{f"outer_bg_progress_{i}": (127 + 10 * (i - 5),) * 3 for i in range(1, 11)},  # type: ignore[arg-type]
+            # "christmats themed" outer background colors, bright and dark greens and reds
+            outer_bg_1=(46, 0, 2),
+            outer_bg_2=(39, 85, 10),
+            outer_bg_3=(123, 1, 6),
+            outer_bg_4=(15, 33, 4),
+            # dark gray board background
+            board_bg_1=(50, 50, 50),
+            board_bg_2=(30, 30, 30),
+            board_bg_1_ghost=(120, 120, 120),
+            board_bg_2_ghost=(100, 100, 100),
+            # standard Tetris block colors
+            block_1=(160, 1, 241),  # T
+            block_2=(248, 230, 8),  # O
+            block_3=(0, 255, 255),  # I
+            block_4=(239, 130, 1),  # L
+            block_5=(2, 241, 2),  # S
+            block_6=(51, 153, 255),  # J
+            block_7=(240, 0, 1),  # Z
+            # light gray neutral block color
+            block_neutral=(200, 200, 200),
+            # yellow tetris sparkle animation
+            tetris_sparkle=(255, 255, 0),
+            # dark gray background for the text
+            display_bg=(50, 50, 50),
+        )
 
     @classmethod
     def from_rgb(  # noqa: PLR0913
@@ -64,8 +99,10 @@ class ColorPalette(NamedTuple):
         outer_bg_2: tuple[int, int, int],
         outer_bg_3: tuple[int, int, int],
         outer_bg_4: tuple[int, int, int],
-        board_bg: tuple[int, int, int],
-        board_bg_alt: tuple[int, int, int],
+        board_bg_1: tuple[int, int, int],
+        board_bg_2: tuple[int, int, int],
+        board_bg_1_ghost: tuple[int, int, int],
+        board_bg_2_ghost: tuple[int, int, int],
         block_1: tuple[int, int, int],
         block_2: tuple[int, int, int],
         block_3: tuple[int, int, int],
@@ -96,8 +133,10 @@ class ColorPalette(NamedTuple):
             outer_bg_2=color_fn(*outer_bg_2),
             outer_bg_3=color_fn(*outer_bg_3),
             outer_bg_4=color_fn(*outer_bg_4),
-            board_bg=color_fn(*board_bg),
-            board_bg_alt=color_fn(*board_bg_alt),
+            board_bg_1=color_fn(*board_bg_1),
+            board_bg_2=color_fn(*board_bg_2),
+            board_bg_1_ghost=color_fn(*board_bg_1_ghost),
+            board_bg_2_ghost=color_fn(*board_bg_2_ghost),
             block_1=color_fn(*block_1),
             block_2=color_fn(*block_2),
             block_3=color_fn(*block_3),
@@ -109,6 +148,7 @@ class ColorPalette(NamedTuple):
             display_bg=color_fn(*display_bg),
             tetris_sparkle=color_fn(*tetris_sparkle),
             empty=color_fn(*empty),
+            mode=mode,
         )
 
     @classmethod
@@ -129,8 +169,10 @@ class ColorPalette(NamedTuple):
             "outer_bg_2",
             "outer_bg_3",
             "outer_bg_4",
-            "board_bg",
-            "board_bg_alt",
+            "board_bg_1",
+            "board_bg_2",
+            "board_bg_1_ghost",
+            "board_bg_2_ghost",
             "block_1",
             "block_2",
             "block_3",
@@ -154,6 +196,16 @@ class ColorPalette(NamedTuple):
     @staticmethod
     def block_color_index_offset() -> int:
         return ColorPalette.index_of_color("block_1")
+
+    @cache
+    @staticmethod
+    def board_bg_index_offset() -> int:
+        return ColorPalette.index_of_color("board_bg_1")
+
+    @cache
+    @staticmethod
+    def board_bg_ghost_index_offset() -> int:
+        return ColorPalette.index_of_color("board_bg_1_ghost")
 
     @cache
     @staticmethod
