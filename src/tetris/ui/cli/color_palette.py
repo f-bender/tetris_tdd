@@ -179,6 +179,20 @@ class ColorPalette(NamedTuple):
     def _generate_random_outer_bg_palette() -> tuple[
         tuple[int, int, int], tuple[int, int, int], tuple[int, int, int], tuple[int, int, int]
     ]:
+        # 1 in 1000 chance for a "shiny" palette (fully random colors)
+        if random.randint(1, 1000) == 1:
+            shiny_rgb_1, shiny_rgb_2, shiny_rgb_3, shiny_rgb_4 = (
+                tuple(random.randint(0, 255) for _ in range(3)) for _ in range(4)
+            )
+            _LOGGER.debug(
+                "Generated shiny outer background palette RGB values: (%s, %s, %s, %s)",
+                shiny_rgb_1,
+                shiny_rgb_2,
+                shiny_rgb_3,
+                shiny_rgb_4,
+            )
+            return shiny_rgb_1, shiny_rgb_2, shiny_rgb_3, shiny_rgb_4  # type: ignore[return-value]
+
         hue_1 = random.random()
         hue_2 = random.uniform(hue_1 + 0.25, hue_1 + 0.75) % 1.0
 
