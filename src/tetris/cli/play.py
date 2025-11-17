@@ -179,6 +179,12 @@ type AudioBackendParameter = Literal["playsound3", "pygame", "winsound"]
         "'winsound' only works on Windows, and only with 'wav' files."
     ),
 )
+@click.option(
+    "--track-performance/--no-track-performance",
+    default=False,
+    show_default=True,
+    help="Enable/disable tracking of performance metrics.",
+)
 def play(  # noqa: PLR0913
     *,
     num_games: int | None,
@@ -193,6 +199,7 @@ def play(  # noqa: PLR0913
     sounds: str,
     sounded_game: tuple[int, ...],
     audio_backend: AudioBackendParameter,
+    track_performance: bool,
 ) -> None:
     """Play Tetris with configurable rules and controllers."""
     boards, controllers = _create_boards_and_controllers(
@@ -238,7 +245,7 @@ def play(  # noqa: PLR0913
             )
         )
 
-        runtime = _create_runtime(games, fps=fps, sound_manager=sound_manager)
+        runtime = _create_runtime(games, fps=fps, sound_manager=sound_manager, track_performance=track_performance)
 
         DEPENDENCY_MANAGER.wire_up(runtime=runtime, games=games)
 
@@ -492,13 +499,15 @@ def _create_runtime(
     controller: Controller | None = None,
     fps: float = 60,
     sound_manager: SoundManager | None = None,
+    track_performance: bool = False,
 ) -> Runtime:
     DEPENDENCY_MANAGER.current_game_index = DependencyManager.RUNTIME_INDEX
     if sound_manager is not None:
         # NOTE: SoundManager's game_index is never actually used, but for consistency's sake still change it
         sound_manager.game_index = DependencyManager.RUNTIME_INDEX
 
-    TrackPerformanceCallback(fps)  # not useless; will be added to DEPENDENCY_MANAGER.all_callbacks
+    if track_performance:
+        TrackPerformanceCallback(fps)  # not useless; will be added to DEPENDENCY_MANAGER.all_callbacks
 
     ui = CLI()
     clock = SimpleClock(fps)
