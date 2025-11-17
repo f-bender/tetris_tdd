@@ -19,6 +19,7 @@ from tetris.game_logic.interfaces.controller import Action, Controller
 from tetris.game_logic.interfaces.dependency_manager import DEPENDENCY_MANAGER, DependencyManager
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.game_logic.interfaces.rule_sequence import RuleSequence
+from tetris.game_logic.interfaces.runtime_rule_sequence import RuntimeRuleSequence
 from tetris.game_logic.rules.core.move_rotate_rules import MoveRule, RotateRule
 from tetris.game_logic.rules.core.scoring.level_rule import LevelTracker
 from tetris.game_logic.rules.core.scoring.track_cleared_lines_rule import ClearedLinesTracker
@@ -28,6 +29,7 @@ from tetris.game_logic.rules.core.spawn_drop_merge.spawn_drop_merge_rule import 
 from tetris.game_logic.rules.core.spawn_drop_merge.synchronized_spawn import SynchronizedSpawning
 from tetris.game_logic.rules.monitoring.track_performance_rule import TrackPerformanceCallback
 from tetris.game_logic.rules.multiplayer.tetris99_rule import Tetris99Rule
+from tetris.game_logic.rules.runtime.sound_toggle import SoundToggleRule
 from tetris.game_logic.runtime import Runtime
 from tetris.game_logic.sound_manager import SoundManager
 from tetris.ui.cli import CLI
@@ -35,6 +37,7 @@ from tetris.ui.cli import CLI
 if TYPE_CHECKING:
     from tetris.game_logic.interfaces.audio_output import AudioOutput
     from tetris.game_logic.interfaces.rule import Rule
+    from tetris.game_logic.interfaces.runtime_rule import RuntimeRule
 
 type ControllerParameter = Literal[
     "arrows",
@@ -509,10 +512,14 @@ def _create_runtime(
     sound_manager: SoundManager | None = None,
     track_performance: bool = False,
 ) -> Runtime:
+    rules: list[RuntimeRule] = []
+
     DEPENDENCY_MANAGER.current_game_index = DependencyManager.RUNTIME_INDEX
     if sound_manager is not None:
         # NOTE: SoundManager's game_index is never actually used, but for consistency's sake still change it
         sound_manager.game_index = DependencyManager.RUNTIME_INDEX
+
+        rules.append(SoundToggleRule(sound_manager))
 
     if track_performance:
         TrackPerformanceCallback(fps)  # not useless; will be added to DEPENDENCY_MANAGER.all_callbacks
@@ -528,4 +535,11 @@ def _create_runtime(
         else:
             controller = PynputKeyboardController()
 
-    return Runtime(ui=ui, clock=clock, games=games, controller=controller, sound_manager=sound_manager)
+    return Runtime(
+        ui=ui,
+        clock=clock,
+        games=games,
+        controller=controller,
+        sound_manager=sound_manager,
+        rule_sequence=RuntimeRuleSequence(rules),
+    )

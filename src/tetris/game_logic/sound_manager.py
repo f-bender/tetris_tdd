@@ -83,7 +83,23 @@ class SoundManager(Subscriber, Callback):
 
         self._sound_files = {sound: next(sound_pack_dir.glob(f"{sound}.*"), None) for sound in Sound}
 
+        self._enabled = True
+
+        # this ignores enabled state; used to track whether music *should* be playing
         self._music_playing = False
+
+    @property
+    def is_enabled(self) -> bool:
+        return self._enabled
+
+    def enable(self) -> None:
+        self._enabled = True
+        if self._music_playing:
+            self._start_playing_music()
+
+    def disable(self) -> None:
+        self._audio_output.stop()
+        self._enabled = False
 
     def _download(self, sound_pack: str) -> None:
         sound_pack_dir = self._SOUND_PACKS_DIR / sound_pack
@@ -122,6 +138,9 @@ class SoundManager(Subscriber, Callback):
         )
 
     def notify(self, message: NamedTuple) -> None:
+        if not self._enabled:
+            return
+
         match message:
             case StartMergeMessage():
                 self._play_sound(Sound.MERGE)
@@ -148,12 +167,17 @@ class SoundManager(Subscriber, Callback):
     def on_game_over(self) -> None:
         self._audio_output.stop()
         self._music_playing = False
-        self._play_sound(Sound.GAME_OVER)
+
+        if self._enabled:
+            self._play_sound(Sound.GAME_OVER)
 
     def on_game_start(self) -> None:
-        if self._music_playing:
-            return
+        if self._enabled and not self._music_playing:
+            self._start_playing_music()
 
+        self._music_playing = True
+
+    def _start_playing_music(self) -> None:
         music_files = [
             music_file
             for sound in (Sound.MUSIC1, Sound.MUSIC2, Sound.MUSIC3)
@@ -163,4 +187,3 @@ class SoundManager(Subscriber, Callback):
             return
 
         self._audio_output.play_on_loop(random.choice(music_files))
-        self._music_playing = True

@@ -6,6 +6,7 @@ from tetris.game_logic.game import Game
 from tetris.game_logic.interfaces.callback_collection import CallbackCollection
 from tetris.game_logic.interfaces.clock import Clock
 from tetris.game_logic.interfaces.controller import Action, Controller
+from tetris.game_logic.interfaces.runtime_rule_sequence import RuntimeRuleSequence
 from tetris.game_logic.interfaces.ui import UI, UiElements
 from tetris.game_logic.sound_manager import SoundManager
 
@@ -18,6 +19,7 @@ class Runtime:
         clock: Clock,
         games: list[Game],
         controller: Controller,  # for menu navigation or startup acceleration
+        rule_sequence: RuntimeRuleSequence | None = None,
         callback_collection: CallbackCollection | None = None,
         sound_manager: SoundManager | None = None,
     ) -> None:
@@ -39,6 +41,7 @@ class Runtime:
 
         self.state: State = STARTUP_STATE
 
+        self._rule_sequence = rule_sequence or RuntimeRuleSequence(())
         self.callback_collection = callback_collection or CallbackCollection(())
 
         self._controller = controller
@@ -76,6 +79,8 @@ class Runtime:
 
         self._action_counter.update(action)
         self.callback_collection.on_action_counter_updated()
+
+        self._rule_sequence.apply(self._frame_counter, self._action_counter)
 
         self.state.advance(self)
 
