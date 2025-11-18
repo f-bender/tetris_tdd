@@ -66,11 +66,12 @@ class CLI(UI):
         self._single_game_ui: SingleGameUI | None = None
         self._game_ui_offsets: list[Vec] | None = None
 
+        self._color_palette = color_palette or ColorPalette.default()
+
         bg_color_type = BackgroundColorType.random()
-        self._color_palette = color_palette or ColorPalette.default().with_randomized_outer_bg_palette(
-            shiny=bg_color_type is BackgroundColorType.SHINY
-        )
         self._rainbow_during_startup = bg_color_type is BackgroundColorType.RAINBOW
+        if not self._rainbow_during_startup:
+            self._color_palette.randomize_outer_bg_colors(shiny=bg_color_type is BackgroundColorType.SHINY)
 
         self._buffered_print = BufferedPrint()
         self._startup_animation_iter: (
@@ -354,29 +355,29 @@ class CLI(UI):
 
         bg_color_type = BackgroundColorType.random()
 
-        if bg_color_type is BackgroundColorType.RAINBOW:
-            if np.any(self._outer_background >= ColorPalette.RAINBOW_INDEX_0):
-                # never twice in a row; fall back to "normal" otherwise
-                self._color_palette = self._color_palette.with_randomized_outer_bg_palette(shiny=False)
-            else:
-                self._outer_background = np.where(
-                    self._outer_background != ColorPalette.index_of_color("empty"),
-                    self._outer_background + rainbow_offset,
-                    self._outer_background,
-                )
-            return
-
-        # reset from rainbow background if needed
+        # reset from rainbow background, in case we had rainbow background before
         if np.any(self._outer_background >= ColorPalette.RAINBOW_INDEX_0):
             self._outer_background = np.where(
                 self._outer_background != ColorPalette.index_of_color("empty"),
                 self._outer_background - rainbow_offset,
                 self._outer_background,
             )
+            # and make sure we don't use rainbow twice in a row (fall back to normal)
+            if bg_color_type is BackgroundColorType.RAINBOW:
+                bg_color_type = BackgroundColorType.NORMAL
 
-        self._color_palette = self._color_palette.with_randomized_outer_bg_palette(
-            shiny=bg_color_type is BackgroundColorType.SHINY
-        )
+        match bg_color_type:
+            case BackgroundColorType.RAINBOW:
+                self._outer_background = np.where(
+                    self._outer_background != ColorPalette.index_of_color("empty"),
+                    self._outer_background + rainbow_offset,
+                    self._outer_background,
+                )
+                # add a subtle random variation in saturation and value
+                self._color_palette.rainbow_saturation = random.uniform(0.9, 1.0)
+                self._color_palette.rainbow_value = random.uniform(0.8, 0.9)
+            case BackgroundColorType.SHINY | BackgroundColorType.NORMAL:
+                self._color_palette.randomize_outer_bg_colors(shiny=bg_color_type is BackgroundColorType.SHINY)
 
     @staticmethod
     def _add_text(text: Text, text_buffer: NDArray[np.str_]) -> None:
@@ -513,10 +514,10 @@ class CLI(UI):
 
     def _get_color_str(self, color_index: int, position: tuple[int, int]) -> str:
         if color_index < ColorPalette.RAINBOW_INDEX_0:
-            return cast("str", self._color_palette[color_index])
+            return self._color_palette[color_index]
 
         assert self._rainbow_layer is not None
 
-        return self._color_palette.RAINBOW_COLORS[
+        return self._color_palette.rainbow_colors[
             (int(self._rainbow_layer[position]) + (color_index - ColorPalette.RAINBOW_INDEX_0) * 32) % 256
         ]

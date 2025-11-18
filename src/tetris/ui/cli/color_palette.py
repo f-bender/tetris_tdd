@@ -1,18 +1,18 @@
 import colorsys
+import contextlib
 import logging
 import random
 from collections.abc import Callable
-from functools import cache
-from typing import Literal, NamedTuple, Self
+from dataclasses import dataclass
+from functools import cache, cached_property
+from typing import Any, Literal, NamedTuple, Self
 
 from tetris.ansi_extensions import color as colorx
 
 _LOGGER = logging.getLogger(__name__)
 
 
-# TODO: probably a (dataclass?) wrapper around ColorPalette which contains the metadata (like rainbow saturation/value
-# and color_fn), then the inner ColorPalette can stay as NamedTuple and only contain the actual color strings
-class ColorPalette(NamedTuple):
+class _Colors(NamedTuple):
     # we allow 10 different shades to represent blocks that are placed but not yet (four-)colored
     outer_bg_progress_1: str
     outer_bg_progress_2: str
@@ -51,21 +51,46 @@ class ColorPalette(NamedTuple):
     tetris_sparkle: str
     # background that has not (yet) been filled or (four-)colored
     empty: str
+
+
+@dataclass
+class ColorPalette:
+    colors: _Colors
+
     # save the function used to generate the ANSI colors from RGB values, so we can use it again when randomizing
-    color_fn: Callable[[int, int, int], str] = colorx.bg.rgb_truecolor
+    color_fn: Callable[[int, int, int], str]
 
     # saturation and value of the rainbow colors used for the rainbow animation
     rainbow_saturation: float = 1.0
-    rainbow_value: float = 1.0
+    rainbow_value: float = 0.9
 
     RAINBOW_INDEX_0 = 252  # index used for rainbow animation
     RAINBOW_INDEX_1 = 253  # index used for rainbow animation
     RAINBOW_INDEX_2 = 254  # index used for rainbow animation
     RAINBOW_INDEX_3 = 255  # index used for rainbow animation
-    RAINBOW_COLORS = tuple(
-        colorx.bg.rgb_truecolor(*(round(c * 255) for c in colorsys.hsv_to_rgb(h=cycle_value / 256, s=1.0, v=1.0)))
-        for cycle_value in range(256)
-    )
+
+    @cached_property
+    def rainbow_colors(self) -> tuple[str, ...]:
+        return tuple(
+            colorx.bg.rgb_truecolor(
+                *(
+                    round(c * 255)
+                    for c in colorsys.hsv_to_rgb(h=cycle_value / 256, s=self.rainbow_saturation, v=self.rainbow_value)
+                )
+            )
+            for cycle_value in range(256)
+        )
+
+    def __setattr__(self, name: str, value: Any) -> None:  # noqa: ANN401
+        if name in ("rainbow_saturation", "rainbow_value"):
+            # invalidate cached rainbow colors
+            with contextlib.suppress(AttributeError):
+                del self.rainbow_colors
+
+        object.__setattr__(self, name, value)
+
+    def __getitem__(self, i: int) -> str:
+        return self.colors[i]
 
     @classmethod
     def default(cls) -> Self:
@@ -134,35 +159,37 @@ class ColorPalette(NamedTuple):
         color_fn: Callable[[int, int, int], str] = colorx.bg.rgb_truecolor,
     ) -> Self:
         return cls(
-            outer_bg_progress_1=color_fn(*outer_bg_progress_1),
-            outer_bg_progress_2=color_fn(*outer_bg_progress_2),
-            outer_bg_progress_3=color_fn(*outer_bg_progress_3),
-            outer_bg_progress_4=color_fn(*outer_bg_progress_4),
-            outer_bg_progress_5=color_fn(*outer_bg_progress_5),
-            outer_bg_progress_6=color_fn(*outer_bg_progress_6),
-            outer_bg_progress_7=color_fn(*outer_bg_progress_7),
-            outer_bg_progress_8=color_fn(*outer_bg_progress_8),
-            outer_bg_progress_9=color_fn(*outer_bg_progress_9),
-            outer_bg_progress_10=color_fn(*outer_bg_progress_10),
-            outer_bg_1=color_fn(*outer_bg_1),
-            outer_bg_2=color_fn(*outer_bg_2),
-            outer_bg_3=color_fn(*outer_bg_3),
-            outer_bg_4=color_fn(*outer_bg_4),
-            board_bg_1=color_fn(*board_bg_1),
-            board_bg_2=color_fn(*board_bg_2),
-            board_bg_1_ghost=color_fn(*board_bg_1_ghost),
-            board_bg_2_ghost=color_fn(*board_bg_2_ghost),
-            block_1=color_fn(*block_1),
-            block_2=color_fn(*block_2),
-            block_3=color_fn(*block_3),
-            block_4=color_fn(*block_4),
-            block_5=color_fn(*block_5),
-            block_6=color_fn(*block_6),
-            block_7=color_fn(*block_7),
-            block_neutral=color_fn(*block_neutral),
-            display_bg=color_fn(*display_bg),
-            tetris_sparkle=color_fn(*tetris_sparkle),
-            empty=color_fn(*empty),
+            _Colors(
+                outer_bg_progress_1=color_fn(*outer_bg_progress_1),
+                outer_bg_progress_2=color_fn(*outer_bg_progress_2),
+                outer_bg_progress_3=color_fn(*outer_bg_progress_3),
+                outer_bg_progress_4=color_fn(*outer_bg_progress_4),
+                outer_bg_progress_5=color_fn(*outer_bg_progress_5),
+                outer_bg_progress_6=color_fn(*outer_bg_progress_6),
+                outer_bg_progress_7=color_fn(*outer_bg_progress_7),
+                outer_bg_progress_8=color_fn(*outer_bg_progress_8),
+                outer_bg_progress_9=color_fn(*outer_bg_progress_9),
+                outer_bg_progress_10=color_fn(*outer_bg_progress_10),
+                outer_bg_1=color_fn(*outer_bg_1),
+                outer_bg_2=color_fn(*outer_bg_2),
+                outer_bg_3=color_fn(*outer_bg_3),
+                outer_bg_4=color_fn(*outer_bg_4),
+                board_bg_1=color_fn(*board_bg_1),
+                board_bg_2=color_fn(*board_bg_2),
+                board_bg_1_ghost=color_fn(*board_bg_1_ghost),
+                board_bg_2_ghost=color_fn(*board_bg_2_ghost),
+                block_1=color_fn(*block_1),
+                block_2=color_fn(*block_2),
+                block_3=color_fn(*block_3),
+                block_4=color_fn(*block_4),
+                block_5=color_fn(*block_5),
+                block_6=color_fn(*block_6),
+                block_7=color_fn(*block_7),
+                block_neutral=color_fn(*block_neutral),
+                display_bg=color_fn(*display_bg),
+                tetris_sparkle=color_fn(*tetris_sparkle),
+                empty=color_fn(*empty),
+            ),
             color_fn=color_fn,
         )
 
@@ -202,7 +229,7 @@ class ColorPalette(NamedTuple):
         ],
     ) -> int:
         try:
-            return cls._fields.index(color_name)
+            return _Colors._fields.index(color_name)
         except ValueError as e:
             msg = f"Invalid color name: '{color_name}'"
             raise ValueError(msg) from e
@@ -232,9 +259,9 @@ class ColorPalette(NamedTuple):
     def outer_bg_progress_index_offset() -> int:
         return ColorPalette.index_of_color("outer_bg_progress_1")
 
-    def with_randomized_outer_bg_palette(self, *, shiny: bool = False) -> Self:
-        rgb_1, rgb_2, rgb_3, rgb_4 = self._generate_random_outer_bg_palette(shiny=shiny)
-        return self._replace(
+    def randomize_outer_bg_colors(self, *, shiny: bool = False) -> None:
+        rgb_1, rgb_2, rgb_3, rgb_4 = self._generate_random_outer_bg_colors(shiny=shiny)
+        self.colors = self.colors._replace(
             outer_bg_1=self.color_fn(*rgb_1),
             outer_bg_2=self.color_fn(*rgb_2),
             outer_bg_3=self.color_fn(*rgb_3),
@@ -242,7 +269,7 @@ class ColorPalette(NamedTuple):
         )
 
     @staticmethod
-    def _generate_random_outer_bg_palette(
+    def _generate_random_outer_bg_colors(
         *, shiny: bool = False
     ) -> tuple[tuple[int, int, int], tuple[int, int, int], tuple[int, int, int], tuple[int, int, int]]:
         # 1 in 1000 chance for a "shiny" palette (fully random colors)
