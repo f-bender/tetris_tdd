@@ -6,7 +6,7 @@ from tetris.game_logic.rules.messages import NewLevelMessage, NumClearedLinesMes
 
 
 class LevelTracker(Publisher, Subscriber):
-    def __init__(self, line_clears_per_level: int = 10) -> None:
+    def __init__(self, line_clears_per_level: int = 1) -> None:  # TODO: change default to 10
         super().__init__()
 
         self._level = 0

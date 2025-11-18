@@ -1,6 +1,7 @@
 import colorsys
 import logging
 import random
+from collections.abc import Callable
 from functools import cache
 from typing import Literal, NamedTuple, Self
 
@@ -9,6 +10,8 @@ from tetris.ansi_extensions import color as colorx
 _LOGGER = logging.getLogger(__name__)
 
 
+# TODO: probably a (dataclass?) wrapper around ColorPalette which contains the metadata (like rainbow saturation/value
+# and color_fn), then the inner ColorPalette can stay as NamedTuple and only contain the actual color strings
 class ColorPalette(NamedTuple):
     # we allow 10 different shades to represent blocks that are placed but not yet (four-)colored
     outer_bg_progress_1: str
@@ -48,8 +51,21 @@ class ColorPalette(NamedTuple):
     tetris_sparkle: str
     # background that has not (yet) been filled or (four-)colored
     empty: str
-    # save the mode being used
-    mode: Literal["palette", "truecolor"] = "truecolor"
+    # save the function used to generate the ANSI colors from RGB values, so we can use it again when randomizing
+    color_fn: Callable[[int, int, int], str] = colorx.bg.rgb_truecolor
+
+    # saturation and value of the rainbow colors used for the rainbow animation
+    rainbow_saturation: float = 1.0
+    rainbow_value: float = 1.0
+
+    RAINBOW_INDEX_0 = 252  # index used for rainbow animation
+    RAINBOW_INDEX_1 = 253  # index used for rainbow animation
+    RAINBOW_INDEX_2 = 254  # index used for rainbow animation
+    RAINBOW_INDEX_3 = 255  # index used for rainbow animation
+    RAINBOW_COLORS = tuple(
+        colorx.bg.rgb_truecolor(*(round(c * 255) for c in colorsys.hsv_to_rgb(h=cycle_value / 256, s=1.0, v=1.0)))
+        for cycle_value in range(256)
+    )
 
     @classmethod
     def default(cls) -> Self:
@@ -115,9 +131,8 @@ class ColorPalette(NamedTuple):
         tetris_sparkle: tuple[int, int, int],
         empty: tuple[int, int, int] = (0, 0, 0),
         *,
-        mode: Literal["palette", "truecolor"] = "truecolor",
+        color_fn: Callable[[int, int, int], str] = colorx.bg.rgb_truecolor,
     ) -> Self:
-        color_fn = colorx.bg.rgb_palette if mode == "palette" else colorx.bg.rgb_truecolor
         return cls(
             outer_bg_progress_1=color_fn(*outer_bg_progress_1),
             outer_bg_progress_2=color_fn(*outer_bg_progress_2),
@@ -148,7 +163,7 @@ class ColorPalette(NamedTuple):
             display_bg=color_fn(*display_bg),
             tetris_sparkle=color_fn(*tetris_sparkle),
             empty=color_fn(*empty),
-            mode=mode,
+            color_fn=color_fn,
         )
 
     @classmethod
@@ -217,22 +232,21 @@ class ColorPalette(NamedTuple):
     def outer_bg_progress_index_offset() -> int:
         return ColorPalette.index_of_color("outer_bg_progress_1")
 
-    def with_randomized_outer_bg_palette(self) -> Self:
-        color_fn = colorx.bg.rgb_palette if self.mode == "palette" else colorx.bg.rgb_truecolor
-        rgb_1, rgb_2, rgb_3, rgb_4 = self._generate_random_outer_bg_palette()
+    def with_randomized_outer_bg_palette(self, *, shiny: bool = False) -> Self:
+        rgb_1, rgb_2, rgb_3, rgb_4 = self._generate_random_outer_bg_palette(shiny=shiny)
         return self._replace(
-            outer_bg_1=color_fn(*rgb_1),
-            outer_bg_2=color_fn(*rgb_2),
-            outer_bg_3=color_fn(*rgb_3),
-            outer_bg_4=color_fn(*rgb_4),
+            outer_bg_1=self.color_fn(*rgb_1),
+            outer_bg_2=self.color_fn(*rgb_2),
+            outer_bg_3=self.color_fn(*rgb_3),
+            outer_bg_4=self.color_fn(*rgb_4),
         )
 
     @staticmethod
-    def _generate_random_outer_bg_palette() -> tuple[
-        tuple[int, int, int], tuple[int, int, int], tuple[int, int, int], tuple[int, int, int]
-    ]:
+    def _generate_random_outer_bg_palette(
+        *, shiny: bool = False
+    ) -> tuple[tuple[int, int, int], tuple[int, int, int], tuple[int, int, int], tuple[int, int, int]]:
         # 1 in 1000 chance for a "shiny" palette (fully random colors)
-        if random.randint(1, 1000) == 1:
+        if shiny:
             shiny_rgb_1, shiny_rgb_2, shiny_rgb_3, shiny_rgb_4 = (
                 tuple(random.randint(0, 255) for _ in range(3)) for _ in range(4)
             )
