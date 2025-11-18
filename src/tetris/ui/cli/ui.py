@@ -299,8 +299,7 @@ class CLI(UI):
         for overlay in all_overlays:
             self._draw_overlay(overlay=overlay, image_buffer=image_buffer, text_buffer=text_buffer)
 
-        # TODO: per row, use draw_row if there are 5 or more pixel changes, otherwise use draw_pixel
-        # (note: empirically, drawing a row takes about 4 times as long as drawing a pixel (~10 us vs ~40 us))
+        # TODO: per row, use draw_row if there are 10 or more pixel changes, otherwise use draw_pixel
         # (note: flashing test might be an issue? maybe try only drawing by row if there is no text on that row?
         # yes, that should be quite fine, because the number of lines with text is quite low so that should not be
         # too bad for performance)
