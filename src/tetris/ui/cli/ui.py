@@ -276,6 +276,93 @@ class CLI(UI):
 
         image_buffer = self._outer_background.copy()
         text_buffer: NDArray[np.str_] = np.zeros_like(image_buffer, dtype=f"U{self._PIXEL_WIDTH}")
+
+        self._draw_to_buffers(elements=elements, image_buffer=image_buffer, text_buffer=text_buffer)
+
+        self._draw_buffers_to_screen(image_buffer=image_buffer, text_buffer=text_buffer)
+
+        self._last_image_buffer = image_buffer  # TODO: re-activate (after rows are handled properly, see TODO above)
+        self._last_text_buffer = text_buffer
+
+        self._buffered_print.print_and_restart_buffering()
+        self._setup_cursor_for_normal_printing(image_height=len(image_buffer))
+
+    def _draw_buffers_to_screen(self, image_buffer: NDArray[np.uint8], text_buffer: NDArray[np.str_]) -> None:
+        # TODO: per row, use draw_row if there are 10 or more pixel changes, otherwise use draw_pixel
+        # (note: flashing test might be an issue? maybe try only drawing by row if there is no text on that row?
+        # yes, that should be quite fine, because the number of lines with text is quite low so that should not be
+        # too bad for performance)
+
+        if self._last_image_buffer is not None:
+            # we have a last buffer: only draw where it changed
+            # note: rainbow colors change all the time even though their index entry in the image buffer doesn't
+            changed_mask = (image_buffer != self._last_image_buffer) | (image_buffer >= ColorPalette.RAINBOW_INDEX_0)
+
+            if self._last_text_buffer is not None:
+                changed_mask |= text_buffer != self._last_text_buffer
+            else:
+                # we have no last text buffer: consider *every* text a change
+                changed_mask = np.logical_or(changed_mask, text_buffer)
+        else:
+            # we have no last buffer: consider *everything* changed
+            changed_mask = np.ones_like(self._outer_background, dtype=np.bool)
+
+        for y, row in enumerate(changed_mask):
+            xs = np.nonzero(row)[0]
+            if xs.size == 0:
+                continue
+
+            # TODO named constant for that 10
+            if len(xs) <= 10:
+                for x in xs:
+                    self._draw_pixel(
+                        Vec(y, x), color_index=int(image_buffer[y, x]), text=cast("str", text_buffer[y, x])
+                    )
+            else:
+                # note: drawing whole rows with text in them breaks the UI when emojis are used in the text, so first
+                # draw the entire row, then over-draw the pixels with text on them
+                self._draw_array_row(top_left=Vec(y, 0), array_row=image_buffer[y])
+                for x in np.nonzero(text_buffer[y])[0]:
+                    self._draw_pixel(
+                        Vec(y, x), color_index=int(image_buffer[y, x]), text=cast("str", text_buffer[y, x])
+                    )
+
+        # if self._last_image_buffer is not None and self._last_text_buffer is not None:
+        #     # we have a last buffer: only draw where it changed
+        #     for y, xs in zip(
+        #         *np.where(
+        #             (image_buffer != self._last_image_buffer)
+        #             | (text_buffer != self._last_text_buffer)
+        #             | (image_buffer >= ColorPalette.RAINBOW_INDEX_0)
+        #         ),
+        #         strict=True,
+        #     ):
+        #         self._draw_pixel(Vec(y, xs), color_index=int(image_buffer[y, xs]), text=cast("str", text_buffer[y, xs]))
+        # elif self._last_image_buffer is not None:
+        #     # we have a last image buffer, but not text: draw where image changed, and where there's any text
+        #     # (shouldn't realistically ever happen)
+        #     for y, xs in zip(
+        #         *np.where(
+        #             np.logical_or((image_buffer != self._last_image_buffer), text_buffer)
+        #             | (image_buffer >= ColorPalette.RAINBOW_INDEX_0),
+        #         ),
+        #         strict=True,
+        #     ):
+        #         self._draw_pixel(Vec(y, xs), color_index=int(image_buffer[y, xs]), text=cast("str", text_buffer[y, xs]))
+        # else:
+        #     # we have no last buffer: draw the image array (efficiently, whole rows at a time), then redraw any pixels
+        #     # with text on them
+        #     # (note: drawing whole rows with text in them breaks the UI when emojis are used in the text)
+        #     self._draw_array(top_left=Vec(0, 0), array=image_buffer)
+        #     for y, xs in zip(*np.where(text_buffer), strict=True):
+        #         self._draw_pixel(Vec(y, xs), color_index=int(image_buffer[y, xs]), text=cast("str", text_buffer[y, xs]))
+
+    def _draw_to_buffers(
+        self, elements: UiElements, image_buffer: NDArray[np.uint8], text_buffer: NDArray[np.str_]
+    ) -> None:
+        assert self._single_game_ui is not None
+        assert self._game_ui_offsets is not None
+
         all_overlays: list[Overlay] = []
 
         single_game_ui_height, single_game_ui_width = self._single_game_ui.total_size
@@ -298,46 +385,6 @@ class CLI(UI):
 
         for overlay in all_overlays:
             self._draw_overlay(overlay=overlay, image_buffer=image_buffer, text_buffer=text_buffer)
-
-        # TODO: per row, use draw_row if there are 10 or more pixel changes, otherwise use draw_pixel
-        # (note: flashing test might be an issue? maybe try only drawing by row if there is no text on that row?
-        # yes, that should be quite fine, because the number of lines with text is quite low so that should not be
-        # too bad for performance)
-        if self._last_image_buffer is not None and self._last_text_buffer is not None:
-            # we have a last buffer: only draw where it changed
-            for y, x in zip(
-                *np.where(
-                    (image_buffer != self._last_image_buffer)
-                    | (text_buffer != self._last_text_buffer)
-                    | (image_buffer >= ColorPalette.RAINBOW_INDEX_0)
-                ),
-                strict=True,
-            ):
-                self._draw_pixel(Vec(y, x), color_index=int(image_buffer[y, x]), text=cast("str", text_buffer[y, x]))
-        elif self._last_image_buffer is not None:
-            # we have a last image buffer, but not text: draw where image changed, and where there's any text
-            # (shouldn't realistically ever happen)
-            for y, x in zip(
-                *np.where(
-                    np.logical_or((image_buffer != self._last_image_buffer), text_buffer)
-                    | (image_buffer >= ColorPalette.RAINBOW_INDEX_0),
-                ),
-                strict=True,
-            ):
-                self._draw_pixel(Vec(y, x), color_index=int(image_buffer[y, x]), text=cast("str", text_buffer[y, x]))
-        else:
-            # we have no last buffer: draw the image array (efficiently, whole rows at a time), then redraw any pixels
-            # with text on them
-            # (note: drawing whole rows with text in them breaks the UI when emojis are used in the text)
-            self._draw_array(top_left=Vec(0, 0), array=image_buffer)
-            for y, x in zip(*np.where(text_buffer), strict=True):
-                self._draw_pixel(Vec(y, x), color_index=int(image_buffer[y, x]), text=cast("str", text_buffer[y, x]))
-
-        # self._last_image_buffer = image_buffer  # TODO: re-activate (after rows are handled properly, see TODO above)
-        self._last_text_buffer = text_buffer
-
-        self._buffered_print.print_and_restart_buffering()
-        self._setup_cursor_for_normal_printing(image_height=len(image_buffer))
 
     def _handle_level_change(self, elements: UiElements) -> None:
         combined_level = sum(game.level for game in elements.games)
