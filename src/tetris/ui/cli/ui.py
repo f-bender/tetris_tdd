@@ -39,16 +39,19 @@ class BackgroundColorType(Enum):
     RAINBOW = auto()
 
     @classmethod
-    def random(cls) -> "BackgroundColorType":
-        match random.randint(1, 3):  # TODO: change back to 1000
-            case 1:
-                # 1/1000 chance for rainbow background
-                return cls.RAINBOW
-            case 2:
-                # 1/1000 chance for shiny, but static background
-                return cls.SHINY
-            case _:
-                return cls.NORMAL
+    def random(cls, shiny_probability: float = 0.001, rainbow_probability: float = 0.001) -> "BackgroundColorType":
+        if shiny_probability < 0 or rainbow_probability < 0 or shiny_probability + rainbow_probability >= 1:
+            msg = f"Invalid probability values: {shiny_probability = }, {rainbow_probability = }"
+            raise ValueError(msg)
+
+        rand = random.random()
+        if rand < shiny_probability:
+            return cls.SHINY
+
+        if rand < shiny_probability + rainbow_probability:
+            return cls.RAINBOW
+
+        return cls.NORMAL
 
 
 class CLI(UI):
@@ -56,6 +59,10 @@ class CLI(UI):
     _FRAME_WIDTH = 8  # width of the static frame around and between the single games' UIs, in pixels
 
     _EMOJI_THRESHOLD = 0x2500  # characters with unicodes higher than this are considered emojis
+
+    # if there are more pixel changes than this in one row, the whole row is re-drawn (not just the changed pixels)
+    # (this is roughly the threshold where whole-row draws become more efficient)
+    _MAX_PIXELS_PER_ROW_TO_DELTA_DRAW = 10
 
     def __init__(self, color_palette: ColorPalette | None = None, target_aspect_ratio: float = 16 / 9) -> None:
         self._last_image_buffer: NDArray[np.uint8] | None = None
@@ -160,6 +167,8 @@ class CLI(UI):
                 outer_background_mask[-1, -1] = False
                 outer_background_mask[-1, -2] = False
                 outer_background_mask[-2, -1] = False
+            case _:
+                pass
 
         assert np.sum(outer_background_mask) % 4 == 0
 
@@ -254,7 +263,7 @@ class CLI(UI):
             ),
         ).astype(np.uint8)
 
-    def draw(self, elements: UiElements) -> None:  # noqa: C901, PLR0912
+    def draw(self, elements: UiElements) -> None:
         if self._single_game_ui is None or self._game_ui_offsets is None or self._rainbow_layer is None:
             msg = "game UI not initialized, likely draw() was called before initialize()!"
             raise RuntimeError(msg)
@@ -281,18 +290,13 @@ class CLI(UI):
 
         self._draw_buffers_to_screen(image_buffer=image_buffer, text_buffer=text_buffer)
 
-        self._last_image_buffer = image_buffer  # TODO: re-activate (after rows are handled properly, see TODO above)
+        self._last_image_buffer = image_buffer
         self._last_text_buffer = text_buffer
 
         self._buffered_print.print_and_restart_buffering()
         self._setup_cursor_for_normal_printing(image_height=len(image_buffer))
 
     def _draw_buffers_to_screen(self, image_buffer: NDArray[np.uint8], text_buffer: NDArray[np.str_]) -> None:
-        # TODO: per row, use draw_row if there are 10 or more pixel changes, otherwise use draw_pixel
-        # (note: flashing test might be an issue? maybe try only drawing by row if there is no text on that row?
-        # yes, that should be quite fine, because the number of lines with text is quite low so that should not be
-        # too bad for performance)
-
         if self._last_image_buffer is not None:
             # we have a last buffer: only draw where it changed
             # note: rainbow colors change all the time even though their index entry in the image buffer doesn't
@@ -305,6 +309,7 @@ class CLI(UI):
                 changed_mask = np.logical_or(changed_mask, text_buffer)
         else:
             # we have no last buffer: consider *everything* changed
+            # (rare path, so performance is not that critical)
             changed_mask = np.ones_like(self._outer_background, dtype=np.bool)
 
         for y, row in enumerate(changed_mask):
@@ -312,8 +317,7 @@ class CLI(UI):
             if xs.size == 0:
                 continue
 
-            # TODO named constant for that 10
-            if len(xs) <= 10:
+            if len(xs) <= self._MAX_PIXELS_PER_ROW_TO_DELTA_DRAW:
                 for x in xs:
                     self._draw_pixel(
                         Vec(y, x), color_index=int(image_buffer[y, x]), text=cast("str", text_buffer[y, x])
@@ -326,36 +330,6 @@ class CLI(UI):
                     self._draw_pixel(
                         Vec(y, x), color_index=int(image_buffer[y, x]), text=cast("str", text_buffer[y, x])
                     )
-
-        # if self._last_image_buffer is not None and self._last_text_buffer is not None:
-        #     # we have a last buffer: only draw where it changed
-        #     for y, xs in zip(
-        #         *np.where(
-        #             (image_buffer != self._last_image_buffer)
-        #             | (text_buffer != self._last_text_buffer)
-        #             | (image_buffer >= ColorPalette.RAINBOW_INDEX_0)
-        #         ),
-        #         strict=True,
-        #     ):
-        #         self._draw_pixel(Vec(y, xs), color_index=int(image_buffer[y, xs]), text=cast("str", text_buffer[y, xs]))
-        # elif self._last_image_buffer is not None:
-        #     # we have a last image buffer, but not text: draw where image changed, and where there's any text
-        #     # (shouldn't realistically ever happen)
-        #     for y, xs in zip(
-        #         *np.where(
-        #             np.logical_or((image_buffer != self._last_image_buffer), text_buffer)
-        #             | (image_buffer >= ColorPalette.RAINBOW_INDEX_0),
-        #         ),
-        #         strict=True,
-        #     ):
-        #         self._draw_pixel(Vec(y, xs), color_index=int(image_buffer[y, xs]), text=cast("str", text_buffer[y, xs]))
-        # else:
-        #     # we have no last buffer: draw the image array (efficiently, whole rows at a time), then redraw any pixels
-        #     # with text on them
-        #     # (note: drawing whole rows with text in them breaks the UI when emojis are used in the text)
-        #     self._draw_array(top_left=Vec(0, 0), array=image_buffer)
-        #     for y, xs in zip(*np.where(text_buffer), strict=True):
-        #         self._draw_pixel(Vec(y, xs), color_index=int(image_buffer[y, xs]), text=cast("str", text_buffer[y, xs]))
 
     def _draw_to_buffers(
         self, elements: UiElements, image_buffer: NDArray[np.uint8], text_buffer: NDArray[np.str_]
@@ -531,7 +505,6 @@ class CLI(UI):
             self._draw_array_row(top_left=top_left + Vec(idx, 0), array_row=row)
 
     def _draw_array_row(self, top_left: Vec, array_row: NDArray[np.uint8]) -> None:
-        # t0 = perf_counter()
         print(
             self._cursor_goto(top_left)
             + "".join(
@@ -544,19 +517,14 @@ class CLI(UI):
             ),
             end="",
         )
-        # t1 = perf_counter()
-        # LOGGER.debug(f"Drawing row took {(t1 - t0) * 1_000_000:.2f} us")
 
     def _draw_pixel(self, position: Vec, color_index: int, text: str) -> None:
-        # t0 = perf_counter()
         print(
             self._cursor_goto(position)
             + self._get_color_str(int(color_index), astuple(position))
             + ((text and text.ljust(CLI._PIXEL_WIDTH)) or " " * CLI._PIXEL_WIDTH),
             end="",
         )
-        # t1 = perf_counter()
-        # LOGGER.debug(f"Drawing pixel took {(t1 - t0) * 1_000_000:.2f} us")
 
     def _get_color_str(self, color_index: int, position: tuple[int, int]) -> str:
         if color_index < ColorPalette.RAINBOW_INDEX_0:
