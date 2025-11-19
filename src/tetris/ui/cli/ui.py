@@ -64,7 +64,13 @@ class CLI(UI):
     # (this is roughly the threshold where whole-row draws become more efficient)
     _MAX_PIXELS_PER_ROW_TO_DELTA_DRAW = 10
 
-    def __init__(self, color_palette: ColorPalette | None = None, target_aspect_ratio: float = 16 / 9) -> None:
+    def __init__(
+        self,
+        *,
+        color_palette: ColorPalette | None = None,
+        target_aspect_ratio: float = 16 / 9,
+        randomize_background_colors_on_levelup: bool = False,
+    ) -> None:
         self._last_image_buffer: NDArray[np.uint8] | None = None
         self._last_text_buffer: NDArray[np.str_] | None = None
         self._board_background: NDArray[np.uint8] | None = None
@@ -91,6 +97,7 @@ class CLI(UI):
 
         self._last_terminal_size = os.get_terminal_size()
 
+        self._randomize_background_colors_on_levelup = randomize_background_colors_on_levelup
         self._level: int | None = None
         self._rainbow_layer: NDArray[np.uint8] | None = None
 
@@ -361,6 +368,9 @@ class CLI(UI):
             self._draw_overlay(overlay=overlay, image_buffer=image_buffer, text_buffer=text_buffer)
 
     def _handle_level_change(self, elements: UiElements) -> None:
+        if not self._randomize_background_colors_on_levelup:
+            return
+
         combined_level = sum(game.level for game in elements.games)
         if self._level is not None and combined_level != self._level:
             self._randomize_outer_bg_palette()

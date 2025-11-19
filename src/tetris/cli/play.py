@@ -524,7 +524,7 @@ def _create_runtime(
     if track_performance:
         TrackPerformanceCallback(fps)  # not useless; will be added to DEPENDENCY_MANAGER.all_callbacks
 
-    ui = CLI()
+    ui = CLI(randomize_background_colors_on_levelup=True)
     clock = SimpleClock(fps)
 
     if controller is None:
