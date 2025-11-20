@@ -1,4 +1,5 @@
 import atexit
+import inspect
 import logging
 import os
 import random
@@ -6,7 +7,7 @@ from dataclasses import astuple
 from enum import Enum, auto
 from functools import cached_property, lru_cache
 from math import ceil
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Literal, Self, cast, get_args, get_origin
 
 import numpy as np
 from ansi import color, cursor
@@ -40,7 +41,7 @@ class BackgroundColorType(Enum):
 
     @classmethod
     def random(cls, shiny_probability: float = 0.001, rainbow_probability: float = 0.001) -> "BackgroundColorType":
-        if shiny_probability < 0 or rainbow_probability < 0 or shiny_probability + rainbow_probability >= 1:
+        if shiny_probability < 0 or rainbow_probability < 0 or shiny_probability + rainbow_probability > 1:
             msg = f"Invalid probability values: {shiny_probability = }, {rainbow_probability = }"
             raise ValueError(msg)
 
@@ -52,6 +53,109 @@ class BackgroundColorType(Enum):
             return cls.RAINBOW
 
         return cls.NORMAL
+
+
+class DynamicLayer:
+    def __init__(self, initial_layer: NDArray[np.uint16]) -> None:
+        self.layer = initial_layer
+
+    @staticmethod
+    def mix(lhs: "DynamicLayer", rhs: "DynamicLayer", /, *, method: Literal["min", "max"] = "min") -> "DynamicLayer":
+        if lhs.layer.shape != rhs.layer.shape:
+            msg = "Can't mix DynamicLayers of differing shapes"
+            raise ValueError(msg)
+
+        return DynamicLayer((np.minimum if method == "min" else np.maximum)(lhs.layer, rhs.layer))
+
+    @classmethod
+    def cardinal(cls, size: tuple[int, int], direction: Literal["up", "down", "left", "right"] = "right") -> Self:
+        match direction:
+            case "left":
+                return cls(np.tile(np.arange(size[1], dtype=np.uint16), (size[0], 1)))
+            case "right":
+                return cls(np.tile(np.arange(size[1], dtype=np.uint16)[::-1], (size[0], 1)))
+            case "up":
+                return cls(np.tile(np.arange(size[0], dtype=np.uint16)[:, np.newaxis], size[1]))
+            case "down":
+                return cls(np.tile(np.arange(size[0], dtype=np.uint16)[::-1, np.newaxis], size[1]))
+
+    @classmethod
+    def diagonal(
+        cls,
+        size: tuple[int, int],
+        y_direction: Literal["up", "down"] = "down",
+        x_direction: Literal["left", "right"] = "right",
+    ) -> Self:
+        y_range = np.arange(size[0], dtype=np.uint16)
+        if y_direction == "down":
+            y_range = y_range[::-1]
+
+        x_range = np.arange(size[1], dtype=np.uint16)
+        if x_direction == "right":
+            x_range = x_range[::-1]
+
+        return cls(np.add.outer(y_range, x_range))
+
+    @classmethod
+    def circular(
+        cls,
+        size: tuple[int, int],
+        direction: Literal["inward", "outward"] = "outward",
+        y_center: Literal["top", "center", "bottom", "random"] = "random",
+        x_center: Literal["left", "center", "right", "random"] = "random",
+    ) -> Self:
+        match y_center:
+            case "top":
+                y_center_idx = 0
+            case "center":
+                y_center_idx = size[0] // 2
+            case "bottom":
+                y_center_idx = size[0]
+            case "random":
+                y_center_idx = random.randrange(size[0])
+
+        match x_center:
+            case "left":
+                x_center_idx = 0
+            case "center":
+                x_center_idx = size[1] // 2
+            case "right":
+                x_center_idx = size[1]
+            case "random":
+                x_center_idx = random.randrange(size[1])
+
+        x_coordinate_array = np.tile(np.arange(size[1]), (size[0], 1))
+        y_coordinate_array = np.tile(np.arange(size[0])[:, np.newaxis], size[1])
+
+        distance_array = np.sqrt(
+            (x_coordinate_array - x_center_idx) ** 2 + (y_coordinate_array - y_center_idx) ** 2
+        ).astype(np.uint16)
+        if direction == "outward":
+            distance_array = np.max(distance_array) - distance_array
+
+        return cls(distance_array)
+
+    @classmethod
+    def random(cls, size: tuple[int, int]) -> Self:
+        constructor = random.choice([cls.cardinal, cls.diagonal, cls.circular])
+
+        parameters = inspect.signature(constructor).parameters
+
+        kwargs = {}
+        for name, param in parameters.items():
+            if name == "size":
+                continue
+
+            assert get_origin(param.annotation) is Literal
+            kwargs[name] = random.choice(get_args(param.annotation))
+
+        LOGGER.debug(constructor.__name__)
+        LOGGER.debug(str(kwargs))
+
+        return constructor(size=size, **kwargs)
+
+    def update(self) -> None:
+        self.layer += 1
 
 
 class CLI(UI):
@@ -81,7 +185,7 @@ class CLI(UI):
 
         self._color_palette = color_palette or ColorPalette.default()
 
-        bg_color_type = BackgroundColorType.random()
+        bg_color_type = BackgroundColorType.random(rainbow_probability=1, shiny_probability=0)
         self._rainbow_during_startup = bg_color_type is BackgroundColorType.RAINBOW
         if not self._rainbow_during_startup:
             self._color_palette.randomize_outer_bg_colors(shiny=bg_color_type is BackgroundColorType.SHINY)
@@ -99,7 +203,7 @@ class CLI(UI):
 
         self._randomize_background_colors_on_levelup = randomize_background_colors_on_levelup
         self._level: int | None = None
-        self._rainbow_layer: NDArray[np.uint8] | None = None
+        self._dynamic_layer: DynamicLayer | None = None
 
     @cached_property
     def total_size(self) -> tuple[int, int]:
@@ -127,9 +231,10 @@ class CLI(UI):
         self._initialize_board_ui_offsets(num_boards)
         self._initialize_terminal()
 
-        total_height, total_width = self.total_size
-        self._rainbow_layer = np.add.outer(
-            np.arange(total_height, dtype=np.uint8), np.arange(total_width, dtype=np.uint8)
+        self._dynamic_layer = DynamicLayer.mix(
+            DynamicLayer.circular(size=self.total_size, y_center="random", x_center="random", direction="outward"),
+            DynamicLayer.circular(size=self.total_size, y_center="random", x_center="random", direction="outward"),
+            method="max",
         )
 
     def _initialize_board_ui_offsets(self, num_games: int) -> None:
@@ -227,6 +332,7 @@ class CLI(UI):
 
     def advance_startup(self) -> bool:
         """Advance the startup animation by one step. Returns True if the animation is finished."""
+        return True
         if self._startup_finished:
             return True
 
@@ -271,7 +377,7 @@ class CLI(UI):
         ).astype(np.uint8)
 
     def draw(self, elements: UiElements) -> None:
-        if self._single_game_ui is None or self._game_ui_offsets is None or self._rainbow_layer is None:
+        if self._single_game_ui is None or self._game_ui_offsets is None or self._dynamic_layer is None:
             msg = "game UI not initialized, likely draw() was called before initialize()!"
             raise RuntimeError(msg)
         if not self._buffered_print.is_active():
@@ -283,9 +389,11 @@ class CLI(UI):
                 "Outer background not initialized, likely draw() was called before advance_startup()! "
                 "Using an empty background."
             )
-            self._outer_background = self._create_outer_background_mask().astype(np.uint8)
+            self._outer_background = (
+                self._create_outer_background_mask().astype(np.uint8) * ColorPalette.RAINBOW_INDEX_0
+            )
 
-        self._rainbow_layer += 1
+        self._dynamic_layer.update()
 
         self._handle_terminal_size_change()
         self._handle_level_change(elements)
@@ -540,8 +648,8 @@ class CLI(UI):
         if color_index < ColorPalette.RAINBOW_INDEX_0:
             return self._color_palette[color_index]
 
-        assert self._rainbow_layer is not None
+        assert self._dynamic_layer is not None
 
         return self._color_palette.rainbow_colors[
-            (int(self._rainbow_layer[position]) + (color_index - ColorPalette.RAINBOW_INDEX_0) * 32) % 256
+            (int(self._dynamic_layer.layer[position]) + (color_index - ColorPalette.RAINBOW_INDEX_0) * 0) % 256
         ]
