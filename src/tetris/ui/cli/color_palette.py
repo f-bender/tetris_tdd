@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from functools import cache, cached_property
 from typing import Any, Literal, NamedTuple, Self
 
+import numpy as np
+
 from tetris.ansi_extensions import color as colorx
 
 _LOGGER = logging.getLogger(__name__)
@@ -64,10 +66,15 @@ class ColorPalette:
     rainbow_saturation: float = 1.0
     rainbow_value: float = 0.9
 
-    RAINBOW_INDEX_0 = 252  # index used for rainbow animation
-    RAINBOW_INDEX_1 = 253  # index used for rainbow animation
-    RAINBOW_INDEX_2 = 254  # index used for rainbow animation
-    RAINBOW_INDEX_3 = 255  # index used for rainbow animation
+    DYNAMIC_BACKGROUND_INDEX_0 = len(_Colors._fields)
+    DYNAMIC_BACKGROUND_INDEX_1 = len(_Colors._fields) + 1
+    DYNAMIC_BACKGROUND_INDEX_2 = len(_Colors._fields) + 2
+    DYNAMIC_BACKGROUND_INDEX_3 = len(_Colors._fields) + 3
+
+    DYNAMIC_POWERUP_INDEX_3 = len(_Colors._fields) + 4
+
+    # we use np.uint8's for indexing, so this must still be within the range
+    assert DYNAMIC_POWERUP_INDEX_3 <= np.iinfo(np.uint8).max  # noqa: SIM300
 
     @cached_property
     def rainbow_colors(self) -> tuple[str, ...]:

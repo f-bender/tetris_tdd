@@ -20,6 +20,7 @@ dependencies = [
 gemini = ["google-generativeai>=0.8.5"]
 gamepad = ["inputs>=0.5"]
 pygame = ["pygame>=2.6.1"]
+colormaps = ["colorcet>=3.1.0", "matplotlib>=3.10.7"]
 
 [dependency-groups]
 dev = ["pytest>=8.3.5"]
