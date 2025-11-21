@@ -1,27 +1,22 @@
 import atexit
-import colorsys
-import inspect
 import logging
 import os
-import random
-from collections.abc import Callable, Sequence
 from dataclasses import astuple
-from enum import Enum, auto
 from functools import cached_property, lru_cache
 from math import ceil
-from typing import TYPE_CHECKING, Literal, Self, cast, get_args, get_origin
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 from ansi import color, cursor
 from numpy.typing import NDArray
 
-from tetris.ansi_extensions import color as colorx
 from tetris.ansi_extensions import cursor as cursorx
 from tetris.game_logic.interfaces.ui import UI, UiElements
 from tetris.space_filling_coloring import fill_and_colorize
 from tetris.ui.cli.animations import Overlay
 from tetris.ui.cli.buffered_printing import BufferedPrint
-from tetris.ui.cli.color_palette import ColorPalette
+from tetris.ui.cli.color_palette import BackgroundColorType, ColorPalette
+from tetris.ui.cli.dynamic_layer import random_layer
 from tetris.ui.cli.single_game_ui import Alignment, SingleGameUI, Text
 from tetris.ui.cli.vec import Vec
 
@@ -37,230 +32,6 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
-class BackgroundColorType(Enum):
-    NORMAL = auto()
-    SHINY = auto()
-    DYNAMIC = auto()
-
-    @classmethod
-    def random(cls, shiny_probability: float = 0.001, dynamic_probability: float = 0.001) -> "BackgroundColorType":
-        if shiny_probability < 0 or dynamic_probability < 0 or shiny_probability + dynamic_probability > 1:
-            msg = f"Invalid probability values: {shiny_probability = }, {dynamic_probability = }"
-            raise ValueError(msg)
-
-        rand = random.random()
-        if rand < shiny_probability:
-            return cls.SHINY
-
-        if rand < shiny_probability + dynamic_probability:
-            return cls.DYNAMIC
-
-        return cls.NORMAL
-
-
-class DynamicLayer:
-    def __init__(self, initial_layer: NDArray[np.uint32], colormap: Sequence[str]) -> None:
-        """Initialize the DynamicLayer.
-
-        Args:
-            initial_layer: Numpy array with the initial state of the dynamic layer which fully describes the "shape" of
-                the dynamic movement.
-            colormap: Sequence of ANSI codes for colors to be cycled through. The values in the layer will be used to
-                index into this sequence to get the color at that position (modulo'd with the sequences length). The
-                first and last color should be considered adjacent (i.e. be similar to avoid a sudden jump in color).
-                Note: the length of the colormap effectively determines the speed of the animation (longer = slower).
-        """
-        self.layer = initial_layer
-        self.colormap = colormap
-
-    def update(self) -> None:
-        # NOTE: this *could* technically overflow, but it would have to run for 2 years straight (at 60 fps),
-        # and even then it wouldn't break but just look weird for a few seconds
-        self.layer += 1
-
-    def get_color(self, position: tuple[int, int], relative_offset: float) -> str:
-        return self.colormap[
-            (int(self.layer[position]) + round(relative_offset * len(self.colormap))) % len(self.colormap)
-        ]
-
-    @staticmethod
-    def mix_layers(
-        lhs: NDArray[np.uint32], rhs: NDArray[np.uint32], /, *, method: Literal["min", "max"] = "min"
-    ) -> NDArray[np.uint32]:
-        if lhs.shape != rhs.shape:
-            msg = "Can't mix DynamicLayers of differing shapes"
-            raise ValueError(msg)
-
-        return (np.minimum if method == "min" else np.maximum)(lhs, rhs)
-
-    # layer constructors
-
-    @staticmethod
-    def cardinal_layer(
-        size: tuple[int, int], direction: Literal["up", "down", "left", "right"] = "right"
-    ) -> NDArray[np.uint32]:
-        match direction:
-            case "left":
-                return np.tile(np.arange(size[1], dtype=np.uint32), (size[0], 1))
-            case "right":
-                return np.tile(np.arange(size[1], dtype=np.uint32)[::-1], (size[0], 1))
-            case "up":
-                return np.tile(np.arange(size[0], dtype=np.uint32)[:, np.newaxis], size[1])
-            case "down":
-                return np.tile(np.arange(size[0], dtype=np.uint32)[::-1, np.newaxis], size[1])
-
-    @staticmethod
-    def diagonal_layer(
-        size: tuple[int, int],
-        y_direction: Literal["up", "down"] = "down",
-        x_direction: Literal["left", "right"] = "right",
-    ) -> NDArray[np.uint32]:
-        y_range = np.arange(size[0], dtype=np.uint32)
-        if y_direction == "down":
-            y_range = y_range[::-1]
-
-        x_range = np.arange(size[1], dtype=np.uint32)
-        if x_direction == "right":
-            x_range = x_range[::-1]
-
-        return np.add.outer(y_range, x_range)
-
-    @staticmethod
-    def circular_layer(
-        size: tuple[int, int],
-        direction: Literal["inward", "outward"] = "outward",
-        y_center: Literal["top", "center", "bottom", "random"] = "random",
-        x_center: Literal["left", "center", "right", "random"] = "random",
-    ) -> NDArray[np.uint32]:
-        match y_center:
-            case "top":
-                y_center_idx = 0
-            case "center":
-                y_center_idx = size[0] // 2
-            case "bottom":
-                y_center_idx = size[0]
-            case "random":
-                y_center_idx = random.randrange(size[0])
-
-        match x_center:
-            case "left":
-                x_center_idx = 0
-            case "center":
-                x_center_idx = size[1] // 2
-            case "right":
-                x_center_idx = size[1]
-            case "random":
-                x_center_idx = random.randrange(size[1])
-
-        x_coordinate_array = np.tile(np.arange(size[1]), (size[0], 1))
-        y_coordinate_array = np.tile(np.arange(size[0])[:, np.newaxis], size[1])
-
-        distance_array = np.sqrt(
-            (x_coordinate_array - x_center_idx) ** 2 + (y_coordinate_array - y_center_idx) ** 2
-        ).astype(np.uint32)
-        if direction == "outward":
-            distance_array = np.max(distance_array) - distance_array
-
-        return distance_array
-
-    @classmethod
-    def random_layer(cls, size: tuple[int, int], *, n_mixed_layers: int = 1) -> NDArray[np.uint32]:
-        if n_mixed_layers < 1:
-            msg = "n_mixed_layers must at least be 1"
-            raise ValueError(msg)
-
-        dynamic_layer: NDArray[np.uint32] | None = None
-        for _ in range(n_mixed_layers):
-            constructor = random.choice([cls.cardinal_layer, cls.diagonal_layer, cls.circular_layer])
-
-            parameters = inspect.signature(constructor).parameters
-
-            kwargs = {}
-            for name, param in parameters.items():
-                if name == "size":
-                    continue
-
-                assert get_origin(param.annotation) is Literal
-                kwargs[name] = random.choice(get_args(param.annotation))
-
-            new_dynamic_layer = constructor(size=size, **kwargs)
-
-            if dynamic_layer is None:
-                dynamic_layer = new_dynamic_layer
-            else:
-                dynamic_layer = cls.mix_layers(dynamic_layer, new_dynamic_layer, method=random.choice(["min", "max"]))
-
-        assert dynamic_layer is not None
-        return dynamic_layer
-
-    # colormap constructors
-
-    @staticmethod
-    def rainbow_colormap(
-        color_fn: Callable[[int, int, int], str] = colorx.bg.rgb_truecolor,
-        length: int = 500,
-        *,
-        saturation: float = 1.0,
-        value: float = 0.7,
-    ) -> tuple[str, ...]:
-        return tuple(
-            color_fn(*(round(c * 255) for c in colorsys.hsv_to_rgb(h=cycle_value / length, s=saturation, v=value)))
-            for cycle_value in range(length)
-        )
-
-    @staticmethod
-    def colorcet_colormap(
-        color_fn: Callable[[int, int, int], str] = colorx.bg.rgb_truecolor,
-        length: int = 500,
-        *,
-        name: str | None = None,
-    ) -> tuple[str, ...] | None:
-        try:
-            from tetris.ui.cli.colorcet_colormaps import get_colorcet_colormap  # noqa: PLC0415
-        except ImportError:
-            LOGGER.info("Can't create colorcet colormap due to missing dependency")
-            return None
-
-        cmap_float_array = get_colorcet_colormap(length=length, name=name)
-        # limit the brightness to ensure the tetris board still stand out
-        cmap_float_array *= 0.8
-        return tuple(color_fn(*(round(c * 255) for c in rgb)) for rgb in cmap_float_array)
-
-    @classmethod
-    def random_colormap(
-        cls,
-        color_fn: Callable[[int, int, int], str] = colorx.bg.rgb_truecolor,
-        length: int = 500,
-        *,
-        p_colorcet: float = 0.9,
-    ) -> tuple[str, ...]:
-        if random.random() < p_colorcet and (
-            colorcet_colormap := cls.colorcet_colormap(color_fn=color_fn, length=length)
-        ):
-            return colorcet_colormap
-
-        saturation = random.uniform(0.9, 1.0)
-        value = random.uniform(0.7, 0.8)
-        return cls.rainbow_colormap(color_fn=color_fn, length=length, saturation=saturation, value=value)
-
-    # random construction of whole DynamicLayer object
-
-    @classmethod
-    def random(
-        cls,
-        size: tuple[int, int],
-        *,
-        n_mixed_layers: int = 1,
-        color_fn: Callable[[int, int, int], str] = colorx.bg.rgb_truecolor,
-        colormap_length: int = 500,
-        p_colorcet: float = 0.9,
-    ) -> Self:
-        return cls(
-            initial_layer=cls.random_layer(size=size, n_mixed_layers=n_mixed_layers),
-            colormap=cls.random_colormap(color_fn=color_fn, length=colormap_length, p_colorcet=p_colorcet),
-        )
-
-
 class CLI(UI):
     _PIXEL_WIDTH = 2  # how many terminal characters together form one pixel
     _FRAME_WIDTH = 8  # width of the static frame around and between the single games' UIs, in pixels
@@ -270,8 +41,6 @@ class CLI(UI):
     # if there are more pixel changes than this in one row, the whole row is re-drawn (not just the changed pixels)
     # (this is roughly the threshold where whole-row draws become more efficient)
     _MAX_PIXELS_PER_ROW_TO_DELTA_DRAW = 10
-
-    _DYNAMIC_BACKGROUND_RELATIVE_COLORMAP_OFFSET = 1 / 8
 
     def __init__(
         self,
@@ -290,11 +59,10 @@ class CLI(UI):
 
         self._color_palette = color_palette or ColorPalette.default()
 
-        # TODO change probabilities back
-        bg_color_type = BackgroundColorType.random(dynamic_probability=1, shiny_probability=0)
+        bg_color_type = BackgroundColorType.random()
         self._dynamic_background_during_startup = bg_color_type is BackgroundColorType.DYNAMIC
         if not self._dynamic_background_during_startup:
-            self._color_palette.randomize_outer_bg_colors(shiny=bg_color_type is BackgroundColorType.SHINY)
+            self._color_palette.randomize_outer_bg_colors(bg_color_type=bg_color_type)
 
         self._buffered_print = BufferedPrint()
         self._startup_animation_iter: (
@@ -309,7 +77,7 @@ class CLI(UI):
 
         self._randomize_background_colors_on_levelup = randomize_background_colors_on_levelup
         self._level: int | None = None
-        self._dynamic_layer: DynamicLayer | None = None
+        self._dynamic_layer: NDArray[np.uint32] | None = None
 
     @cached_property
     def total_size(self) -> tuple[int, int]:
@@ -337,7 +105,7 @@ class CLI(UI):
         self._initialize_board_ui_offsets(num_boards)
         self._initialize_terminal()
 
-        self._dynamic_layer = DynamicLayer.random(size=self.total_size, n_mixed_layers=3, colormap_length=1_000)
+        self._dynamic_layer = random_layer(size=self.total_size, n_mixed_primitive_layers=3)
 
     def _initialize_board_ui_offsets(self, num_games: int) -> None:
         assert self._single_game_ui is not None
@@ -434,7 +202,6 @@ class CLI(UI):
 
     def advance_startup(self) -> bool:
         """Advance the startup animation by one step. Returns True if the animation is finished."""
-        # return True
         if self._startup_finished:
             return True
 
@@ -495,12 +262,11 @@ class CLI(UI):
                 "Outer background not initialized, likely draw() was called before advance_startup()! "
                 "Using an empty background."
             )
-            self._outer_background = (
-                self._create_outer_background_mask().astype(np.uint8)
-                * ColorPalette.DYNAMIC_BACKGROUND_INDEX_0  # TODO: remove
-            )
+            self._outer_background = np.full(self.total_size, ColorPalette.index_of_color("empty"))
 
-        self._dynamic_layer.update()
+        # NOTE: this *could* technically overflow, but it would have to run for 2 years straight (at 60 fps),
+        # and even then it wouldn't break but just look weird for a few seconds
+        self._dynamic_layer += 1
 
         self._handle_terminal_size_change()
         self._handle_level_change(elements)
@@ -551,6 +317,10 @@ class CLI(UI):
                 # note: drawing whole rows with text in them breaks the UI when emojis are used in the text, so first
                 # draw the entire row, then over-draw the pixels with text on them
                 self._draw_array_row(top_left=Vec(y, 0), array_row=image_buffer[y])
+                # note: its important that texts are drawn quickly after background at that location, to avoid
+                # flickering (noticeable amount of time with just the background without text)
+                # So drawing the text here, *immediately* after the row (and not later in bulk) is actually very much
+                # intended, and not just a side-effect of the design
                 for x in np.nonzero(text_buffer[y])[0]:
                     self._draw_pixel(
                         Vec(y, x), color_index=int(image_buffer[y, x]), text=cast("str", text_buffer[y, x])
@@ -599,33 +369,25 @@ class CLI(UI):
     def _randomize_outer_bg_palette(self) -> None:
         assert self._outer_background is not None
 
-        static_dynamic_idx_offset = ColorPalette.DYNAMIC_BACKGROUND_INDEX_0 - ColorPalette.outer_bg_index_offset()
-
+        dynamic_background_before = np.any(self._outer_background >= ColorPalette.DYNAMIC_BACKGROUND_INDEX_0)
         bg_color_type = BackgroundColorType.random()
 
-        # reset from dynamic background, in case we had dynamic background before
-        if np.any(self._outer_background >= ColorPalette.DYNAMIC_BACKGROUND_INDEX_0):
+        if bg_color_type is not BackgroundColorType.DYNAMIC and dynamic_background_before:
+            # reset from dynamic background, in case we don't want it now and had it before
             self._outer_background = np.where(
                 self._outer_background != ColorPalette.index_of_color("empty"),
-                self._outer_background - static_dynamic_idx_offset,
+                self._outer_background - ColorPalette.STATIC_DYNAMIC_IDX_OFFSET,
                 self._outer_background,
             )
-            # and make sure we don't use dynamic twice in a row (fall back to normal)
-            if bg_color_type is BackgroundColorType.DYNAMIC:
-                bg_color_type = BackgroundColorType.NORMAL
+        elif bg_color_type is BackgroundColorType.DYNAMIC and not dynamic_background_before:
+            # set dynamic background, in case we want it now but didn't before
+            self._outer_background = np.where(
+                self._outer_background != ColorPalette.index_of_color("empty"),
+                self._outer_background + ColorPalette.STATIC_DYNAMIC_IDX_OFFSET,
+                self._outer_background,
+            )
 
-        match bg_color_type:
-            case BackgroundColorType.DYNAMIC:
-                self._outer_background = np.where(
-                    self._outer_background != ColorPalette.index_of_color("empty"),
-                    self._outer_background + static_dynamic_idx_offset,
-                    self._outer_background,
-                )
-                # add a subtle random variation in saturation and value
-                self._color_palette.rainbow_saturation = random.uniform(0.9, 1.0)
-                self._color_palette.rainbow_value = random.uniform(0.8, 0.9)
-            case BackgroundColorType.SHINY | BackgroundColorType.NORMAL:
-                self._color_palette.randomize_outer_bg_colors(shiny=bg_color_type is BackgroundColorType.SHINY)
+        self._color_palette.randomize_outer_bg_colors(bg_color_type=bg_color_type)
 
     @staticmethod
     def _add_text(text: Text, text_buffer: NDArray[np.str_]) -> None:
@@ -727,11 +489,6 @@ class CLI(UI):
         """
         print(self._cursor_goto(Vec(image_height, 0)) + color.fx.reset + cursorx.erase_to_end(""))
 
-    def _draw_array(self, top_left: Vec, array: NDArray[np.uint8]) -> None:
-        # NOTE: we don't draw text while drawing entire rows at a time since emojis in text can mess up the spacing
-        for idx, row in enumerate(array):
-            self._draw_array_row(top_left=top_left + Vec(idx, 0), array_row=row)
-
     def _draw_array_row(self, top_left: Vec, array_row: NDArray[np.uint8]) -> None:
         print(
             self._cursor_goto(top_left)
@@ -755,15 +512,7 @@ class CLI(UI):
         )
 
     def _get_color_str(self, color_index: int, position: tuple[int, int]) -> str:
-        if color_index < ColorPalette.DYNAMIC_BACKGROUND_INDEX_0:
-            return self._color_palette[color_index]
-
-        assert self._dynamic_layer is not None
-
-        # TODO make use of dynamic_layer.get_color; think about where to build the offset stuff into (or whether to
-        # just keep it here)
-        return self._dynamic_layer.get_color(
-            position=position,
-            relative_offset=(color_index - ColorPalette.DYNAMIC_BACKGROUND_INDEX_0)
-            * self._DYNAMIC_BACKGROUND_RELATIVE_COLORMAP_OFFSET,
+        return self._color_palette.get_color(
+            index=color_index,
+            dynamic_layer_value=int(self._dynamic_layer[position]) if self._dynamic_layer is not None else None,
         )

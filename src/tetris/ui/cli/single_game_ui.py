@@ -1,5 +1,4 @@
-import colorsys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum, auto
 from functools import cached_property
 from math import ceil
@@ -33,8 +32,6 @@ class Text:
 class SingleGameUI:
     board_height: int
     board_width: int
-
-    _rainbow_layer: NDArray[np.uint8] = field(init=False, repr=False, hash=False, compare=False)
 
     _RIGHT_GAP_WIDTH = 2
     _RIGHT_ELEMENTS_WIDTH = 6
@@ -81,13 +78,6 @@ class SingleGameUI:
     # _ display background (black)
     # . gap (mask=False, filled by outer background)
     # note: 2 characters constitute one pixel
-
-    def __post_init__(self) -> None:
-        height, width = self.total_size
-        # an array where values increase diagonally to be used for rainbow coloring
-        object.__setattr__(
-            self, "_rainbow_layer", np.add.outer(np.arange(height, dtype=np.uint8), np.arange(width, dtype=np.uint8))
-        )
 
     @cached_property
     def board_background(self) -> NDArray[np.uint8]:
@@ -261,10 +251,6 @@ class SingleGameUI:
     def _add_score_display(
         self, score: int, session_high_score: int, ui_array: NDArray[np.uint8], texts: list[Text]
     ) -> None:
-        # ui_array[
-        #     self.score_position.y : self.score_position.y + self._SCORE_HEIGHT,
-        #     self.score_position.x : self.score_position.x + self._RIGHT_ELEMENTS_WIDTH,
-        # ] = ColorPalette.RAINBOW_INDEX
         ui_array[
             self.score_position.y : self.score_position.y + self._SCORE_HEIGHT,
             self.score_position.x : self.score_position.x + self._RIGHT_ELEMENTS_WIDTH,
@@ -352,17 +338,3 @@ class SingleGameUI:
                     raise ValueError(msg)
 
         return overlay_animations
-
-    @staticmethod
-    def _get_rainbow_color(draw_counter: int, position: Vec) -> str:
-        hue = (draw_counter * 5 + position.y * 10 + position.x * 10) % 360 / 360.0
-        saturation = 1.0
-        value = 1.0
-
-        rgb = colorsys.hsv_to_rgb(hue, saturation, value)
-        return ColorPalette.color_fn(*(round(c * 255) for c in rgb))
-        # Create a rainbow effect that changes over time and position
-        base_hue = (draw_counter * 5 + position.y * 10 + position.x * 10) % 360
-        return ColorPalette.index_of_color(
-            f"rainbow_{base_hue // 15 * 15}"
-        )  # assuming colors are defined every 15 degrees

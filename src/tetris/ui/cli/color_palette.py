@@ -1,11 +1,12 @@
 import colorsys
-import contextlib
 import logging
 import random
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from functools import cache, cached_property
-from typing import Any, Literal, NamedTuple, Self
+from enum import Enum, auto
+from functools import cache
+from itertools import count
+from typing import Literal, NamedTuple, Self, cast
 
 import numpy as np
 
@@ -55,49 +56,82 @@ class _Colors(NamedTuple):
     empty: str
 
 
-@dataclass
+class BackgroundColorType(Enum):
+    NORMAL = auto()
+    SHINY = auto()
+    DYNAMIC = auto()
+
+    @classmethod
+    def random(cls, shiny_probability: float = 0.05, dynamic_probability: float = 0.05) -> "BackgroundColorType":
+        if shiny_probability < 0 or dynamic_probability < 0 or shiny_probability + dynamic_probability > 1:
+            msg = f"Invalid probability values: {shiny_probability = }, {dynamic_probability = }"
+            raise ValueError(msg)
+
+        rand = random.random()
+        if rand < shiny_probability:
+            return cls.SHINY
+
+        if rand < shiny_probability + dynamic_probability:
+            return cls.DYNAMIC
+
+        return cls.NORMAL
+
+
+@dataclass(slots=True)
 class ColorPalette:
     colors: _Colors
 
+    # Sequences of ANSI codes for colors to be cycled through. The provided dynamic_layer_value in get_color will be
+    # used to index into these sequences to get the color (modulo'd with the sequences length). The first and last color
+    # should be considered adjacent (i.e. be similar to avoid a sudden jump in color).
+    # Note: the length of the colormap effectively determines the speed of the animation (longer = slower).
+    dynamic_colormap_background: tuple[str, ...]
+    dynamic_colormap_powerup: tuple[str, ...]
+
     # save the function used to generate the ANSI colors from RGB values, so we can use it again when randomizing
     color_fn: Callable[[int, int, int], str]
+    # how far to offset the 4 different background indexes from one another in their colormap cycle
+    dynamic_background_relative_colormap_offset_step: float = 1 / 8
 
-    # saturation and value of the rainbow colors used for the rainbow animation
-    rainbow_saturation: float = 1.0
-    rainbow_value: float = 0.9
+    _index_counter = count(len(_Colors._fields))
 
-    DYNAMIC_BACKGROUND_INDEX_0 = len(_Colors._fields)
-    DYNAMIC_BACKGROUND_INDEX_1 = len(_Colors._fields) + 1
-    DYNAMIC_BACKGROUND_INDEX_2 = len(_Colors._fields) + 2
-    DYNAMIC_BACKGROUND_INDEX_3 = len(_Colors._fields) + 3
+    DYNAMIC_BACKGROUND_INDEX_0 = next(_index_counter)
+    DYNAMIC_BACKGROUND_INDEX_1 = next(_index_counter)
+    DYNAMIC_BACKGROUND_INDEX_2 = next(_index_counter)
+    DYNAMIC_BACKGROUND_INDEX_3 = next(_index_counter)
 
-    DYNAMIC_POWERUP_INDEX_3 = len(_Colors._fields) + 4
+    STATIC_DYNAMIC_IDX_OFFSET = DYNAMIC_BACKGROUND_INDEX_0 - _Colors._fields.index("outer_bg_1")
 
-    # we use np.uint8's for indexing, so this must still be within the range
-    assert DYNAMIC_POWERUP_INDEX_3 <= np.iinfo(np.uint8).max  # noqa: SIM300
+    DYNAMIC_POWERUP_INDEX = next(_index_counter)
 
-    @cached_property
-    def rainbow_colors(self) -> tuple[str, ...]:
-        return tuple(
-            colorx.bg.rgb_truecolor(
-                *(
-                    round(c * 255)
-                    for c in colorsys.hsv_to_rgb(h=cycle_value / 256, s=self.rainbow_saturation, v=self.rainbow_value)
-                )
-            )
-            for cycle_value in range(256)
+    # we use np.uint8's for indexing, so the last used value must still be within the range
+    assert next(_index_counter) - 1 <= np.iinfo(np.uint8).max
+    del _index_counter
+
+    def get_color(self, index: int, dynamic_layer_value: int | None = None) -> str:
+        if index < self.DYNAMIC_BACKGROUND_INDEX_0:
+            # the index references a static color
+            return self.colors[index]
+
+        assert dynamic_layer_value is not None, (
+            f"{index} is a dynamic color index, but no dynamic layer value was provided"
         )
 
-    def __setattr__(self, name: str, value: Any) -> None:  # noqa: ANN401
-        if name in ("rainbow_saturation", "rainbow_value"):
-            # invalidate cached rainbow colors
-            with contextlib.suppress(AttributeError):
-                del self.rainbow_colors
+        if index <= self.DYNAMIC_BACKGROUND_INDEX_3:
+            return self.dynamic_colormap_background[
+                (
+                    dynamic_layer_value
+                    + round(
+                        (index - self.DYNAMIC_BACKGROUND_INDEX_0)
+                        * self.dynamic_background_relative_colormap_offset_step
+                        * len(self.dynamic_colormap_background)
+                    )
+                )
+                % len(self.dynamic_colormap_background)
+            ]
 
-        object.__setattr__(self, name, value)
-
-    def __getitem__(self, i: int) -> str:
-        return self.colors[i]
+        assert index == self.DYNAMIC_POWERUP_INDEX, f"{index} is out of range"
+        return self.dynamic_colormap_powerup[dynamic_layer_value % len(self.dynamic_colormap_powerup)]
 
     @classmethod
     def default(cls) -> Self:
@@ -126,13 +160,17 @@ class ColorPalette:
             block_neutral=(200, 200, 200),
             # yellow tetris sparkle animation
             tetris_sparkle=(255, 255, 0),
-            # dark gray background for the text
+            # dark gray background for the text, black for emptiness
             display_bg=(50, 50, 50),
+            empty=(0, 0, 0),
+            dynamic_colormap_background=cls.random_colormap(length=500),
+            dynamic_colormap_powerup=cls.rainbow_colormap(),
         )
 
     @classmethod
     def from_rgb(  # noqa: PLR0913
         cls,
+        *,
         outer_bg_progress_1: tuple[int, int, int],
         outer_bg_progress_2: tuple[int, int, int],
         outer_bg_progress_3: tuple[int, int, int],
@@ -161,12 +199,13 @@ class ColorPalette:
         block_neutral: tuple[int, int, int],
         display_bg: tuple[int, int, int],
         tetris_sparkle: tuple[int, int, int],
-        empty: tuple[int, int, int] = (0, 0, 0),
-        *,
+        empty: tuple[int, int, int],
+        dynamic_colormap_background: Iterable[tuple[int, int, int]],
+        dynamic_colormap_powerup: Iterable[tuple[int, int, int]],
         color_fn: Callable[[int, int, int], str] = colorx.bg.rgb_truecolor,
     ) -> Self:
         return cls(
-            _Colors(
+            colors=_Colors(
                 outer_bg_progress_1=color_fn(*outer_bg_progress_1),
                 outer_bg_progress_2=color_fn(*outer_bg_progress_2),
                 outer_bg_progress_3=color_fn(*outer_bg_progress_3),
@@ -197,10 +236,13 @@ class ColorPalette:
                 tetris_sparkle=color_fn(*tetris_sparkle),
                 empty=color_fn(*empty),
             ),
+            dynamic_colormap_background=tuple(color_fn(r, g, b) for r, g, b in dynamic_colormap_background),
+            dynamic_colormap_powerup=tuple(color_fn(r, g, b) for r, g, b in dynamic_colormap_powerup),
             color_fn=color_fn,
         )
 
     @classmethod
+    @cache
     def index_of_color(
         cls,
         color_name: Literal[
@@ -241,33 +283,39 @@ class ColorPalette:
             msg = f"Invalid color name: '{color_name}'"
             raise ValueError(msg) from e
 
-    @cache
     @staticmethod
+    @cache
     def block_color_index_offset() -> int:
         return ColorPalette.index_of_color("block_1")
 
-    @cache
     @staticmethod
+    @cache
     def board_bg_index_offset() -> int:
         return ColorPalette.index_of_color("board_bg_1")
 
-    @cache
     @staticmethod
+    @cache
     def board_bg_ghost_index_offset() -> int:
         return ColorPalette.index_of_color("board_bg_1_ghost")
 
-    @cache
     @staticmethod
+    @cache
     def outer_bg_index_offset() -> int:
         return ColorPalette.index_of_color("outer_bg_1")
 
-    @cache
     @staticmethod
+    @cache
     def outer_bg_progress_index_offset() -> int:
         return ColorPalette.index_of_color("outer_bg_progress_1")
 
-    def randomize_outer_bg_colors(self, *, shiny: bool = False) -> None:
-        rgb_1, rgb_2, rgb_3, rgb_4 = self._generate_random_outer_bg_colors(shiny=shiny)
+    def randomize_outer_bg_colors(self, *, bg_color_type: BackgroundColorType = BackgroundColorType.NORMAL) -> None:
+        if bg_color_type is BackgroundColorType.DYNAMIC:
+            self.dynamic_colormap_background = tuple(self.color_fn(r, g, b) for r, g, b in self.random_colormap())
+            return
+
+        rgb_1, rgb_2, rgb_3, rgb_4 = self._generate_random_outer_bg_colors(
+            shiny=bg_color_type is BackgroundColorType.SHINY
+        )
         self.colors = self.colors._replace(
             outer_bg_1=self.color_fn(*rgb_1),
             outer_bg_2=self.color_fn(*rgb_2),
@@ -320,3 +368,37 @@ class ColorPalette:
         rgb_4 = colorsys.hsv_to_rgb(hue_2, saturation_2, value_2)
 
         return tuple(tuple(round(c * 255) for c in rgb) for rgb in (rgb_1, rgb_2, rgb_3, rgb_4))  # type: ignore[return-value]
+
+    @staticmethod
+    def rainbow_colormap(
+        length: int = 500, *, saturation: float = 1.0, value: float = 0.7
+    ) -> Iterable[tuple[int, int, int]]:
+        return (
+            cast(
+                "tuple[int, int, int]",
+                tuple(round(c * 255) for c in colorsys.hsv_to_rgb(h=cycle_value / length, s=saturation, v=value)),
+            )
+            for cycle_value in range(length)
+        )
+
+    @staticmethod
+    def colorcet_colormap(length: int = 500, *, name: str | None = None) -> Iterable[tuple[int, int, int]] | None:
+        try:
+            from tetris.ui.cli.colorcet_colormaps import get_colorcet_colormap  # noqa: PLC0415
+        except ImportError:
+            _LOGGER.info("Can't create colorcet colormap due to missing dependency")
+            return None
+
+        cmap_float_array = get_colorcet_colormap(length=length, name=name)
+        # limit the brightness to ensure the tetris board still stands out
+        cmap_float_array *= 0.8
+        return (tuple(round(c * 255) for c in rgb) for rgb in cmap_float_array)
+
+    @classmethod
+    def random_colormap(cls, length: int = 500, *, p_colorcet: float = 0.9) -> Iterable[tuple[int, int, int]]:
+        if random.random() < p_colorcet and (colorcet_colormap := cls.colorcet_colormap(length=length)):
+            return colorcet_colormap
+
+        saturation = random.uniform(0.9, 1.0)
+        value = random.uniform(0.7, 0.8)
+        return cls.rainbow_colormap(length=length, saturation=saturation, value=value)
