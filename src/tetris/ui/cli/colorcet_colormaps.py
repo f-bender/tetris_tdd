@@ -36,6 +36,10 @@ assert _CYCLIC_COLORCET_COLORMAPS, (
     "No cyclic colorcet colormaps found - this might happen because matplotlib is not installed"
 )
 
+_BAD_COLORMAPS = {
+    "circle_mgbm_67_c31_s25",  # too little contrast; too soft
+}
+
 
 def get_colorcet_colormap(length: int = 256, name: str | None = None) -> NDArray[np.float64]:
     """Get colorcet colormap as a float numpy array (range 0-1) of RGB values.
@@ -47,7 +51,7 @@ def get_colorcet_colormap(length: int = 256, name: str | None = None) -> NDArray
     Returns:
         Numpy float array of shape [length, 3] of range 0-1.
     """
-    name = name or random.choice(list(_CYCLIC_COLORCET_COLORMAPS))
+    name = name or random.choice(list(set(_CYCLIC_COLORCET_COLORMAPS) - _BAD_COLORMAPS))
 
     colormap = colorcet_colormaps.get(name)
     if colormap is None:

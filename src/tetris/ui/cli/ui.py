@@ -1,7 +1,7 @@
 import atexit
 import logging
 import os
-from dataclasses import astuple
+from dataclasses import astuple, dataclass
 from functools import cached_property, lru_cache
 from math import ceil
 from typing import TYPE_CHECKING, cast
@@ -32,9 +32,27 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
+@dataclass(slots=True, frozen=True)
+class DynamicBackgroundConfig:
+    wavelength_factor: float = 0.35
+    propagation_speed_factor: float = 3
+    layer_n_mixed: int = 3
+
+    def __post_init__(self) -> None:
+        if self.wavelength_factor <= 0 or self.propagation_speed_factor <= 0:
+            msg = "wavelength_factor and propagation_speed_factor have to be > 0"
+            raise ValueError(msg)
+
+        if self.layer_n_mixed < 1:
+            msg = "layer_n_mixed has to be >= 1"
+            raise ValueError(msg)
+
+
+_DEFAULT_DYNAMIC_BACKGROUND_CONFIG = DynamicBackgroundConfig()
+
+
 class CLI(UI):
     _PIXEL_WIDTH = 2  # how many terminal characters together form one pixel
-    _FRAME_WIDTH = 8  # width of the static frame around and between the single games' UIs, in pixels
 
     _EMOJI_THRESHOLD = 0x2500  # characters with unicodes higher than this are considered emojis
 
@@ -46,8 +64,10 @@ class CLI(UI):
         self,
         *,
         color_palette: ColorPalette | None = None,
+        frame_width: int = 8,  # width of the static frame around and between the single games' UIs, in pixels
         target_aspect_ratio: float = 16 / 9,
-        randomize_background_colors_on_levelup: bool = False,
+        randomize_background_colors_on_levelup: bool = True,
+        dynamic_background_config: DynamicBackgroundConfig | None = _DEFAULT_DYNAMIC_BACKGROUND_CONFIG,
     ) -> None:
         self._last_image_buffer: NDArray[np.uint8] | None = None
         self._last_text_buffer: NDArray[np.str_] | None = None
@@ -59,10 +79,21 @@ class CLI(UI):
 
         self._color_palette = color_palette or ColorPalette.default()
 
-        bg_color_type = BackgroundColorType.random()
+        self._dynamic_background_config = dynamic_background_config
+
+        bg_color_type = (
+            BackgroundColorType.random()
+            if self._dynamic_background_config is not None
+            else BackgroundColorType.random(dynamic_probability=0)
+        )
         self._dynamic_background_during_startup = bg_color_type is BackgroundColorType.DYNAMIC
         if not self._dynamic_background_during_startup:
-            self._color_palette.randomize_outer_bg_colors(bg_color_type=bg_color_type)
+            self._color_palette.randomize_outer_bg_colors(
+                bg_color_type=bg_color_type,
+                dynamic_background_speed_factor=None
+                if self._dynamic_background_config is None
+                else self._dynamic_background_config.propagation_speed_factor,
+            )
 
         self._buffered_print = BufferedPrint()
         self._startup_animation_iter: (
@@ -71,6 +102,7 @@ class CLI(UI):
         ) = None
         self._startup_finished: bool = False
 
+        self._frame_width = frame_width
         self._target_aspect_ratio = target_aspect_ratio
 
         self._last_terminal_size = os.get_terminal_size()
@@ -86,8 +118,8 @@ class CLI(UI):
             raise RuntimeError(msg)
 
         board_ui_height, board_ui_width = self._single_game_ui.total_size
-        total_height = max(offset.y for offset in self._game_ui_offsets) + board_ui_height + self._FRAME_WIDTH
-        total_width = max(offset.x for offset in self._game_ui_offsets) + board_ui_width + self._FRAME_WIDTH
+        total_height = max(offset.y for offset in self._game_ui_offsets) + board_ui_height + self._frame_width
+        total_width = max(offset.x for offset in self._game_ui_offsets) + board_ui_width + self._frame_width
 
         return total_height, total_width
 
@@ -105,7 +137,19 @@ class CLI(UI):
         self._initialize_board_ui_offsets(num_boards)
         self._initialize_terminal()
 
-        self._dynamic_layer = random_layer(size=self.total_size, n_mixed_primitive_layers=3)
+        if self._dynamic_background_config is not None:
+            self._randomize_dynamic_layer()
+
+    def _randomize_dynamic_layer(self) -> None:
+        assert self._dynamic_background_config is not None
+
+        self._dynamic_layer = (
+            random_layer(
+                size=self.total_size,
+                n_mixed_primitive_layers=self._dynamic_background_config.layer_n_mixed,
+            )
+            / self._dynamic_background_config.wavelength_factor
+        ).astype(np.uint32)
 
     def _initialize_board_ui_offsets(self, num_games: int) -> None:
         assert self._single_game_ui is not None
@@ -116,8 +160,8 @@ class CLI(UI):
 
         self._game_ui_offsets = [
             Vec(
-                self._FRAME_WIDTH + y * (game_ui_height + self._FRAME_WIDTH),
-                self._FRAME_WIDTH + x * (game_ui_width + self._FRAME_WIDTH),
+                self._frame_width + y * (game_ui_height + self._frame_width),
+                self._frame_width + x * (game_ui_width + self._frame_width),
             )
             for y in range(num_rows)
             for x in range(num_cols)
@@ -160,8 +204,8 @@ class CLI(UI):
         assert self._single_game_ui is not None
 
         single_game_ui_height, single_game_ui_width = self._single_game_ui.total_size
-        height_added_per_game = single_game_ui_height + self._FRAME_WIDTH
-        width_added_per_game = single_game_ui_width + self._FRAME_WIDTH
+        height_added_per_game = single_game_ui_height + self._frame_width
+        width_added_per_game = single_game_ui_width + self._frame_width
 
         # solution from WolframAlpha, prompted with
         # `(c * w + f) / (r * h + f) = a, r * c = n, solve for r, c`
@@ -171,11 +215,11 @@ class CLI(UI):
         num_cols = ceil(
             (
                 (
-                    (self._target_aspect_ratio - 1) ** 2 * self._FRAME_WIDTH**2
+                    (self._target_aspect_ratio - 1) ** 2 * self._frame_width**2
                     + 4 * self._target_aspect_ratio * height_added_per_game * num_games * width_added_per_game
                 )
                 ** 0.5
-                + (self._target_aspect_ratio - 1) * self._FRAME_WIDTH
+                + (self._target_aspect_ratio - 1) * self._frame_width
             )
             / (2 * width_added_per_game)
         )
@@ -250,7 +294,7 @@ class CLI(UI):
         ).astype(np.uint8)
 
     def draw(self, elements: UiElements) -> None:
-        if self._single_game_ui is None or self._game_ui_offsets is None or self._dynamic_layer is None:
+        if self._single_game_ui is None or self._game_ui_offsets is None:
             msg = "game UI not initialized, likely draw() was called before initialize()!"
             raise RuntimeError(msg)
         if not self._buffered_print.is_active():
@@ -264,9 +308,10 @@ class CLI(UI):
             )
             self._outer_background = np.full(self.total_size, ColorPalette.index_of_color("empty"))
 
-        # NOTE: this *could* technically overflow, but it would have to run for 2 years straight (at 60 fps),
-        # and even then it wouldn't break but just look weird for a few seconds
-        self._dynamic_layer += 1
+        if self._dynamic_layer is not None:
+            # NOTE: this *could* technically overflow, but it would have to run for 2 years straight (at 60 fps),
+            # and even then it wouldn't break but just look weird for a few seconds
+            self._dynamic_layer += 1
 
         self._handle_terminal_size_change()
         self._handle_level_change(elements)
@@ -370,7 +415,11 @@ class CLI(UI):
         assert self._outer_background is not None
 
         dynamic_background_before = np.any(self._outer_background >= ColorPalette.DYNAMIC_BACKGROUND_INDEX_0)
-        bg_color_type = BackgroundColorType.random()
+        bg_color_type = (
+            BackgroundColorType.random()
+            if self._dynamic_background_config is not None
+            else BackgroundColorType.random(dynamic_probability=0)
+        )
 
         if bg_color_type is not BackgroundColorType.DYNAMIC and dynamic_background_before:
             # reset from dynamic background, in case we don't want it now and had it before
@@ -386,6 +435,9 @@ class CLI(UI):
                 self._outer_background + ColorPalette.STATIC_DYNAMIC_IDX_OFFSET,
                 self._outer_background,
             )
+
+        if bg_color_type is BackgroundColorType.DYNAMIC:
+            self._randomize_dynamic_layer()
 
         self._color_palette.randomize_outer_bg_colors(bg_color_type=bg_color_type)
 

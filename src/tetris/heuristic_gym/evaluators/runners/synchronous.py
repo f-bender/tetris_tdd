@@ -25,7 +25,13 @@ class SynchronousRunner:
             ui_class: The UI class to use for visualization, or None for headless mode.
             callback_interval_frames: Number of frames between interval callback invocations.
         """
-        self._ui = None if ui_class is None else ui_class()
+        if ui_class is None:
+            self._ui: UI | None = None
+        elif ui_class is CLI:
+            self._ui = CLI(randomize_background_colors_on_levelup=False, dynamic_background_config=None)
+        else:
+            self._ui = ui_class()
+
         self._callback_interval_frames = callback_interval_frames
 
     @property

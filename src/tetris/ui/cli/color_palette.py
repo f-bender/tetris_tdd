@@ -14,6 +14,8 @@ from tetris.ansi_extensions import color as colorx
 
 _LOGGER = logging.getLogger(__name__)
 
+_DYNAMIC_BACKGROUND_COLORMAP_DEFAULT_LENGTH = 500
+
 
 class _Colors(NamedTuple):
     # we allow 10 different shades to represent blocks that are placed but not yet (four-)colored
@@ -163,7 +165,7 @@ class ColorPalette:
             # dark gray background for the text, black for emptiness
             display_bg=(50, 50, 50),
             empty=(0, 0, 0),
-            dynamic_colormap_background=cls.random_colormap(length=500),
+            dynamic_colormap_background=cls.random_colormap(),
             dynamic_colormap_powerup=cls.rainbow_colormap(),
         )
 
@@ -308,9 +310,23 @@ class ColorPalette:
     def outer_bg_progress_index_offset() -> int:
         return ColorPalette.index_of_color("outer_bg_progress_1")
 
-    def randomize_outer_bg_colors(self, *, bg_color_type: BackgroundColorType = BackgroundColorType.NORMAL) -> None:
+    def randomize_outer_bg_colors(
+        self,
+        *,
+        bg_color_type: BackgroundColorType = BackgroundColorType.NORMAL,
+        dynamic_background_speed_factor: float | None = 1,
+    ) -> None:
         if bg_color_type is BackgroundColorType.DYNAMIC:
-            self.dynamic_colormap_background = tuple(self.color_fn(r, g, b) for r, g, b in self.random_colormap())
+            if dynamic_background_speed_factor is None:
+                msg = "a dynamic_background_speed_factor is required when bg_color_type is DYNAMIC"
+                raise ValueError(msg)
+
+            self.dynamic_colormap_background = tuple(
+                self.color_fn(r, g, b)
+                for r, g, b in self.random_colormap(
+                    length=round(_DYNAMIC_BACKGROUND_COLORMAP_DEFAULT_LENGTH / dynamic_background_speed_factor)
+                )
+            )
             return
 
         rgb_1, rgb_2, rgb_3, rgb_4 = self._generate_random_outer_bg_colors(
@@ -371,7 +387,7 @@ class ColorPalette:
 
     @staticmethod
     def rainbow_colormap(
-        length: int = 500, *, saturation: float = 1.0, value: float = 0.7
+        length: int = _DYNAMIC_BACKGROUND_COLORMAP_DEFAULT_LENGTH, *, saturation: float = 1.0, value: float = 0.7
     ) -> Iterable[tuple[int, int, int]]:
         return (
             cast(
@@ -382,7 +398,9 @@ class ColorPalette:
         )
 
     @staticmethod
-    def colorcet_colormap(length: int = 500, *, name: str | None = None) -> Iterable[tuple[int, int, int]] | None:
+    def colorcet_colormap(
+        length: int = _DYNAMIC_BACKGROUND_COLORMAP_DEFAULT_LENGTH, *, name: str | None = None
+    ) -> Iterable[tuple[int, int, int]] | None:
         try:
             from tetris.ui.cli.colorcet_colormaps import get_colorcet_colormap  # noqa: PLC0415
         except ImportError:
@@ -395,7 +413,9 @@ class ColorPalette:
         return (tuple(round(c * 255) for c in rgb) for rgb in cmap_float_array)
 
     @classmethod
-    def random_colormap(cls, length: int = 500, *, p_colorcet: float = 0.9) -> Iterable[tuple[int, int, int]]:
+    def random_colormap(
+        cls, length: int = _DYNAMIC_BACKGROUND_COLORMAP_DEFAULT_LENGTH, *, p_colorcet: float = 0.9
+    ) -> Iterable[tuple[int, int, int]]:
         if random.random() < p_colorcet and (colorcet_colormap := cls.colorcet_colormap(length=length)):
             return colorcet_colormap
 

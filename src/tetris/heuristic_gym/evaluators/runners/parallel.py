@@ -37,7 +37,13 @@ class ParallelRunner:
             fps: Frames per second for UI updates.
             num_workers: Number of process pool workers, defaults to the number of CPU cores if None.
         """
-        self._ui = None if ui_class is None else ui_class()
+        if ui_class is None:
+            self._ui: UI | None = None
+        elif ui_class is CLI:
+            self._ui = CLI(randomize_background_colors_on_levelup=False, dynamic_background_config=None)
+        else:
+            self._ui = ui_class()
+
         self._callback_interval_frames = callback_interval_frames
         self._fps = fps
         self.num_workers = num_workers
