@@ -60,7 +60,7 @@ class CLI(UI):
     # (this is roughly the threshold where whole-row draws become more efficient)
     _MAX_PIXELS_PER_ROW_TO_DELTA_DRAW = 10
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         *,
         color_palette: ColorPalette | None = None,
@@ -68,6 +68,7 @@ class CLI(UI):
         target_aspect_ratio: float = 16 / 9,
         randomize_background_colors_on_levelup: bool = True,
         dynamic_background_config: DynamicBackgroundConfig | None = _DEFAULT_DYNAMIC_BACKGROUND_CONFIG,
+        text_fx: str = str(color.fx.bold),
     ) -> None:
         self._last_image_buffer: NDArray[np.uint8] | None = None
         self._last_text_buffer: NDArray[np.str_] | None = None
@@ -104,6 +105,7 @@ class CLI(UI):
 
         self._frame_width = frame_width
         self._target_aspect_ratio = target_aspect_ratio
+        self._text_fx = text_fx
 
         self._last_terminal_size = os.get_terminal_size()
 
@@ -555,7 +557,7 @@ class CLI(UI):
         print(
             self._cursor_goto(position)
             + self._get_color_str(int(color_index), astuple(position))
-            + ((text and text.ljust(CLI._PIXEL_WIDTH)) or " " * CLI._PIXEL_WIDTH),
+            + ((text and (self._text_fx + text.ljust(CLI._PIXEL_WIDTH))) or " " * CLI._PIXEL_WIDTH),
             end="",
         )
 
