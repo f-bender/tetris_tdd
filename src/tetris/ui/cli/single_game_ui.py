@@ -29,7 +29,6 @@ class Text:
     text: str
     position: Vec
     alignment: Alignment = Alignment.LEFT
-    color: str | None = None
 
 
 class Blink(NamedTuple):
