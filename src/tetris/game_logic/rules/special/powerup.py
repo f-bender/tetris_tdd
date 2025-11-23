@@ -25,8 +25,8 @@ class PowerupRule(Publisher, Callback, Rule, SpawnStrategy):
         *,
         powerup_spawn_probability: float = 0.04,
         # 10-20 seconds at 60 FPS
-        min_ttl_frames: int = 450,
-        max_ttl_frames: int = 900,
+        min_ttl_frames: int = 600,
+        max_ttl_frames: int = 1200,
     ) -> None:
         super().__init__()
         # note: np.uint8 is the dtype used by the board
