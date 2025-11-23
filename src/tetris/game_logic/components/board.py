@@ -7,7 +7,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from tetris.game_logic.components import Block
-from tetris.game_logic.components.block import BoundingBox, Vec
+from tetris.game_logic.components.block import BlockType, BoundingBox, Vec
 from tetris.game_logic.components.exceptions import (
     ActiveBlockOverlapError,
     CannotDropBlockError,
@@ -28,18 +28,17 @@ class PositionedBlock:
 
 
 class Board:
-    GHOST_BLOCK_CELL_VALUE: int = np.iinfo(np.uint8).max
+    MAX_REGULAR_CELL_VALUE: int = max(bt.value for bt in BlockType)  # 7
+    # in between, slots for powerup values...
+    GHOST_BLOCK_CELL_VALUE: int = np.iinfo(np.uint8).max  # 255
 
-    def __init__(self) -> None:
-        # initialized in a degenerate state - don't call constructor but rather one of the creation classmethods
-        self._board: NDArray[np.uint8] = np.zeros((0, 0), dtype=np.uint8)
+    def __init__(self, board_array: NDArray[np.uint8]) -> None:
+        self._board: NDArray[np.uint8] = board_array
         self.active_block: PositionedBlock | None = None
 
     @classmethod
     def create_empty(cls, height: int, width: int) -> Self:
-        board = cls()
-        board._board = np.zeros((height, width), dtype=np.uint8)
-        return board
+        return cls(np.zeros((height, width), dtype=np.uint8))
 
     @classmethod
     def from_string_representation(cls, string: str) -> Self:
@@ -62,9 +61,7 @@ class Board:
 
             _board.append([c == "X" for c in line])
 
-        board = cls()
-        board._board = np.array(_board, dtype=np.uint8)
-        return board
+        return cls(np.array(_board, dtype=np.uint8))
 
     def set_from_other(self, other: Self) -> None:
         if self._board.shape == other._board.shape:  # noqa: SLF001
@@ -121,7 +118,7 @@ class Board:
         return self.active_block is not None
 
     def clear(self) -> None:
-        self._board = np.zeros_like(self._board, dtype=np.uint8)
+        self._board[...] = 0
 
     def spawn_random_block(self) -> None:
         self.spawn(Block.create_random())

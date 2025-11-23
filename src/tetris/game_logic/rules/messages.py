@@ -81,3 +81,7 @@ class NewLevelMessage(NamedTuple):
 class ScoreMessage(NamedTuple):
     score: int
     session_high_score: int
+
+
+class PowerupTTLsMessage(NamedTuple):
+    powerup_ttls: dict[int, int]  # mapping from powerup ID to TTL in frames

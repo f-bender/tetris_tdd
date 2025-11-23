@@ -1,7 +1,7 @@
 import random
 from collections.abc import Callable, Iterator
 from functools import partial
-from typing import Protocol
+from typing import Protocol, override
 
 from tetris.game_logic.components.block import Block, BlockType
 from tetris.game_logic.components.board import Board
@@ -12,10 +12,10 @@ from tetris.game_logic.rules.messages import SpawnMessage
 
 
 class SpawnStrategy(Protocol):
-    def apply(self, board: Board) -> None: ...
+    def spawn(self, board: Board) -> None: ...
 
 
-class SpawnStrategyImpl(Publisher):
+class SpawnStrategyImpl(SpawnStrategy, Publisher):
     def __init__(self, select_block_fn: Callable[[], Block] = Block.create_random) -> None:
         super().__init__()
 
@@ -31,7 +31,8 @@ class SpawnStrategyImpl(Publisher):
         self._select_block_fn = value
         self._next_block = self._select_block_fn()
 
-    def apply(self, board: Board) -> None:
+    @override
+    def spawn(self, board: Board) -> None:
         try:
             board.spawn(self._next_block)
         except CannotSpawnBlockError as e:

@@ -20,8 +20,10 @@ class SingleUiElements:
     level: int = 0
     score: int = 0
     session_high_score: int = 0
+    powerup_ttls: dict[int, int] = field(default_factory=dict[int, int])
+
     animations: list[AnimationSpec] = field(default_factory=list[AnimationSpec])
-    # potential additions in the future: hold_block, level
+    # potential additions in the future: hold_block
 
     def reset(self) -> None:
         self.next_block = None
@@ -29,6 +31,7 @@ class SingleUiElements:
         self.level = 0
         self.score = 0
         self.animations = []
+        self.powerup_ttls = {}
 
 
 @dataclass

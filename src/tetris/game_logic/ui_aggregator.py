@@ -10,10 +10,12 @@ from tetris.game_logic.rules.messages import (
     FinishedLineClearMessage,
     NewLevelMessage,
     NumClearedLinesMessage,
+    PowerupTTLsMessage,
     ScoreMessage,
     SpawnMessage,
     StartingLineClearMessage,
 )
+from tetris.game_logic.rules.special.powerup import PowerupRule
 
 
 class UiAggregator(Subscriber):
@@ -39,7 +41,8 @@ class UiAggregator(Subscriber):
 
         return (
             isinstance(
-                publisher, ClearedLinesTracker | SpawnStrategyImpl | ClearFullLines | ScoreTracker | LevelTracker
+                publisher,
+                ClearedLinesTracker | SpawnStrategyImpl | ClearFullLines | ScoreTracker | LevelTracker | PowerupRule,
             )
             and publisher.game_index == self.game_index
         )
@@ -81,6 +84,8 @@ class UiAggregator(Subscriber):
                     )
             case StartingLineClearMessage():
                 pass
+            case PowerupTTLsMessage(powerup_ttls=powerup_ttls):
+                self._ui_elements.powerup_ttls = powerup_ttls
             case _:
                 msg = f"Unexpected message: {message}"
                 raise ValueError(msg)

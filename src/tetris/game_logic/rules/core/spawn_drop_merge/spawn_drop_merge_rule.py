@@ -122,7 +122,7 @@ class SpawnDropMergeRule(Callback, Publisher, Subscriber):
 
             if self._last_merge_start_frame is None:
                 # game is just starting
-                self.spawn_strategy.apply(board)
+                self.spawn_strategy.spawn(board)
                 self._last_drop_frame = frame_counter
             elif (frames_since_last_merge_start := frame_counter - self._last_merge_start_frame) >= self._merge_delay:
                 if frames_since_last_merge_start == self._merge_delay:
@@ -172,7 +172,7 @@ class SpawnDropMergeRule(Callback, Publisher, Subscriber):
 
     def _finalize_merge(self, board: Board, frame_counter: int) -> None:
         if not self._synchronized_spawn or self._received_spawn_command:
-            self.spawn_strategy.apply(board)
+            self.spawn_strategy.spawn(board)
             self._received_spawn_command = False
             self._last_drop_frame = frame_counter
 

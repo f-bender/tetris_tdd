@@ -29,12 +29,7 @@ class ParryRule(Subscriber):
             msg = f"{type(self).__name__} of game {self.game_index} has {len(publishers)} subscriptions: {publishers}"
             raise RuntimeError(msg)
 
-    def apply(
-        self,
-        frame_counter: int,
-        action_counter: ActionCounter,
-        board: Board,
-    ) -> None:
+    def apply(self, frame_counter: int, action_counter: ActionCounter, board: Board) -> None:
         if self._already_applied:
             return
 
