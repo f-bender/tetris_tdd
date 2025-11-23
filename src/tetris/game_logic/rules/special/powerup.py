@@ -6,6 +6,7 @@ import numpy as np
 
 from tetris.game_logic.action_counter import ActionCounter
 from tetris.game_logic.components.board import Board
+from tetris.game_logic.interfaces.callback import Callback
 from tetris.game_logic.interfaces.pub_sub import Publisher
 from tetris.game_logic.interfaces.rule import Rule
 from tetris.game_logic.rules.core.spawn_drop_merge.spawn import SpawnStrategy, SpawnStrategyImpl
@@ -15,7 +16,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 # Note: Protocols (like Rule and SpawnStrategy) need to go last for MRO reasons
-class PowerupRule(Publisher, Rule, SpawnStrategy):
+class PowerupRule(Publisher, Callback, Rule, SpawnStrategy):
     _POWERUP_SLOT_OFFSET = Board.MAX_REGULAR_CELL_VALUE + 1
 
     def __init__(
@@ -81,3 +82,7 @@ class PowerupRule(Publisher, Rule, SpawnStrategy):
         board.active_block.block.cells[powerup_position] = new_powerup_slot
 
         self._powerup_ttls[new_powerup_slot] = random.randint(self._min_ttl_frames, self._max_ttl_frames)
+
+    @override
+    def on_game_start(self) -> None:
+        self._powerup_ttls[...] = 0
