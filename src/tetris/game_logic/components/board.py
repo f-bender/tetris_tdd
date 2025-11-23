@@ -1,4 +1,6 @@
+import logging
 from collections.abc import Iterable
+from copy import deepcopy
 from dataclasses import dataclass
 from math import ceil
 from typing import Literal, Self
@@ -16,6 +18,8 @@ from tetris.game_logic.components.exceptions import (
     NoActiveBlockError,
 )
 
+_LOGGER = logging.getLogger(__name__)
+
 
 @dataclass(frozen=True, slots=True)
 class PositionedBlock:
@@ -30,6 +34,7 @@ class PositionedBlock:
 class Board:
     MAX_REGULAR_CELL_VALUE: int = max(bt.value for bt in BlockType)  # 7
     # in between, slots for powerup values...
+    POWERUP_GHOST_BLOCK_CELL_VALUE: int = np.iinfo(np.uint8).max - 1  # 254
     GHOST_BLOCK_CELL_VALUE: int = np.iinfo(np.uint8).max  # 255
 
     def __init__(self, board_array: NDArray[np.uint8] | None) -> None:
@@ -276,10 +281,14 @@ class Board:
 
         # Note: ghost block must be merged first so that the active block appears on top of it
         if include_ghost:
-            dropped_block = self.get_active_block_fully_dropped()
-            ghost_block = PositionedBlock(
-                block=dropped_block.block.with_cell_value(self.GHOST_BLOCK_CELL_VALUE), position=dropped_block.position
-            )
+            ghost_block = deepcopy(self.get_active_block_fully_dropped())
+            ghost_block_cells = ghost_block.block.cells
+
+            powerup_cells = ghost_block_cells > self.MAX_REGULAR_CELL_VALUE
+
+            ghost_block_cells[ghost_block_cells != 0] = self.GHOST_BLOCK_CELL_VALUE
+            ghost_block_cells[powerup_cells] = self.POWERUP_GHOST_BLOCK_CELL_VALUE
+
             self._merge_active_block_into_board(ghost_block, board)
 
         self._merge_active_block_into_board(self.active_block, board)
