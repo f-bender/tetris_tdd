@@ -423,17 +423,13 @@ class CLI(UI):
 
         if bg_color_type is not BackgroundColorType.DYNAMIC and dynamic_background_before:
             # reset from dynamic background, in case we don't want it now and had it before
-            self._outer_background = np.where(
-                self._outer_background != ColorPalette.index_of_color("empty"),
-                self._outer_background - ColorPalette.STATIC_DYNAMIC_IDX_OFFSET,
-                self._outer_background,
+            self._outer_background[self._outer_background != ColorPalette.index_of_color("empty")] -= (
+                ColorPalette.STATIC_DYNAMIC_IDX_OFFSET
             )
         elif bg_color_type is BackgroundColorType.DYNAMIC and not dynamic_background_before:
             # set dynamic background, in case we want it now but didn't before
-            self._outer_background = np.where(
-                self._outer_background != ColorPalette.index_of_color("empty"),
-                self._outer_background + ColorPalette.STATIC_DYNAMIC_IDX_OFFSET,
-                self._outer_background,
+            self._outer_background[self._outer_background != ColorPalette.index_of_color("empty")] += (
+                ColorPalette.STATIC_DYNAMIC_IDX_OFFSET
             )
 
         if bg_color_type is BackgroundColorType.DYNAMIC:

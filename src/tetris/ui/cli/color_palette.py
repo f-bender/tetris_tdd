@@ -387,14 +387,20 @@ class ColorPalette:
 
     @staticmethod
     def rainbow_colormap(
-        length: int = _DYNAMIC_BACKGROUND_COLORMAP_DEFAULT_LENGTH, *, saturation: float = 1.0, value: float = 0.7
+        length: int = _DYNAMIC_BACKGROUND_COLORMAP_DEFAULT_LENGTH,
+        *,
+        saturation: float = 1.0,
+        value: float = 0.7,
+        reverse: bool = False,
     ) -> Iterable[tuple[int, int, int]]:
+        cycle_range = range(length)
+
         return (
             cast(
                 "tuple[int, int, int]",
                 tuple(round(c * 255) for c in colorsys.hsv_to_rgb(h=cycle_value / length, s=saturation, v=value)),
             )
-            for cycle_value in range(length)
+            for cycle_value in (reversed(cycle_range) if reverse else cycle_range)
         )
 
     @staticmethod
@@ -421,4 +427,5 @@ class ColorPalette:
 
         saturation = random.uniform(0.9, 1.0)
         value = random.uniform(0.7, 0.8)
-        return cls.rainbow_colormap(length=length, saturation=saturation, value=value)
+        reverse = random.choice([True, False])
+        return cls.rainbow_colormap(length=length, saturation=saturation, value=value, reverse=reverse)
