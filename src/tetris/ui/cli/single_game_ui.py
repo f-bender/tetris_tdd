@@ -1,7 +1,10 @@
+import logging
+from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import Enum, auto
 from functools import cached_property
 from math import ceil
+from typing import NamedTuple
 
 import numpy as np
 from numpy.typing import NDArray
@@ -10,9 +13,12 @@ from tetris.game_logic.components.block import Block
 from tetris.game_logic.components.board import Board
 from tetris.game_logic.interfaces.animations import AnimationSpec, TetrisAnimationSpec
 from tetris.game_logic.interfaces.ui import SingleUiElements
+from tetris.game_logic.rules.special.powerup import PowerupRule
 from tetris.ui.cli.animations import Overlay, TetrisAnimationLeft, TetrisAnimationRight
 from tetris.ui.cli.color_palette import ColorPalette
 from tetris.ui.cli.vec import Vec
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class Alignment(Enum):
@@ -27,6 +33,27 @@ class Text:
     position: Vec
     alignment: Alignment = Alignment.LEFT
     color: str | None = None
+
+
+class Blink(NamedTuple):
+    n_times: int
+    on_frames: int
+    off_frames: int
+
+
+def generate_blink_off_frames(
+    blinks: Iterable[Blink] = (Blink(8, 5, 5), Blink(4, 10, 10), Blink(2, 30, 10)),
+) -> frozenset[int]:
+    result: set[int] = set()
+
+    # TODO: small refactor (iterators)
+    current_ttl = 0
+    for blink in blinks:
+        for _ in range(blink.n_times):
+            result.update(range(current_ttl + blink.on_frames, current_ttl + blink.on_frames + blink.off_frames))
+            current_ttl += blink.on_frames + blink.off_frames
+
+    return frozenset(result)
 
 
 @dataclass(frozen=True)
@@ -45,6 +72,8 @@ class SingleGameUI:
     _SCORE_HEIGHT = 6
     _NEXT_BLOCK_HEIGHT = 5
     _LEVEL_HEIGHT = 4
+
+    _POWERUP_TTL_VALUES_BLINKED_OFF = generate_blink_off_frames()
 
     # What the UI looks like:
 
@@ -192,7 +221,7 @@ class SingleGameUI:
         texts: list[Text] = []
 
         self._add_lines_display(num_cleared_lines=elements.num_cleared_lines, ui_array=ui_array, texts=texts)
-        self._add_board(board=elements.board, ui_array=ui_array, texts=texts)
+        self._add_board(board=elements.board, powerup_ttls=elements.powerup_ttls, ui_array=ui_array, texts=texts)
         self._add_controller_symbol_display(
             controller_symbol=elements.controller_symbol, ui_array=ui_array, texts=texts
         )
@@ -219,7 +248,9 @@ class SingleGameUI:
             )
         )
 
-    def _add_board(self, board: NDArray[np.uint8], ui_array: NDArray[np.uint8], texts: list[Text]) -> None:
+    def _add_board(
+        self, board: NDArray[np.uint8], powerup_ttls: dict[int, int], ui_array: NDArray[np.uint8], texts: list[Text]
+    ) -> None:
         board_in_ui_array = np.where(board, board + ColorPalette.block_color_index_offset() - 1, self.board_background)
 
         # handle ghost block (indication where block would drop to)
@@ -234,9 +265,14 @@ class SingleGameUI:
 
         # handle powerup blocks (custom dynamic color, and with "?" text on top)
         powerup_positions = np.where((board > Board.MAX_REGULAR_CELL_VALUE) & (board < Board.GHOST_BLOCK_CELL_VALUE))
-        board_in_ui_array[powerup_positions] = ColorPalette.DYNAMIC_POWERUP_INDEX
         for y, x in zip(*powerup_positions, strict=True):
-            texts.append(Text(text="?" * self.pixel_width, position=self.board_position + Vec(y, x)))
+            if powerup_ttls[int(board[y, x])] not in self._POWERUP_TTL_VALUES_BLINKED_OFF:
+                board_in_ui_array[y, x] = ColorPalette.DYNAMIC_POWERUP_INDEX
+                texts.append(Text(text="?" * self.pixel_width, position=self.board_position + Vec(y, x)))
+            else:
+                board_in_ui_array[y, x] = (
+                    (board[y, x] % PowerupRule.POWERUP_SLOT_OFFSET) + ColorPalette.block_color_index_offset() - 1
+                )
 
         ui_array[
             self.board_position.y : self.board_position.y + self.board_height,
