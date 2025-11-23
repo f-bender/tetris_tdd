@@ -2,7 +2,7 @@ import contextlib
 import random
 from collections.abc import Callable, Collection
 from concurrent.futures import ProcessPoolExecutor
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, cast
 
 import click
 
@@ -24,12 +24,13 @@ from tetris.game_logic.rules.core.move_rotate_rules import MoveRule, RotateRule
 from tetris.game_logic.rules.core.scoring.level_rule import LevelTracker
 from tetris.game_logic.rules.core.scoring.track_cleared_lines_rule import ClearedLinesTracker
 from tetris.game_logic.rules.core.scoring.track_score_rule import ScoreTracker
-from tetris.game_logic.rules.core.spawn_drop_merge.spawn import SpawnStrategyImpl
+from tetris.game_logic.rules.core.spawn_drop_merge.spawn import SpawnStrategy, SpawnStrategyImpl
 from tetris.game_logic.rules.core.spawn_drop_merge.spawn_drop_merge_rule import SpawnDropMergeRule
 from tetris.game_logic.rules.core.spawn_drop_merge.synchronized_spawn import SynchronizedSpawning
 from tetris.game_logic.rules.monitoring.track_performance_rule import TrackPerformanceCallback
 from tetris.game_logic.rules.multiplayer.tetris99_rule import Tetris99Rule
 from tetris.game_logic.rules.runtime.sound_toggle import SoundToggleRule
+from tetris.game_logic.rules.special.powerup import PowerupRule
 from tetris.game_logic.runtime import Runtime
 from tetris.game_logic.sound_manager import SoundManager
 from tetris.ui.cli import CLI
@@ -191,6 +192,7 @@ type AudioBackendParameter = Literal["playsound3", "pygame", "winsound"]
 @click.option(
     "--ghost-block/--no-ghost-block", default=True, show_default=True, help="Enable/disable display of ghost block."
 )
+@click.option("--powerups/--no-powerups", default=True, show_default=True, help="Enable/disable power-ups.")
 def play(  # noqa: PLR0913
     *,
     num_games: int | None,
@@ -207,6 +209,7 @@ def play(  # noqa: PLR0913
     audio_backend: AudioBackendParameter,
     track_performance: bool,
     ghost_block: bool,
+    powerups: bool,
 ) -> None:
     """Play Tetris with configurable rules and controllers."""
     boards, controllers = _create_boards_and_controllers(
@@ -243,6 +246,7 @@ def play(  # noqa: PLR0913
             tetris99=tetris99,
             synchronize_spawning=synchronize_spawning,
             ghost_block=ghost_block,
+            powerups=powerups,
         )
 
         sound_manager = (
@@ -410,6 +414,7 @@ def _create_games(  # noqa: PLR0913
     tetris99: bool,
     synchronize_spawning: bool,
     ghost_block: bool,
+    powerups: bool,
 ) -> list[Game]:
     games: list[Game] = []
 
@@ -435,6 +440,7 @@ def _create_games(  # noqa: PLR0913
             create_tetris_99_rule=tetris99,
             synchronize_spawning=synchronize_spawning,
             block_selection_fn=block_selection_fn,
+            powerups=powerups,
         )
 
         games.append(
@@ -450,6 +456,7 @@ def _create_rules_and_callbacks(
     create_tetris_99_rule: bool,
     synchronize_spawning: bool,
     block_selection_fn: Callable[[], Block] = Block.create_random,
+    powerups: bool,
 ) -> RuleSequence:
     """Get rules relevant for one instance of a game.
 
@@ -461,19 +468,21 @@ def _create_rules_and_callbacks(
         create_tetris_99_rule: Whether to create a Tetris99Rule in case there are multiple games.
         synchronize_spawning: Whether to synchronize spawning in case there are multiple games.
         block_selection_fn: Function to select blocks to spawn.
+        powerups: Whether to enable power-ups.
 
     Returns:
         A RuleSequence to be passed to the Game.
     """
+    rules: list[Rule] = [MoveRule(), RotateRule()]
+
     synchronize_spawning = synchronize_spawning and num_games > 1
 
-    rules: list[Rule] = [
-        MoveRule(),
-        RotateRule(),
-        SpawnDropMergeRule(
-            spawn_strategy=SpawnStrategyImpl(block_selection_fn), synchronized_spawn=synchronize_spawning
-        ),
-    ]
+    spawn_strategy: SpawnStrategy = SpawnStrategyImpl(block_selection_fn)
+    if powerups:
+        spawn_strategy = PowerupRule(inner_spawn_strategy=spawn_strategy)
+        rules.append(cast("Rule", spawn_strategy))  # PowerupRule is also a Rule
+
+    rules.append(SpawnDropMergeRule(spawn_strategy=spawn_strategy, synchronized_spawn=synchronize_spawning))
 
     if create_tetris_99_rule and num_games > 1:
         rules.append(Tetris99Rule(target_idxs=list(set(range(num_games)) - {DEPENDENCY_MANAGER.current_game_index})))

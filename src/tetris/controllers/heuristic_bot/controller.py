@@ -209,7 +209,7 @@ class HeuristicBotController(Controller, Subscriber):
             # wait until the first block has spawned
             time.sleep(1 / self._fps)
 
-        expected_board_after_latest_plan = Board()
+        expected_board_after_latest_plan = Board(None)
         while True:
             while self._next_plan is not None:
                 assert self._current_plan is not None
@@ -266,7 +266,7 @@ class HeuristicBotController(Controller, Subscriber):
     def _create_plan_single_process(
         self, expected_board_before: Board, block: Block, expected_board_after: Board | None = None
     ) -> Plan | None:
-        internal_planning_board = Board()
+        internal_planning_board = Board(None)
         min_loss: float | None = None
         min_loss_positioned_block: PositionedBlock | None = None
 
@@ -385,8 +385,8 @@ class HeuristicBotController(Controller, Subscriber):
     def _plan_from_board_and_block(
         expected_board_before: Board, block: Block, heuristic: Heuristic, *, return_board_after: bool
     ) -> Plan | tuple[Plan, Board] | None:
-        internal_planning_board = Board()
-        expected_board_after = Board() if return_board_after else None
+        internal_planning_board = Board(None)
+        expected_board_after = Board(None) if return_board_after else None
 
         min_loss: float | None = None
         min_loss_positioned_block: PositionedBlock | None = None

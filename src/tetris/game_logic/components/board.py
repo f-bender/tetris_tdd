@@ -32,8 +32,12 @@ class Board:
     # in between, slots for powerup values...
     GHOST_BLOCK_CELL_VALUE: int = np.iinfo(np.uint8).max  # 255
 
-    def __init__(self, board_array: NDArray[np.uint8]) -> None:
-        self._board: NDArray[np.uint8] = board_array
+    def __init__(self, board_array: NDArray[np.uint8] | None) -> None:
+        self._board: NDArray[np.uint8] = (
+            board_array
+            if board_array is not None
+            else np.zeros((0, 0), dtype=np.uint8)  # degenerate state; at own risk
+        )
         self.active_block: PositionedBlock | None = None
 
     @classmethod

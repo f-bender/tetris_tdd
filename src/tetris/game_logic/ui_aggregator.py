@@ -15,7 +15,6 @@ from tetris.game_logic.rules.messages import (
     SpawnMessage,
     StartingLineClearMessage,
 )
-from tetris.game_logic.rules.special.powerup import PowerupRule
 
 
 class UiAggregator(Subscriber):
@@ -38,6 +37,7 @@ class UiAggregator(Subscriber):
         from tetris.game_logic.rules.core.scoring.track_cleared_lines_rule import ClearedLinesTracker
         from tetris.game_logic.rules.core.scoring.track_score_rule import ScoreTracker
         from tetris.game_logic.rules.core.spawn_drop_merge.spawn import SpawnStrategyImpl
+        from tetris.game_logic.rules.special.powerup import PowerupRule
 
         return (
             isinstance(

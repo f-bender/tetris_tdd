@@ -15,7 +15,8 @@ class SpawnStrategy(Protocol):
     def spawn(self, board: Board) -> None: ...
 
 
-class SpawnStrategyImpl(SpawnStrategy, Publisher):
+# Note: Protocols (like SpawnStrategy) need to go last for MRO reasons
+class SpawnStrategyImpl(Publisher, SpawnStrategy):
     def __init__(self, select_block_fn: Callable[[], Block] = Block.create_random) -> None:
         super().__init__()
 

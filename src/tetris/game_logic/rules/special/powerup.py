@@ -14,7 +14,8 @@ from tetris.game_logic.rules.messages import PowerupTTLsMessage
 _LOGGER = logging.getLogger(__name__)
 
 
-class PowerupRule(Rule, Publisher, SpawnStrategy):
+# Note: Protocols (like Rule and SpawnStrategy) need to go last for MRO reasons
+class PowerupRule(Publisher, Rule, SpawnStrategy):
     _POWERUP_SLOT_OFFSET = Board.MAX_REGULAR_CELL_VALUE + 1
 
     def __init__(
@@ -23,8 +24,8 @@ class PowerupRule(Rule, Publisher, SpawnStrategy):
         *,
         powerup_spawn_probability: float = 0.04,
         # 10-20 seconds at 60 FPS
-        min_ttl_frames: int = 600,
-        max_ttl_frames: int = 1200,
+        min_ttl_frames: int = 450,
+        max_ttl_frames: int = 900,
     ) -> None:
         super().__init__()
         # note: np.uint8 is the dtype used by the board

@@ -26,12 +26,15 @@ class Text:
     text: str
     position: Vec
     alignment: Alignment = Alignment.LEFT
+    color: str | None = None
 
 
 @dataclass(frozen=True)
 class SingleGameUI:
     board_height: int
     board_width: int
+
+    pixel_width: int
 
     _RIGHT_GAP_WIDTH = 2
     _RIGHT_ELEMENTS_WIDTH = 6
@@ -189,7 +192,7 @@ class SingleGameUI:
         texts: list[Text] = []
 
         self._add_lines_display(num_cleared_lines=elements.num_cleared_lines, ui_array=ui_array, texts=texts)
-        self._add_board(board=elements.board, ui_array=ui_array)
+        self._add_board(board=elements.board, ui_array=ui_array, texts=texts)
         self._add_controller_symbol_display(
             controller_symbol=elements.controller_symbol, ui_array=ui_array, texts=texts
         )
@@ -216,9 +219,10 @@ class SingleGameUI:
             )
         )
 
-    def _add_board(self, board: NDArray[np.uint8], ui_array: NDArray[np.uint8]) -> None:
+    def _add_board(self, board: NDArray[np.uint8], ui_array: NDArray[np.uint8], texts: list[Text]) -> None:
         board_in_ui_array = np.where(board, board + ColorPalette.block_color_index_offset() - 1, self.board_background)
 
+        # handle ghost block (indication where block would drop to)
         if Board.GHOST_BLOCK_CELL_VALUE in board:
             # use ghost background color for ghost cells
             board_in_ui_array = np.where(
@@ -227,6 +231,12 @@ class SingleGameUI:
                 + (ColorPalette.board_bg_ghost_index_offset() - ColorPalette.board_bg_index_offset()),
                 board_in_ui_array,
             )
+
+        # handle powerup blocks (custom dynamic color, and with "?" text on top)
+        powerup_positions = np.where((board > Board.MAX_REGULAR_CELL_VALUE) & (board < Board.GHOST_BLOCK_CELL_VALUE))
+        board_in_ui_array[powerup_positions] = ColorPalette.DYNAMIC_POWERUP_INDEX
+        for y, x in zip(*powerup_positions, strict=True):
+            texts.append(Text(text="?" * self.pixel_width, position=self.board_position + Vec(y, x)))
 
         ui_array[
             self.board_position.y : self.board_position.y + self.board_height,
