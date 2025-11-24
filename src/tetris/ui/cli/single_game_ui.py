@@ -1,4 +1,4 @@
-from collections.abc import Iterable
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum, auto
 from functools import cached_property
@@ -31,23 +31,23 @@ class Text:
     alignment: Alignment = Alignment.LEFT
 
 
-class Blink(NamedTuple):
-    n_times: int
-    on_frames: int
+class _Blink(NamedTuple):
     off_frames: int
+    on_frames: int
+    n_times: int
 
 
 def generate_blink_off_frames(
-    blinks: Iterable[Blink] = (Blink(12, 5, 5), Blink(6, 10, 10), Blink(3, 30, 10)),
+    blinks: Sequence[_Blink] = (_Blink(10, 30, n_times=3), _Blink(10, 10, n_times=6), _Blink(5, 5, n_times=12)),
 ) -> frozenset[int]:
     result: set[int] = set()
 
-    # TODO: small refactor (iterators)
-    current_ttl = 0
-    for blink in blinks:
+    current_ttl = 1
+    for blink in reversed(blinks):  # we start at ttl 1 (i.e. last frame) and go backward from there -> last blink first
         for _ in range(blink.n_times):
-            result.update(range(current_ttl + blink.on_frames, current_ttl + blink.on_frames + blink.off_frames))
-            current_ttl += blink.on_frames + blink.off_frames
+            current_ttl += blink.on_frames
+            result.update(range(current_ttl, current_ttl + blink.off_frames))
+            current_ttl += blink.off_frames
 
     return frozenset(result)
 
