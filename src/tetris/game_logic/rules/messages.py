@@ -20,9 +20,8 @@ class Speed(Enum):
     INSTANT = auto()
 
 
-class StartMergeMessage(NamedTuple):
+class MergeMessage(NamedTuple):
     speed: Speed
-    duration: int
 
 
 class FinishedMergeMessage(NamedTuple):

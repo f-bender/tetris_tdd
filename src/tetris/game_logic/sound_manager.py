@@ -16,11 +16,11 @@ from tetris.game_logic.rules.core.move_rotate_rules import MoveRule, RotateRule
 from tetris.game_logic.rules.core.scoring.level_rule import LevelTracker
 from tetris.game_logic.rules.core.spawn_drop_merge.spawn_drop_merge_rule import SpawnDropMergeRule
 from tetris.game_logic.rules.messages import (
+    MergeMessage,
     MoveMessage,
     NewLevelMessage,
     RotateMessage,
     StartingLineClearMessage,
-    StartMergeMessage,
 )
 
 
@@ -142,7 +142,7 @@ class SoundManager(Subscriber, Callback):
             return
 
         match message:
-            case StartMergeMessage():
+            case MergeMessage():
                 self._play_sound(Sound.MERGE)
             case NewLevelMessage(level=level) if level > 0:
                 self._play_sound(Sound.NEXT_LEVEL)
