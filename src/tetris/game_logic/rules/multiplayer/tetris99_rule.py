@@ -12,8 +12,6 @@ from tetris.game_logic.rules.messages import BoardTranslationMessage, FinishedLi
 
 
 class PlaceLinesManipulation:
-    NEUTRAL_BLOCK_INDEX = 8
-
     def __init__(self, num_lines: int) -> None:
         self._num_lines = num_lines
 
@@ -23,7 +21,7 @@ class PlaceLinesManipulation:
         if np.any(board_array[: self._num_lines]):
             raise GameOverError
 
-        row_to_fill_in = np.ones_like(board_array[0]) * self.NEUTRAL_BLOCK_INDEX
+        row_to_fill_in = np.ones_like(board_array[0]) * board.NEUTRAL_BLOCK_INDEX
         row_to_fill_in[random.randrange(len(board_array[0]))] = 0
 
         board_array[: -self._num_lines] = board_array[self._num_lines :]

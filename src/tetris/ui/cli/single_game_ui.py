@@ -266,9 +266,7 @@ class SingleGameUI:
                 texts.append(Text(text="?" * self.pixel_width, position=self.board_position + Vec(y, x)))
 
         # handle powerup blocks (custom dynamic color, and with "?" text on top)
-        powerup_positions = np.where(
-            (board > Board.MAX_REGULAR_CELL_VALUE) & (board < Board.POWERUP_GHOST_BLOCK_CELL_VALUE)
-        )
+        powerup_positions = np.where((board >= Board.MIN_POWERUP_CELL_VALUE) & (board <= Board.MAX_POWERUP_CELL_VALUE))
         for y, x in zip(*powerup_positions, strict=True):
             if powerup_ttls[int(board[y, x])] not in self._POWERUP_TTL_VALUES_BLINKED_OFF:
                 board_in_ui_array[y, x] = ColorPalette.DYNAMIC_POWERUP_INDEX
@@ -277,6 +275,9 @@ class SingleGameUI:
                 board_in_ui_array[y, x] = (
                     (board[y, x] % PowerupRule.POWERUP_SLOT_OFFSET) + ColorPalette.block_color_index_offset() - 1
                 )
+
+        # handle neutral blocks (used in Tetris99 to fill in garbage lines)
+        board_in_ui_array[board == Board.NEUTRAL_BLOCK_INDEX] = ColorPalette.index_of_color("block_neutral")
 
         ui_array[
             self.board_position.y : self.board_position.y + self.board_height,

@@ -33,9 +33,12 @@ class PositionedBlock:
 
 class Board:
     MAX_REGULAR_CELL_VALUE: int = max(bt.value for bt in BlockType)  # 7
+    MIN_POWERUP_CELL_VALUE: int = MAX_REGULAR_CELL_VALUE + 1  # 8
     # in between, slots for powerup values...
-    POWERUP_GHOST_BLOCK_CELL_VALUE: int = np.iinfo(np.uint8).max - 1  # 254
-    GHOST_BLOCK_CELL_VALUE: int = np.iinfo(np.uint8).max  # 255
+    MAX_POWERUP_CELL_VALUE = np.iinfo(np.uint8).max - 3  # 252
+    NEUTRAL_BLOCK_INDEX = np.iinfo(np.uint8).max - 2  # 253
+    POWERUP_GHOST_BLOCK_CELL_VALUE = np.iinfo(np.uint8).max - 1  # 254
+    GHOST_BLOCK_CELL_VALUE = np.iinfo(np.uint8).max  # 255
 
     def __init__(self, board_array: NDArray[np.uint8] | None) -> None:
         self._board: NDArray[np.uint8] = (
