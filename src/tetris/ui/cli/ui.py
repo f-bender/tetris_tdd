@@ -33,10 +33,11 @@ LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(slots=True, frozen=True)
-class DynamicBackgroundConfig:
+class DynamicLayerConfig:
     wavelength_factor: float = 0.35
     propagation_speed_factor: float = 3
     layer_n_mixed: int = 3
+    dynamic_background_probability: float = 0.05
 
     def __post_init__(self) -> None:
         if self.wavelength_factor <= 0 or self.propagation_speed_factor <= 0:
@@ -48,7 +49,7 @@ class DynamicBackgroundConfig:
             raise ValueError(msg)
 
 
-_DEFAULT_DYNAMIC_BACKGROUND_CONFIG = DynamicBackgroundConfig()
+_DEFAULT_DYNAMIC_BACKGROUND_CONFIG = DynamicLayerConfig()
 
 
 class CLI(UI):
@@ -67,7 +68,7 @@ class CLI(UI):
         frame_width: int = 8,  # width of the static frame around and between the single games' UIs, in pixels
         target_aspect_ratio: float = 16 / 9,
         randomize_background_colors_on_levelup: bool = True,
-        dynamic_background_config: DynamicBackgroundConfig | None = _DEFAULT_DYNAMIC_BACKGROUND_CONFIG,
+        dynamic_background_config: DynamicLayerConfig = _DEFAULT_DYNAMIC_BACKGROUND_CONFIG,
         text_fx: str = str(color.fx.bold),
     ) -> None:
         self._last_image_buffer: NDArray[np.uint8] | None = None
@@ -82,18 +83,14 @@ class CLI(UI):
 
         self._dynamic_background_config = dynamic_background_config
 
-        bg_color_type = (
-            BackgroundColorType.random()
-            if self._dynamic_background_config is not None
-            else BackgroundColorType.random(dynamic_probability=0)
+        bg_color_type = BackgroundColorType.random(
+            dynamic_probability=self._dynamic_background_config.dynamic_background_probability
         )
         self._dynamic_background_during_startup = bg_color_type is BackgroundColorType.DYNAMIC
         if not self._dynamic_background_during_startup:
             self._color_palette.randomize_outer_bg_colors(
                 bg_color_type=bg_color_type,
-                dynamic_background_speed_factor=None
-                if self._dynamic_background_config is None
-                else self._dynamic_background_config.propagation_speed_factor,
+                dynamic_background_speed_factor=self._dynamic_background_config.propagation_speed_factor,
             )
 
         self._buffered_print = BufferedPrint()
@@ -139,13 +136,10 @@ class CLI(UI):
         self._initialize_board_ui_offsets(num_boards)
         self._initialize_terminal()
 
-        if self._dynamic_background_config is not None:
-            self._randomize_dynamic_layer()
+        self._dynamic_layer = self._randomized_dynamic_layer()
 
-    def _randomize_dynamic_layer(self) -> None:
-        assert self._dynamic_background_config is not None
-
-        self._dynamic_layer = (
+    def _randomized_dynamic_layer(self) -> NDArray[np.uint32]:
+        return (
             random_layer(
                 size=self.total_size,
                 n_mixed_primitive_layers=self._dynamic_background_config.layer_n_mixed,
@@ -296,7 +290,7 @@ class CLI(UI):
         ).astype(np.uint8)
 
     def draw(self, elements: UiElements) -> None:
-        if self._single_game_ui is None or self._game_ui_offsets is None:
+        if self._single_game_ui is None or self._game_ui_offsets is None or self._dynamic_layer is None:
             msg = "game UI not initialized, likely draw() was called before initialize()!"
             raise RuntimeError(msg)
         if not self._buffered_print.is_active():
@@ -310,10 +304,9 @@ class CLI(UI):
             )
             self._outer_background = np.full(self.total_size, ColorPalette.index_of_color("empty"))
 
-        if self._dynamic_layer is not None:
-            # NOTE: this *could* technically overflow, but it would have to run for 2 years straight (at 60 fps),
-            # and even then it wouldn't break but just look weird for a few seconds
-            self._dynamic_layer += 1
+        # NOTE: this *could* technically overflow, but it would have to run for 2 years straight (at 60 fps),
+        # and even then it wouldn't break but just look weird for a few seconds
+        self._dynamic_layer += 1
 
         self._handle_terminal_size_change()
         self._handle_level_change(elements)
@@ -417,10 +410,8 @@ class CLI(UI):
         assert self._outer_background is not None
 
         dynamic_background_before = np.any(self._outer_background >= ColorPalette.DYNAMIC_BACKGROUND_INDEX_0)
-        bg_color_type = (
-            BackgroundColorType.random()
-            if self._dynamic_background_config is not None
-            else BackgroundColorType.random(dynamic_probability=0)
+        bg_color_type = BackgroundColorType.random(
+            dynamic_probability=self._dynamic_background_config.dynamic_background_probability
         )
 
         if bg_color_type is not BackgroundColorType.DYNAMIC and dynamic_background_before:
@@ -435,7 +426,7 @@ class CLI(UI):
             )
 
         if bg_color_type is BackgroundColorType.DYNAMIC:
-            self._randomize_dynamic_layer()
+            self._dynamic_layer = self._randomized_dynamic_layer()
 
         self._color_palette.randomize_outer_bg_colors(bg_color_type=bg_color_type)
 
@@ -562,7 +553,5 @@ class CLI(UI):
         )
 
     def _get_color_str(self, color_index: int, position: tuple[int, int]) -> str:
-        return self._color_palette.get_color(
-            index=color_index,
-            dynamic_layer_value=int(self._dynamic_layer[position]) if self._dynamic_layer is not None else None,
-        )
+        assert self._dynamic_layer is not None
+        return self._color_palette.get_color(index=color_index, dynamic_layer_value=int(self._dynamic_layer[position]))

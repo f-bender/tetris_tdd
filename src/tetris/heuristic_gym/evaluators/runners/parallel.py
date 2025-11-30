@@ -8,7 +8,7 @@ from tetris.controllers.heuristic_bot.controller import HeuristicBotController
 from tetris.game_logic.game import Game, GameOverError
 from tetris.game_logic.interfaces.controller import Controller
 from tetris.game_logic.interfaces.ui import UI, UiElements
-from tetris.ui.cli.ui import CLI
+from tetris.ui.cli.ui import CLI, DynamicLayerConfig
 
 
 class ParallelRunner:
@@ -40,7 +40,10 @@ class ParallelRunner:
         if ui_class is None:
             self._ui: UI | None = None
         elif ui_class is CLI:
-            self._ui = CLI(randomize_background_colors_on_levelup=False, dynamic_background_config=None)
+            self._ui = CLI(
+                randomize_background_colors_on_levelup=False,
+                dynamic_background_config=DynamicLayerConfig(dynamic_background_probability=0),
+            )
         else:
             self._ui = ui_class()
 
