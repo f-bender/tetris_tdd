@@ -104,7 +104,7 @@ class HeuristicBotController(Controller, Subscriber):
         self._ensure_consistent_behaviour = ensure_consistent_behaviour
 
         if not self._lightning_mode:
-            Thread(target=self._continuously_plan, daemon=True).start()
+            Thread(target=self._continuously_plan_recovering_from_exceptions, daemon=True).start()
 
     @property
     def symbol(self) -> str:
@@ -203,6 +203,15 @@ class HeuristicBotController(Controller, Subscriber):
             # scratch
             self._current_plan = self._next_plan = None
             LOGGER.debug("Need to completely replan as the board is not as expected for the plan")
+
+    def _continuously_plan_recovering_from_exceptions(self) -> None:
+        while True:
+            try:
+                self._continuously_plan()
+            except Exception as e:
+                LOGGER.exception(
+                    "Exception in planning thread of HeuristicBotController; restarting planning", exc_info=e
+                )
 
     def _continuously_plan(self) -> None:
         while self._current_block is None or self._next_block is None:
