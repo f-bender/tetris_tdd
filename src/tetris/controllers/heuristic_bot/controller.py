@@ -466,7 +466,9 @@ class HeuristicBotController(Controller, Subscriber):
         block_actual_cells = positioned_block.block.actual_cells
         block_actual_position = positioned_block.actual_bounding_box.top_left
         positioned_block_lower_bound = (
-            block_actual_position.y + block_actual_cells.shape[0] - np.argmax(np.flipud(block_actual_cells), axis=0)
+            block_actual_position.y
+            + block_actual_cells.shape[0]
+            - np.argmax(np.flipud(block_actual_cells.view(bool)), axis=0)
         )
 
         # using view() instead of astype() is an optimization that assumes that the int type of the board is 8 bit wide!
@@ -544,5 +546,5 @@ class HeuristicBotController(Controller, Subscriber):
         """
         return Misalignment(
             x=block_2.position.x - block_1.position.x,
-            rotation=not np.array_equal(block_2.block.cells, block_1.block.cells),
+            rotation=not np.array_equal(block_2.block.cells.view(bool), block_1.block.cells.view(bool)),
         )
