@@ -23,15 +23,15 @@ class ClearFullLines(Callback, Publisher, Subscriber, GradualBoardManipulation):
         else:
             self._subscribers.append(subscriber)
 
+    @override
+    def done_already(self) -> bool:
+        return not self._full_lines
+
+    @override
     def manipulate_gradually(self, board: Board, current_frame: int, total_frames: int) -> None:
         assert not board.has_active_block(), "manipulate_gradually was called with an active block on the board!"
 
         if current_frame == 0:
-            assert self._full_lines is None, (
-                "manipulate_gradually was called with current_frame = 0 without the preceding manipulation having been "
-                "finished (through a call with current_frame = total_frames - 1)!"
-            )
-
             self._full_lines = board.get_full_line_idxs()
             if self._full_lines:
                 self.notify_subscribers(

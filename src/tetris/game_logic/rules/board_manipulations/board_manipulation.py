@@ -14,6 +14,9 @@ class GradualBoardManipulation(ABC):
             total_frames: The total number of frames to apply the manipulation over.
         """
 
+    def done_already(self) -> bool:
+        return False
+
 
 class BoardManipulation(GradualBoardManipulation):
     def manipulate_gradually(self, board: Board, current_frame: int, total_frames: int) -> None:
@@ -22,3 +25,6 @@ class BoardManipulation(GradualBoardManipulation):
 
     @abstractmethod
     def manipulate(self, board: Board) -> None: ...
+
+    def done_already(self) -> bool:
+        return True

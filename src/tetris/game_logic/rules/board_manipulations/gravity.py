@@ -1,18 +1,21 @@
 import logging
 import random
+from typing import override
 
 import numpy as np
 from numpy.typing import NDArray
 
 from tetris.game_logic.components.board import Board
+from tetris.game_logic.rules.board_manipulations.board_manipulation import BoardManipulation
 
 LOGGER = logging.getLogger(__name__)
 
 
-class Gravity:
+class Gravity(BoardManipulation):
     def __init__(self, per_col_probability: float = 1) -> None:
         self._per_col_probability = per_col_probability
 
+    @override
     def manipulate(self, board: Board) -> None:
         if board.has_active_block():
             LOGGER.warning("Gravity application while there is an active block is not supported!")

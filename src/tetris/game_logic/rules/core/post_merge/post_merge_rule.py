@@ -7,8 +7,10 @@ from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.game_logic.interfaces.rule import Rule
 from tetris.game_logic.rules.board_manipulations.board_manipulation import GradualBoardManipulation
 from tetris.game_logic.rules.board_manipulations.clear_lines import ClearFullLines
+from tetris.game_logic.rules.board_manipulations.gravity import Gravity
 from tetris.game_logic.rules.core.drop_merge.drop_merge_rule import DropMergeRule
-from tetris.game_logic.rules.messages import MergeMessage, PostMergeFinishedMessage
+from tetris.game_logic.rules.messages import GravityEffectTrigger, MergeMessage, PostMergeFinishedMessage
+from tetris.game_logic.rules.special.powerup_effect import GravityEffect
 
 
 class PostMergeRule(Publisher, Subscriber, Rule):
@@ -17,6 +19,7 @@ class PostMergeRule(Publisher, Subscriber, Rule):
 
         self._effect_duration_frames = effect_duration_frames
         self._effect_start_frame: int | None = None
+        self._post_merge_start_frame: int | None = None
 
         self._effect_queue = queue.Queue[GradualBoardManipulation]()
         self._current_effect: GradualBoardManipulation | None = None
@@ -27,6 +30,7 @@ class PostMergeRule(Publisher, Subscriber, Rule):
         if self._current_effect is None:
             return
 
+        self._post_merge_start_frame = self._post_merge_start_frame or frame_counter
         self._effect_start_frame = self._effect_start_frame or frame_counter
 
         effect_frame = frame_counter - self._effect_start_frame
@@ -34,26 +38,33 @@ class PostMergeRule(Publisher, Subscriber, Rule):
             board, current_frame=effect_frame, total_frames=self._effect_duration_frames
         )
 
-        if effect_frame >= self._effect_duration_frames - 1:
+        if effect_frame >= self._effect_duration_frames - 1 or (
+            self._current_effect.done_already()
+            and frame_counter - self._post_merge_start_frame >= self._effect_duration_frames
+        ):
             self._effect_start_frame = None
 
             if self._effect_queue.empty():
-                self._current_effect = None
+                self._current_effect = self._post_merge_start_frame = None
                 self.notify_subscribers(PostMergeFinishedMessage())
             else:
                 self._current_effect = self._effect_queue.get()
 
     @override
     def should_be_subscribed_to(self, publisher: Publisher) -> bool:
-        return isinstance(publisher, DropMergeRule) and publisher.game_index == self.game_index
+        return isinstance(publisher, DropMergeRule | GravityEffect) and publisher.game_index == self.game_index
 
     @override
     def notify(self, message: NamedTuple) -> None:
-        if isinstance(message, MergeMessage):
-            self._current_effect = self._line_clear_effect
-
-        # TODO: watch for powerup rule message which says to apply e.g. gravity
-        # (and in that case, enqueue gravity + line clear)
+        match message:
+            case MergeMessage():
+                self._current_effect = self._line_clear_effect
+            case GravityEffectTrigger(per_col_probability=per_col_probability):
+                self._effect_queue.put(Gravity(per_col_probability=per_col_probability))
+                self._effect_queue.put(self._line_clear_effect)
+            case _:
+                msg = f"Unexpected message type {type(message)} received by {type(self).__name__}"
+                raise RuntimeError(msg)
 
     @override
     def verify_subscriptions(self, publishers: list[Publisher]) -> None:

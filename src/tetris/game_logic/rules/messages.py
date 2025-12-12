@@ -88,3 +88,7 @@ class PowerupTTLsMessage(NamedTuple):
 
 class PostMergeFinishedMessage(NamedTuple):
     pass
+
+
+class GravityEffectTrigger(NamedTuple):
+    per_col_probability: float = 1

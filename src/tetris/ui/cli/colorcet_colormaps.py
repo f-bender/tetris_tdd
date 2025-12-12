@@ -38,7 +38,9 @@ assert _CYCLIC_COLORCET_COLORMAPS, (
 
 _BAD_COLORMAPS = {
     "circle_mgbm_67_c31_s25",  # too little contrast; too soft
-    "CET_C10_r",  # too little contrast; too soft
+    "circle_mgbm_67_c31_s25_r",
+    "CET_C10",  # too little contrast; too soft
+    "CET_C10_r",
 }
 
 
