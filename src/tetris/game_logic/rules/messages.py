@@ -84,3 +84,7 @@ class ScoreMessage(NamedTuple):
 
 class PowerupTTLsMessage(NamedTuple):
     powerup_ttls: dict[int, int]  # mapping from powerup ID to TTL in frames
+
+
+class PostMergeFinishedMessage(NamedTuple):
+    pass

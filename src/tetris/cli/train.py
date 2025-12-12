@@ -7,7 +7,7 @@ import click
 
 from tetris.cli.common import HeuristicParam, evaluator_options, genetic_algorithm_options
 from tetris.controllers.heuristic_bot.heuristic import Heuristic, mutated_heuristic
-from tetris.game_logic.rules.core.spawn_drop_merge.spawn import SpawnStrategyImpl
+from tetris.game_logic.rules.core.spawn.spawn import SpawnRule
 from tetris.genetic_algorithm import GeneticAlgorithm
 from tetris.heuristic_gym.evaluators.evaluator import EvaluatorImpl
 from tetris.heuristic_gym.heuristic_gym import HeuristicGym
@@ -109,7 +109,7 @@ def from_checkpoint(  # noqa: PLR0913
         kwargs_to_overwrite.setdefault("evaluator_config", {})["max_evaluation_frames"] = max_frames
     if block_selection:
         kwargs_to_overwrite.setdefault("evaluator_config", {})["block_selection_fn_from_seed"] = getattr(
-            SpawnStrategyImpl, f"{block_selection}_selection_fn"
+            SpawnRule, f"{block_selection}_selection_fn"
         )
 
     if mutation_rate:

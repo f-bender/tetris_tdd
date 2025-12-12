@@ -36,13 +36,13 @@ class UiAggregator(Subscriber):
         from tetris.game_logic.rules.core.scoring.level_rule import LevelTracker
         from tetris.game_logic.rules.core.scoring.track_cleared_lines_rule import ClearedLinesTracker
         from tetris.game_logic.rules.core.scoring.track_score_rule import ScoreTracker
-        from tetris.game_logic.rules.core.spawn_drop_merge.spawn import SpawnStrategyImpl
+        from tetris.game_logic.rules.core.spawn.spawn import SpawnRule
         from tetris.game_logic.rules.special.powerup import PowerupRule
 
         return (
             isinstance(
                 publisher,
-                ClearedLinesTracker | SpawnStrategyImpl | ClearFullLines | ScoreTracker | LevelTracker | PowerupRule,
+                ClearedLinesTracker | SpawnRule | ClearFullLines | ScoreTracker | LevelTracker | PowerupRule,
             )
             and publisher.game_index == self.game_index
         )
@@ -50,7 +50,7 @@ class UiAggregator(Subscriber):
     def verify_subscriptions(self, publishers: list[Publisher]) -> None:
         from tetris.game_logic.rules.core.scoring.track_cleared_lines_rule import ClearedLinesTracker
         from tetris.game_logic.rules.core.scoring.track_score_rule import ScoreTracker
-        from tetris.game_logic.rules.core.spawn_drop_merge.spawn import SpawnStrategyImpl
+        from tetris.game_logic.rules.core.spawn.spawn import SpawnRule
 
         if not any(isinstance(publisher, ClearedLinesTracker) for publisher in publishers):
             msg = f"{type(self).__name__} of game {self.game_index} has no subscription to ClearedLinesTracker."
@@ -60,8 +60,8 @@ class UiAggregator(Subscriber):
             msg = f"{type(self).__name__} of game {self.game_index} has no subscription to ScoreTracker."
             raise RuntimeError(msg)
 
-        if not any(isinstance(publisher, SpawnStrategyImpl) for publisher in publishers):
-            msg = f"{type(self).__name__} of game {self.game_index} has no subscription to SpawnStrategyImpl."
+        if not any(isinstance(publisher, SpawnRule) for publisher in publishers):
+            msg = f"{type(self).__name__} of game {self.game_index} has no subscription to SpawnRule."
             raise RuntimeError(msg)
 
     def notify(self, message: NamedTuple) -> None:

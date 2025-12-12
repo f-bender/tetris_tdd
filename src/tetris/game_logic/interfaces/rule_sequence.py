@@ -24,6 +24,8 @@ class RuleSequence:
     @classmethod
     def standard(cls) -> "RuleSequence":
         # Avoid circular import
-        from tetris.game_logic.rules.core.spawn_drop_merge.spawn_drop_merge_rule import SpawnDropMergeRule
+        from tetris.game_logic.rules.core.drop_merge.drop_merge_rule import DropMergeRule
+        from tetris.game_logic.rules.core.post_merge.post_merge_rule import PostMergeRule
+        from tetris.game_logic.rules.core.spawn.spawn import SpawnRule
 
-        return cls((MoveRule(), RotateRule(), SpawnDropMergeRule()))
+        return cls((MoveRule(), RotateRule(), SpawnRule(), DropMergeRule(), PostMergeRule()))

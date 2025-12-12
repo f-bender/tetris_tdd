@@ -6,7 +6,7 @@ from tetris.game_logic.interfaces.controller import Action
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.game_logic.rules.board_manipulations.board_manipulation import BoardManipulation
 from tetris.game_logic.rules.board_manipulations.gravity import Gravity
-from tetris.game_logic.rules.core.spawn_drop_merge.spawn_drop_merge_rule import SpawnDropMergeRule
+from tetris.game_logic.rules.core.drop_merge.drop_merge_rule import DropMergeRule
 from tetris.game_logic.rules.messages import MergeMessage, Speed
 
 
@@ -22,7 +22,7 @@ class ParryRule(Subscriber):
         self._already_applied = False
 
     def should_be_subscribed_to(self, publisher: Publisher) -> bool:
-        return isinstance(publisher, SpawnDropMergeRule) and publisher.game_index == self.game_index
+        return isinstance(publisher, DropMergeRule) and publisher.game_index == self.game_index
 
     def verify_subscriptions(self, publishers: list[Publisher]) -> None:
         if len(publishers) != 1:

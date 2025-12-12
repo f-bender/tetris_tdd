@@ -2,7 +2,7 @@ import contextlib
 import random
 from collections.abc import Callable, Collection
 from concurrent.futures import ProcessPoolExecutor
-from typing import TYPE_CHECKING, Literal, cast
+from typing import TYPE_CHECKING, Literal
 
 import click
 
@@ -20,13 +20,14 @@ from tetris.game_logic.interfaces.dependency_manager import DEPENDENCY_MANAGER, 
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.game_logic.interfaces.rule_sequence import RuleSequence
 from tetris.game_logic.interfaces.runtime_rule_sequence import RuntimeRuleSequence
+from tetris.game_logic.rules.core.drop_merge.drop_merge_rule import DropMergeRule
 from tetris.game_logic.rules.core.move_rotate_rules import MoveRule, RotateRule
+from tetris.game_logic.rules.core.post_merge.post_merge_rule import PostMergeRule
 from tetris.game_logic.rules.core.scoring.level_rule import LevelTracker
 from tetris.game_logic.rules.core.scoring.track_cleared_lines_rule import ClearedLinesTracker
 from tetris.game_logic.rules.core.scoring.track_score_rule import ScoreTracker
-from tetris.game_logic.rules.core.spawn_drop_merge.spawn import SpawnStrategy, SpawnStrategyImpl
-from tetris.game_logic.rules.core.spawn_drop_merge.spawn_drop_merge_rule import SpawnDropMergeRule
-from tetris.game_logic.rules.core.spawn_drop_merge.synchronized_spawn import SynchronizedSpawning
+from tetris.game_logic.rules.core.spawn.spawn import SpawnRule
+from tetris.game_logic.rules.core.spawn.synchronized_spawn import SynchronizedSpawning
 from tetris.game_logic.rules.monitoring.track_performance_rule import TrackPerformanceCallback
 from tetris.game_logic.rules.multiplayer.tetris99_rule import Tetris99Rule
 from tetris.game_logic.rules.runtime.sound_toggle import SoundToggleRule
@@ -227,7 +228,7 @@ def play(  # noqa: PLR0913
     any_bots = any(isinstance(controller, HeuristicBotController | BotAssistedController) for controller in controllers)
 
     seeds = _create_seeds(seed_parameters=seed, num_games=len(boards))
-    block_selection_fns = [getattr(SpawnStrategyImpl, f"{block_selection}_selection_fn")(seed) for seed in seeds]
+    block_selection_fns = [getattr(SpawnRule, f"{block_selection}_selection_fn")(seed) for seed in seeds]
 
     # note: max_workers defaults to number of processors
     with ProcessPoolExecutor() if process_pool and any_bots else contextlib.nullcontext() as process_pool_or_none:
@@ -473,16 +474,12 @@ def _create_rules_and_callbacks(
     Returns:
         A RuleSequence to be passed to the Game.
     """
-    rules: list[Rule] = [MoveRule(), RotateRule()]
-
     synchronize_spawning = synchronize_spawning and num_games > 1
 
-    spawn_strategy: SpawnStrategy = SpawnStrategyImpl(block_selection_fn)
-    if powerups:
-        spawn_strategy = PowerupRule(inner_spawn_strategy=spawn_strategy)
-        rules.append(cast("Rule", spawn_strategy))  # PowerupRule is also a Rule
+    rules: list[Rule] = [MoveRule(), RotateRule(), DropMergeRule(), PostMergeRule(), SpawnRule(block_selection_fn)]
 
-    rules.append(SpawnDropMergeRule(spawn_strategy=spawn_strategy, synchronized_spawn=synchronize_spawning))
+    if powerups:
+        rules.append(PowerupRule())
 
     if create_tetris_99_rule and num_games > 1:
         rules.append(Tetris99Rule(target_idxs=list(set(range(num_games)) - {DEPENDENCY_MANAGER.current_game_index})))

@@ -15,8 +15,8 @@ from tetris.game_logic.components.board import Board, PositionedBlock
 from tetris.game_logic.components.exceptions import CannotDropBlockError
 from tetris.game_logic.interfaces.controller import Action, Controller
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
-from tetris.game_logic.rules.core.spawn_drop_merge.spawn import SpawnStrategyImpl
-from tetris.game_logic.rules.core.spawn_drop_merge.spawn_drop_merge_rule import SpawnDropMergeRule
+from tetris.game_logic.rules.core.drop_merge.drop_merge_rule import DropMergeRule
+from tetris.game_logic.rules.core.spawn.spawn import SpawnRule
 from tetris.game_logic.rules.messages import SpawnMessage
 
 LOGGER = logging.getLogger(__name__)
@@ -135,7 +135,7 @@ class HeuristicBotController(Controller, Subscriber):
         self._process_pool = process_pool
 
     def should_be_subscribed_to(self, publisher: Publisher) -> bool:
-        return isinstance(publisher, SpawnStrategyImpl) and publisher.game_index == self.game_index
+        return isinstance(publisher, SpawnRule) and publisher.game_index == self.game_index
 
     def verify_subscriptions(self, publishers: list[Publisher]) -> None:
         if len(publishers) != 1:
@@ -510,7 +510,7 @@ class HeuristicBotController(Controller, Subscriber):
         if self._ready_for_instand_drop_and_merge:
             # lightning mode has set up the block for us, so we can instantly drop and merge it
             self._ready_for_instand_drop_and_merge = False
-            return SpawnDropMergeRule.INSTANT_DROP_AND_MERGE_ACTION
+            return DropMergeRule.INSTANT_DROP_AND_MERGE_ACTION
 
         if self._current_plan is None or self._real_board.active_block is None:
             self._active_frame = True
@@ -527,7 +527,7 @@ class HeuristicBotController(Controller, Subscriber):
             # only quickdrop if we have already computed the next plan; otherwise we want to buy some time for the next
             # plan to be computed (i.e. slow drop)
             return (
-                SpawnDropMergeRule.INSTANT_DROP_AND_MERGE_ACTION
+                DropMergeRule.INSTANT_DROP_AND_MERGE_ACTION
                 if self._next_plan is not None or self._lightning_mode
                 else Action()
             )

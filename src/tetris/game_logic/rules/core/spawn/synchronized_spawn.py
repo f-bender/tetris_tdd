@@ -21,9 +21,9 @@ class SynchronizedSpawning(Publisher, Subscriber, Callback):
         self._game_indices_waiting_for_spawn: set[int] = set()
 
     def should_be_subscribed_to(self, publisher: Publisher) -> bool:
-        from tetris.game_logic.rules.core.spawn_drop_merge.spawn_drop_merge_rule import SpawnDropMergeRule
+        from tetris.game_logic.rules.core.drop_merge.drop_merge_rule import DropMergeRule
 
-        if isinstance(publisher, SpawnDropMergeRule) and publisher.game_index == self.game_index:
+        if isinstance(publisher, DropMergeRule) and publisher.game_index == self.game_index:
             return True
 
         if isinstance(publisher, SynchronizedSpawning) and publisher.game_index != self.game_index:

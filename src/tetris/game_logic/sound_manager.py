@@ -12,9 +12,9 @@ from tetris.game_logic.interfaces.audio_output import AudioOutput
 from tetris.game_logic.interfaces.callback import Callback
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.game_logic.rules.board_manipulations.clear_lines import ClearFullLines
+from tetris.game_logic.rules.core.drop_merge.drop_merge_rule import DropMergeRule
 from tetris.game_logic.rules.core.move_rotate_rules import MoveRule, RotateRule
 from tetris.game_logic.rules.core.scoring.level_rule import LevelTracker
-from tetris.game_logic.rules.core.spawn_drop_merge.spawn_drop_merge_rule import SpawnDropMergeRule
 from tetris.game_logic.rules.messages import (
     MergeMessage,
     MoveMessage,
@@ -133,7 +133,7 @@ class SoundManager(Subscriber, Callback):
                 self._audio_output.play_once(sound_file, volume=volume)
 
     def should_be_subscribed_to(self, publisher: Publisher) -> bool:
-        return isinstance(publisher, SpawnDropMergeRule | ClearFullLines | RotateRule | MoveRule | LevelTracker) and (
+        return isinstance(publisher, DropMergeRule | ClearFullLines | RotateRule | MoveRule | LevelTracker) and (
             self._game_indices is None or publisher.game_index in self._game_indices
         )
 

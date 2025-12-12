@@ -3,16 +3,14 @@ from tetris.game_logic.components.board import Board
 from tetris.game_logic.components.exceptions import CannotDropBlockError
 from tetris.game_logic.interfaces.callback import Callback
 from tetris.game_logic.interfaces.controller import Action
-from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
-from tetris.game_logic.rules.core.spawn_drop_merge.drop import DropStrategy, DropStrategyImpl
-from tetris.game_logic.rules.core.spawn_drop_merge.merge import MergeStrategy, MergeStrategyImpl
-from tetris.game_logic.rules.core.spawn_drop_merge.speed import LevelSpeedUp, SpeedStrategy
+from tetris.game_logic.interfaces.pub_sub import Publisher
+from tetris.game_logic.rules.core.drop_merge.drop import DropStrategy, DropStrategyImpl
+from tetris.game_logic.rules.core.drop_merge.merge import MergeStrategy, MergeStrategyImpl
+from tetris.game_logic.rules.core.drop_merge.speed import LevelSpeedUp, SpeedStrategy
 from tetris.game_logic.rules.messages import MergeMessage, Speed
 
-# TODO: add all the spawn and post-merge logic that I have removed via new separate rules
 
-
-class SpawnDropMergeRule(Callback, Publisher, Subscriber):
+class DropMergeRule(Callback, Publisher):
     INSTANT_DROP_AND_MERGE_ACTION = Action(down=True, confirm=True)
     QUICK_DROP_ACTION = Action(down=True)
 
@@ -23,7 +21,7 @@ class SpawnDropMergeRule(Callback, Publisher, Subscriber):
         merge_strategy: MergeStrategy | None = None,
         speed_strategy: SpeedStrategy | None = None,
     ) -> None:
-        """Initialize the DropRule.
+        """Initialize the DropMergeRule.
 
         Args:
             merge_delay: Number of frames after a block is merged, before the next block may be spawned.

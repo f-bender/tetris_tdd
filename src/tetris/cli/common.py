@@ -5,7 +5,7 @@ from typing import Any
 import click
 
 from tetris.controllers.heuristic_bot.heuristic import Heuristic, mutated_heuristic
-from tetris.game_logic.rules.core.spawn_drop_merge.spawn import SpawnStrategyImpl
+from tetris.game_logic.rules.core.spawn.spawn import SpawnRule
 from tetris.genetic_algorithm import GeneticAlgorithm
 from tetris.heuristic_gym.evaluators.evaluator import EvaluatorImpl
 from tetris.heuristic_gym.evaluators.runners.parallel import ParallelRunner
@@ -88,7 +88,7 @@ def evaluator_options(*, default_none: bool = False, assemble_object: bool = Tru
                     evaluator=EvaluatorImpl(
                         board_size=board_size,
                         max_evaluation_frames=max_frames,
-                        block_selection_fn_from_seed=getattr(SpawnStrategyImpl, f"{block_selection}_selection_fn"),
+                        block_selection_fn_from_seed=getattr(SpawnRule, f"{block_selection}_selection_fn"),
                         runner=ParallelRunner() if runner_type == "parallel" else SynchronousRunner(),
                     ),
                     **kwargs,

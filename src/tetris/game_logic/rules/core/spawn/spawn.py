@@ -1,27 +1,28 @@
 import random
 from collections.abc import Callable, Iterator
 from functools import partial
-from typing import Protocol, override
+from typing import NamedTuple, override
 
+from tetris.game_logic.action_counter import ActionCounter
 from tetris.game_logic.components.block import Block, BlockType
 from tetris.game_logic.components.board import Board
 from tetris.game_logic.components.exceptions import CannotSpawnBlockError
 from tetris.game_logic.game import GameOverError
-from tetris.game_logic.interfaces.pub_sub import Publisher
-from tetris.game_logic.rules.messages import SpawnMessage
+from tetris.game_logic.interfaces.callback import Callback
+from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
+from tetris.game_logic.interfaces.rule import Rule
+from tetris.game_logic.rules.core.post_merge.post_merge_rule import PostMergeRule
+from tetris.game_logic.rules.messages import PostMergeFinishedMessage, SpawnMessage
 
 
-class SpawnStrategy(Protocol):
-    def spawn(self, board: Board) -> None: ...
-
-
-# Note: Protocols (like SpawnStrategy) need to go last for MRO reasons
-class SpawnStrategyImpl(Publisher, SpawnStrategy):
+class SpawnRule(Publisher, Subscriber, Callback, Rule):
     def __init__(self, select_block_fn: Callable[[], Block] = Block.create_random) -> None:
         super().__init__()
 
         self._select_block_fn = select_block_fn
         self._next_block = self._select_block_fn()
+
+        self._should_spawn = True
 
     @property
     def select_block_fn(self) -> Callable[[], Block]:
@@ -33,7 +34,34 @@ class SpawnStrategyImpl(Publisher, SpawnStrategy):
         self._next_block = self._select_block_fn()
 
     @override
-    def spawn(self, board: Board) -> None:
+    def should_be_called_by(self, game_index: int) -> bool:
+        return game_index == self.game_index
+
+    @override
+    def on_game_start(self) -> None:
+        self._should_spawn = True
+
+    @override
+    def should_be_subscribed_to(self, publisher: Publisher) -> bool:
+        return isinstance(publisher, PostMergeRule) and publisher.game_index == self.game_index
+
+    @override
+    def verify_subscriptions(self, publishers: list[Publisher]) -> None:
+        if not any(isinstance(p, PostMergeRule) for p in publishers):
+            msg = f"{type(self).__name__} of game {self.game_index} is not subscribed to a PostMergeRule: {publishers}"
+            raise RuntimeError(msg)
+
+    @override
+    def notify(self, message: NamedTuple) -> None:
+        if isinstance(message, PostMergeFinishedMessage):
+            self._should_spawn = True
+
+    @override
+    def apply(self, frame_counter: int, action_counter: ActionCounter, board: Board) -> None:
+        if not self._should_spawn:
+            return
+        self._should_spawn = False
+
         try:
             board.spawn(self._next_block)
         except CannotSpawnBlockError as e:
@@ -45,7 +73,7 @@ class SpawnStrategyImpl(Publisher, SpawnStrategy):
         self._next_block = next_block
 
     @classmethod
-    def from_shuffled_bag(cls, seed: int | None = None, bag: list[BlockType] | None = None) -> "SpawnStrategyImpl":
+    def from_shuffled_bag(cls, seed: int | None = None, bag: list[BlockType] | None = None) -> "SpawnRule":
         return cls(select_block_fn=cls.from_shuffled_bag_selection_fn(seed=seed, bag=bag))
 
     @staticmethod
@@ -66,7 +94,7 @@ class SpawnStrategyImpl(Publisher, SpawnStrategy):
         return lambda: next(block_iterator)
 
     @classmethod
-    def truly_random(cls, seed: int | None = None) -> "SpawnStrategyImpl":
+    def truly_random(cls, seed: int | None = None) -> "SpawnRule":
         return cls(select_block_fn=cls.truly_random_selection_fn(seed))
 
     @staticmethod

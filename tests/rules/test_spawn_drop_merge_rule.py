@@ -1,11 +1,11 @@
 from unittest.mock import Mock
 
-from tetris.game_logic.rules.core.spawn_drop_merge.spawn_drop_merge_rule import SpawnDropMergeRule
-from tetris.game_logic.rules.core.spawn_drop_merge.speed import SpeedStrategyImpl
+from tetris.game_logic.rules.core.drop_merge.drop_merge_rule import DropMergeRule
+from tetris.game_logic.rules.core.drop_merge.speed import SpeedStrategyImpl
 
 
 def test_drop_triggered_on_correct_frames() -> None:
-    drop_rule = SpawnDropMergeRule(speed_strategy=SpeedStrategyImpl(base_interval=6, quick_interval_factor=2))
+    drop_rule = DropMergeRule(speed_strategy=SpeedStrategyImpl(base_interval=6, quick_interval_factor=2))
 
     # fmt: off
     assert_whether_drop_triggered_after(drop_rule, frame_counter= 0, quick_drop_held_since= 0, should_trigger=False)
@@ -53,7 +53,7 @@ def test_drop_triggered_on_correct_frames() -> None:
 
 
 def assert_whether_drop_triggered_after(
-    drop_rule: SpawnDropMergeRule,
+    drop_rule: DropMergeRule,
     *,
     frame_counter: int,
     quick_drop_held_since: int,
@@ -63,7 +63,7 @@ def assert_whether_drop_triggered_after(
     drop_rule.apply(
         frame_counter=frame_counter,
         action_counter=Mock(
-            held_since=lambda action: quick_drop_held_since if action == SpawnDropMergeRule.QUICK_DROP_ACTION else 0
+            held_since=lambda action: quick_drop_held_since if action == DropMergeRule.QUICK_DROP_ACTION else 0
         ),
         board=mock_board,
     )

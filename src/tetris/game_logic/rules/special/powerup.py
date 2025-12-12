@@ -1,27 +1,26 @@
 import logging
 import random
-from typing import override
+from typing import NamedTuple, override
 
 import numpy as np
 
 from tetris.game_logic.action_counter import ActionCounter
 from tetris.game_logic.components.board import Board
 from tetris.game_logic.interfaces.callback import Callback
-from tetris.game_logic.interfaces.pub_sub import Publisher
+from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.game_logic.interfaces.rule import Rule
-from tetris.game_logic.rules.core.spawn_drop_merge.spawn import SpawnStrategy, SpawnStrategyImpl
-from tetris.game_logic.rules.messages import PowerupTTLsMessage
+from tetris.game_logic.rules.core.spawn.spawn import SpawnRule
+from tetris.game_logic.rules.messages import PowerupTTLsMessage, SpawnMessage
 
 _LOGGER = logging.getLogger(__name__)
 
 
-# Note: Protocols (like Rule and SpawnStrategy) need to go last for MRO reasons
-class PowerupRule(Publisher, Callback, Rule, SpawnStrategy):
+# Note: Protocols (like Rule) need to go last for MRO reasons
+class PowerupRule(Publisher, Subscriber, Callback, Rule):
     POWERUP_SLOT_OFFSET = Board.MAX_REGULAR_CELL_VALUE + 1
 
     def __init__(
         self,
-        inner_spawn_strategy: SpawnStrategy | None = None,
         *,
         powerup_spawn_probability: float = 0.04,
         # 10-20 seconds at 60 FPS
@@ -31,15 +30,20 @@ class PowerupRule(Publisher, Callback, Rule, SpawnStrategy):
         super().__init__()
         # note: np.uint8 is the dtype used by the board
         self._powerup_ttls = np.zeros(np.iinfo(np.uint8).max + 1, dtype=np.uint16)
-        self._spawn_strategy = inner_spawn_strategy or SpawnStrategyImpl()
         self._powerup_spawn_probability = powerup_spawn_probability
 
         self._min_ttl_frames = min_ttl_frames
         self._max_ttl_frames = max_ttl_frames
 
+        self._should_spawn = False
+
     @override
     def apply(self, frame_counter: int, action_counter: ActionCounter, board: Board) -> None:
         """Decrease the TTL of all power-ups by 1. Remove power-ups with TTL 0."""
+        if self._should_spawn:
+            self._should_spawn = False
+            self._spawn_powerup(board)
+
         powerups_before = self._powerup_ttls > 0
         self._powerup_ttls[powerups_before] -= 1
         powerups_after = self._powerup_ttls > 0
@@ -62,8 +66,21 @@ class PowerupRule(Publisher, Callback, Rule, SpawnStrategy):
             active_block_cells[np.isin(active_block_cells, just_decayed_powerups)] %= self.POWERUP_SLOT_OFFSET
 
     @override
-    def spawn(self, board: Board) -> None:
-        self._spawn_strategy.spawn(board)
+    def should_be_subscribed_to(self, publisher: Publisher) -> bool:
+        return isinstance(publisher, SpawnRule) and publisher.game_index == self.game_index
+
+    @override
+    def verify_subscriptions(self, publishers: list[Publisher]) -> None:
+        if not any(isinstance(p, SpawnRule) for p in publishers):
+            msg = f"{type(self).__name__} of game {self.game_index} is not subscribed to a SpawnRule: {publishers}"
+            raise RuntimeError(msg)
+
+    @override
+    def notify(self, message: NamedTuple) -> None:
+        if isinstance(message, SpawnMessage):
+            self._should_spawn = True
+
+    def _spawn_powerup(self, board: Board) -> None:
         if random.random() > self._powerup_spawn_probability:
             return
 
