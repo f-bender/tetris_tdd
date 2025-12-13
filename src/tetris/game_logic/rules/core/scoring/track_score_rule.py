@@ -63,5 +63,11 @@ class ScoreTracker(Callback, Publisher, Subscriber):
 
         Formula taken from https://tetris.fandom.com/wiki/Scoring.
         """
-        base_points = {1: 40, 2: 100, 3: 300, 4: 1200}
-        return base_points.get(num_cleared_lines, 0) * (level + 1)
+        base_points_by_lines = {1: 40, 2: 100, 3: 300, 4: 1200}
+        if num_cleared_lines in base_points_by_lines:
+            base_points = base_points_by_lines[num_cleared_lines]
+        else:
+            # more than 4 lines (e.g. through a powerup) -> double the points for each additional line
+            base_points = base_points_by_lines[4] * 2 ** (num_cleared_lines - 4)
+
+        return base_points * (level + 1)
