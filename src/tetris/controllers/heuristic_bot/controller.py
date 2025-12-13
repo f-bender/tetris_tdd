@@ -193,8 +193,8 @@ class HeuristicBotController(Controller, Subscriber):
         If this is not the case, the current and next plans are both set to None, and the bot replans from scratch.
         """
         if np.array_equal(
-            plan.expected_board_before.array_view_without_active_block(),
-            self._real_board.array_view_without_active_block(),
+            plan.expected_board_before.array_view_without_active_block().view(bool),
+            self._real_board.array_view_without_active_block().view(bool),
         ):
             # start executing the plan (in get_action) by setting _current_plan to the next plan
             self._current_plan = plan

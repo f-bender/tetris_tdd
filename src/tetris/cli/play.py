@@ -214,7 +214,7 @@ def play(  # noqa: PLR0913
 ) -> None:
     """Play Tetris with configurable rules and controllers."""
     boards, controllers = _create_boards_and_controllers(
-        board_size=board_size, num_games_parameter=num_games, controllers_parameter=controller
+        board_size=board_size, num_games_parameter=num_games, controllers_parameter=controller, powerups=powerups
     )
 
     if not all(0 <= game_index < len(boards) for game_index in sounded_game):
@@ -269,6 +269,8 @@ def _create_boards_and_controllers(
     board_size: tuple[int, int],
     num_games_parameter: int | None,
     controllers_parameter: tuple[ControllerParameter, ...],
+    *,
+    powerups: bool,
 ) -> tuple[list[Board], list[Controller]]:
     num_games = num_games_parameter or (len(controllers_parameter) if controllers_parameter else 1)
     if len(controllers_parameter) > num_games:
@@ -285,14 +287,20 @@ def _create_boards_and_controllers(
         if controllers_parameter:
             # If controller is specified, it determines the number of games and their controllers.
             controllers: list[Controller] = [
-                _create_controller(controller_parameter, board)
+                _create_controller(controller_parameter, board, powerups=powerups)
                 for controller_parameter, board in zip(controllers_parameter, boards, strict=True)
             ]
         else:
             # If controller is not specified, a single game with keyboard controller is created.
             from tetris.controllers.keyboard.pynput import PynputKeyboardController
 
-            controllers = [PynputKeyboardController()]
+            controller: Controller = PynputKeyboardController()
+            if powerups:
+                controller = BotAssistedController(
+                    controller, HeuristicBotController(boards[0]), allow_manual_activation=False
+                )
+
+            controllers = [controller]
     else:  # noqa: PLR5501
         # Case 2: --num-games is specified
         if controllers_parameter:
@@ -303,7 +311,7 @@ def _create_boards_and_controllers(
             # If specified multiple times, specifies the first N games' controllers, with the rest being filled up with
             # bots.
             controllers = [
-                _create_controller(controller_parameter, board)
+                _create_controller(controller_parameter, board, powerups=powerups)
                 for controller_parameter, board in zip(
                     controllers_parameter, boards[: len(controllers_parameter)], strict=True
                 )
@@ -320,11 +328,11 @@ def _create_boards_and_controllers(
     return boards, controllers
 
 
-def _create_controller(controller_parameter: ControllerParameter, board: Board) -> Controller:
+def _create_controller(controller_parameter: ControllerParameter, board: Board, *, powerups: bool) -> Controller:
     if controller_parameter == "bot":
         return HeuristicBotController(board)
 
-    bot_assisted = controller_parameter.endswith("+")
+    manually_bot_assisted = controller_parameter.endswith("+")
 
     controller: Controller
     if controller_parameter.startswith("arrows"):
@@ -361,8 +369,11 @@ def _create_controller(controller_parameter: ControllerParameter, board: Board) 
         msg = "Unknown controller parameter."
         raise AssertionError(msg)
 
-    if bot_assisted:
-        controller = BotAssistedController(controller, HeuristicBotController(board))
+    if powerups:
+        # one powerup os bot-assistance: we need to make the controller a bot-assisted one, without manual activateion
+        controller = BotAssistedController(controller, HeuristicBotController(board), allow_manual_activation=False)
+    elif manually_bot_assisted:
+        controller = BotAssistedController(controller, HeuristicBotController(board), allow_manual_activation=True)
 
     return controller
 

@@ -4,12 +4,12 @@ from abc import ABC, abstractmethod
 from tetris.game_logic.action_counter import ActionCounter
 from tetris.game_logic.components.board import Board
 from tetris.game_logic.interfaces.pub_sub import Publisher
-from tetris.game_logic.rules.messages import GravityEffectTrigger
+from tetris.game_logic.rules.messages import BotAssistanceEnd, BotAssistanceStart, GravityEffectTrigger
 
 
 class PowerupEffectManager:
     def __init__(self) -> None:
-        self._effects: list[PowerupEffect] = [GravityEffect()]
+        self._effects: list[PowerupEffect] = [GravityEffect(), BotAssistanceEffect()]
 
     def apply(self, frame_counter: int, action_counter: ActionCounter, board: Board) -> None:
         for effect in self._effects:
@@ -40,7 +40,35 @@ class PowerupEffect(ABC):
     def apply_effect(self, frame_counter: int, action_counter: ActionCounter, board: Board) -> None: ...
 
 
+# --- Effects ---
+
+
 class GravityEffect(PowerupEffect, Publisher):
     def apply_effect(self, frame_counter: int, action_counter: ActionCounter, board: Board) -> None:
         self.notify_subscribers(GravityEffectTrigger(per_col_probability=1))
         self._active = False
+
+
+class BotAssistanceEffect(PowerupEffect, Publisher):
+    def __init__(
+        self,
+        min_effect_duration_frames: int = 600,
+        max_effect_duration_frames: int = 1200,
+    ) -> None:
+        super().__init__()
+
+        self._min_effect_duration_frames = min_effect_duration_frames
+        self._max_effect_duration_frames = max_effect_duration_frames
+
+        self._end_frame: int | None = None
+
+    def apply_effect(self, frame_counter: int, action_counter: ActionCounter, board: Board) -> None:
+        if self._end_frame is None:
+            self._end_frame = frame_counter + random.randint(
+                self._min_effect_duration_frames, self._max_effect_duration_frames
+            )
+            self.notify_subscribers(BotAssistanceStart())
+        elif frame_counter >= self._end_frame:
+            self.notify_subscribers(BotAssistanceEnd())
+            self._active = False
+            self._end_frame = None

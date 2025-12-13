@@ -7,6 +7,7 @@ from tetris.game_logic.interfaces.animations import PowerupTriggeredAnimationSpe
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.game_logic.interfaces.ui import SingleUiElements
 from tetris.game_logic.rules.messages import (
+    ControllerSymbolUpdatedMessage,
     FinishedLineClearMessage,
     NewLevelMessage,
     NumClearedLinesMessage,
@@ -33,6 +34,7 @@ class UiAggregator(Subscriber):
         return self._ui_elements
 
     def should_be_subscribed_to(self, publisher: Publisher) -> bool:
+        from tetris.controllers.bot_assisted import BotAssistedController
         from tetris.game_logic.rules.board_manipulations.clear_lines import ClearFullLines
         from tetris.game_logic.rules.core.scoring.level_rule import LevelTracker
         from tetris.game_logic.rules.core.scoring.track_cleared_lines_rule import ClearedLinesTracker
@@ -43,7 +45,13 @@ class UiAggregator(Subscriber):
         return (
             isinstance(
                 publisher,
-                ClearedLinesTracker | SpawnRule | ClearFullLines | ScoreTracker | LevelTracker | PowerupRule,
+                ClearedLinesTracker
+                | SpawnRule
+                | ClearFullLines
+                | ScoreTracker
+                | LevelTracker
+                | PowerupRule
+                | BotAssistedController,
             )
             and publisher.game_index == self.game_index
         )
@@ -65,7 +73,7 @@ class UiAggregator(Subscriber):
             msg = f"{type(self).__name__} of game {self.game_index} has no subscription to SpawnRule."
             raise RuntimeError(msg)
 
-    def notify(self, message: NamedTuple) -> None:
+    def notify(self, message: NamedTuple) -> None:  # noqa: C901
         match message:
             case NumClearedLinesMessage(num_cleared_lines=num_cleared_lines):
                 self._ui_elements.num_cleared_lines = num_cleared_lines
@@ -89,6 +97,8 @@ class UiAggregator(Subscriber):
                 self._ui_elements.powerup_ttls = powerup_ttls
             case PowerupTriggeredMessage(position=position):
                 self._ui_elements.animations.append(PowerupTriggeredAnimationSpec(total_frames=30, position=position))
+            case ControllerSymbolUpdatedMessage(controller_symbol=controller_symbol):
+                self._ui_elements.controller_symbol = controller_symbol
             case _:
                 msg = f"Unexpected message: {message}"
                 raise ValueError(msg)

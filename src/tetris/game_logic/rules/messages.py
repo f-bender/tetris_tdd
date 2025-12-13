@@ -96,3 +96,15 @@ class PostMergeFinishedMessage(NamedTuple):
 
 class GravityEffectTrigger(NamedTuple):
     per_col_probability: float = 1
+
+
+class BotAssistanceStart(NamedTuple):
+    pass
+
+
+class BotAssistanceEnd(NamedTuple):
+    pass
+
+
+class ControllerSymbolUpdatedMessage(NamedTuple):
+    controller_symbol: str
