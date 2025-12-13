@@ -13,6 +13,7 @@ class Gravity(GradualBoardManipulation):
     def __init__(self, per_col_probability: float = 1) -> None:
         self._per_col_probability = per_col_probability
         self._currently_affected_columns: list[int] | None = None
+        self._currently_total_steps: int | None = None
         self._done = False
 
     @override
@@ -28,12 +29,18 @@ class Gravity(GradualBoardManipulation):
             self._currently_affected_columns = [
                 i for i in range(board.width) if random.random() < self._per_col_probability
             ]
+            self._currently_total_steps = self._estimate_total_num_bubble_steps(board)
+            if self._currently_total_steps == 0:
+                self._done = True
+                return
 
         assert self._currently_affected_columns is not None, (
             f"manipulate_gradually was called with {current_frame = } without a preceding call with current_frame = 0!"
         )
 
-        num_steps = self._split_steps_across_frames(steps=board.height, frames=total_frames)[current_frame]
+        num_steps = self._split_steps_across_frames(steps=self._currently_total_steps, frames=total_frames)[
+            current_frame
+        ]
         if num_steps == 0:
             return
 
@@ -47,6 +54,22 @@ class Gravity(GradualBoardManipulation):
             self._done = True
         else:
             board.set_from_array(board_after)
+
+    @staticmethod
+    def _estimate_total_num_bubble_steps(board: Board) -> int:
+        board_array = board.array_view_without_active_block().view(bool)
+
+        highest_filled_cells = np.where(board_array.any(axis=0), board_array.argmax(axis=0), -1)
+
+        lowest_empty_cells = np.where(
+            (~board_array).any(axis=0), board.height - 1 - np.flip(~board_array, axis=0).argmax(axis=0), -1
+        )
+
+        valid_idxs = (highest_filled_cells != -1) & (lowest_empty_cells != 0)
+        if not np.any(valid_idxs):
+            return 0
+
+        return (lowest_empty_cells[valid_idxs] - highest_filled_cells[valid_idxs]).max()
 
     def _bubble_falsy_up(self, array: NDArray[np.uint8]) -> NDArray[np.uint8]:
         assert self._currently_affected_columns is not None

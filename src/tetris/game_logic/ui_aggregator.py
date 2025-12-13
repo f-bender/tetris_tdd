@@ -96,7 +96,7 @@ class UiAggregator(Subscriber):
             case PowerupTTLsMessage(powerup_ttls=powerup_ttls):
                 self._ui_elements.powerup_ttls = powerup_ttls
             case PowerupTriggeredMessage(position=position):
-                self._ui_elements.animations.append(PowerupTriggeredAnimationSpec(total_frames=30, position=position))
+                self._ui_elements.animations.append(PowerupTriggeredAnimationSpec(total_frames=20, position=position))
             case ControllerSymbolUpdatedMessage(controller_symbol=controller_symbol):
                 self._ui_elements.controller_symbol = controller_symbol
             case _:
