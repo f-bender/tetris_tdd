@@ -19,9 +19,11 @@ from tetris.game_logic.rules.messages import (
     MergeMessage,
     MoveMessage,
     NewLevelMessage,
+    PowerupTriggeredMessage,
     RotateMessage,
     StartingLineClearMessage,
 )
+from tetris.game_logic.rules.special.powerup import PowerupRule
 
 
 class Sound(StrEnum):
@@ -35,6 +37,7 @@ class Sound(StrEnum):
     TETRIS_CLEAR = "tetris_clear"
     NEXT_LEVEL = "next_level"
     GAME_OVER = "game_over"
+    POWERUP = "powerup"
 
 
 class SoundManager(Subscriber, Callback):
@@ -53,6 +56,8 @@ class SoundManager(Subscriber, Callback):
                 Sound.TETRIS_CLEAR: "https://fi.zophar.net/soundfiles/nintendo-nes-nsf/tetris-1989-Nintendo/SFX%205.mp3",
                 Sound.NEXT_LEVEL: "https://fi.zophar.net/soundfiles/nintendo-nes-nsf/tetris-1989-Nintendo/SFX%207.mp3",
                 Sound.GAME_OVER: "https://fi.zophar.net/soundfiles/nintendo-nes-nsf/tetris-1989-Nintendo/SFX%2014.mp3",
+                # POWERUP: manually downloaded from https://pixabay.com/sound-effects/8-bit-powerup-6768/
+                # (has no simple download link)
             }
         }
     )
@@ -133,9 +138,9 @@ class SoundManager(Subscriber, Callback):
                 self._audio_output.play_once(sound_file, volume=volume)
 
     def should_be_subscribed_to(self, publisher: Publisher) -> bool:
-        return isinstance(publisher, DropMergeRule | ClearFullLines | RotateRule | MoveRule | LevelTracker) and (
-            self._game_indices is None or publisher.game_index in self._game_indices
-        )
+        return isinstance(
+            publisher, DropMergeRule | ClearFullLines | RotateRule | MoveRule | LevelTracker | PowerupRule
+        ) and (self._game_indices is None or publisher.game_index in self._game_indices)
 
     def notify(self, message: NamedTuple) -> None:
         if not self._enabled:
@@ -158,6 +163,8 @@ class SoundManager(Subscriber, Callback):
                 self._play_sound(Sound.MOVE)
             case RotateMessage():
                 self._play_sound(Sound.ROTATE)
+            case PowerupTriggeredMessage():
+                self._play_sound(Sound.POWERUP)
             case _:
                 pass
 
