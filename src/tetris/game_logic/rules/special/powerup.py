@@ -12,7 +12,7 @@ from tetris.game_logic.interfaces.callback import Callback
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.game_logic.interfaces.rule import Rule
 from tetris.game_logic.rules.core.spawn.spawn import SpawnRule
-from tetris.game_logic.rules.messages import PowerupTTLsMessage, SpawnMessage
+from tetris.game_logic.rules.messages import PowerupTriggeredMessage, PowerupTTLsMessage, SpawnMessage
 from tetris.game_logic.rules.special.powerup_effect import PowerupEffectManager
 
 _LOGGER = logging.getLogger(__name__)
@@ -33,6 +33,7 @@ class PowerupRule(Publisher, Subscriber, Callback, Rule):
         super().__init__()
         # note: np.uint8 is the dtype used by the board
         self._powerup_ttls = np.zeros(np.iinfo(np.uint8).max + 1, dtype=np.uint16)
+        self._powerup_positions: dict[int, tuple[int, int]] = {}
         self._powerup_spawn_probability = powerup_spawn_probability
 
         self._min_ttl_frames = min_ttl_frames
@@ -53,7 +54,11 @@ class PowerupRule(Publisher, Subscriber, Callback, Rule):
         self._powerup_ttls[powerups_before] -= 1
         powerups_after = self._powerup_ttls > 0
 
-        self._decay_powerups_in_board(board=board, just_decayed_powerups=np.where(powerups_before & ~powerups_after)[0])
+        just_decayed_powerups = np.where(powerups_before & ~powerups_after)[0]
+        self._decay_powerups_in_board(board=board, just_decayed_powerups=just_decayed_powerups)
+
+        for slot in just_decayed_powerups:
+            del self._powerup_positions[slot]
 
         registered_powerup_slots = set(np.where(powerups_after)[0])
         actually_present_powerup_slots = {
@@ -66,6 +71,11 @@ class PowerupRule(Publisher, Subscriber, Callback, Rule):
         }
         assert actually_present_powerup_slots <= registered_powerup_slots
 
+        for slot in actually_present_powerup_slots:
+            positions = np.argwhere(board.as_array() == slot)
+            if positions.size > 0:
+                self._powerup_positions[slot] = tuple(positions[0])
+
         self.notify_subscribers(
             PowerupTTLsMessage(
                 powerup_ttls={
@@ -76,6 +86,8 @@ class PowerupRule(Publisher, Subscriber, Callback, Rule):
 
         just_triggered_powerups = registered_powerup_slots - actually_present_powerup_slots
         for slot in just_triggered_powerups:
+            self.notify_subscribers(PowerupTriggeredMessage(self._powerup_positions[slot]))
+            del self._powerup_positions[slot]
             self._powerup_effect_manager.trigger_random_effect()
             self._powerup_ttls[slot] = 0
 

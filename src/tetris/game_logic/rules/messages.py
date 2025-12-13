@@ -86,6 +86,10 @@ class PowerupTTLsMessage(NamedTuple):
     powerup_ttls: dict[int, int]  # mapping from powerup ID to TTL in frames
 
 
+class PowerupTriggeredMessage(NamedTuple):
+    position: tuple[int, int]
+
+
 class PostMergeFinishedMessage(NamedTuple):
     pass
 

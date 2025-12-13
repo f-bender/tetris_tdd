@@ -21,5 +21,5 @@ class TetrisAnimationSpec(AnimationSpec):
 
 
 @dataclass(kw_only=True)
-class LineClearAnimationSpec(AnimationSpec):
-    cleared_lines: list[int]
+class PowerupTriggeredAnimationSpec(AnimationSpec):
+    position: tuple[int, int]

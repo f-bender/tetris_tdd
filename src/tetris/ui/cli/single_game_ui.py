@@ -10,10 +10,10 @@ from numpy.typing import NDArray
 
 from tetris.game_logic.components.block import Block
 from tetris.game_logic.components.board import Board
-from tetris.game_logic.interfaces.animations import AnimationSpec, TetrisAnimationSpec
+from tetris.game_logic.interfaces.animations import AnimationSpec, PowerupTriggeredAnimationSpec, TetrisAnimationSpec
 from tetris.game_logic.interfaces.ui import SingleUiElements
 from tetris.game_logic.rules.special.powerup import PowerupRule
-from tetris.ui.cli.animations import Overlay, TetrisAnimationLeft, TetrisAnimationRight
+from tetris.ui.cli.animations import Overlay, PowerupTriggeredAnimation, TetrisAnimationLeft, TetrisAnimationRight
 from tetris.ui.cli.color_palette import ColorPalette
 from tetris.ui.cli.vec import Vec
 
@@ -382,6 +382,15 @@ class SingleGameUI:
                                 self.board_position + Vec(top_line_idx, self.board_width) + TetrisAnimationRight.OFFSET
                             ),
                             frame=TetrisAnimationRight.get_frame(current_frame, total_frames),
+                        )
+                    )
+                case PowerupTriggeredAnimationSpec(
+                    current_frame=current_frame, total_frames=total_frames, position=(y, x)
+                ):
+                    overlay_animations.append(
+                        Overlay(
+                            position=(self.board_position + Vec(y, x) + PowerupTriggeredAnimation.OFFSET),
+                            frame=PowerupTriggeredAnimation.get_frame(current_frame, total_frames),
                         )
                     )
                 case _:

@@ -3,13 +3,14 @@ from typing import NamedTuple
 import numpy as np
 from numpy.typing import NDArray
 
-from tetris.game_logic.interfaces.animations import TetrisAnimationSpec
+from tetris.game_logic.interfaces.animations import PowerupTriggeredAnimationSpec, TetrisAnimationSpec
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.game_logic.interfaces.ui import SingleUiElements
 from tetris.game_logic.rules.messages import (
     FinishedLineClearMessage,
     NewLevelMessage,
     NumClearedLinesMessage,
+    PowerupTriggeredMessage,
     PowerupTTLsMessage,
     ScoreMessage,
     SpawnMessage,
@@ -86,6 +87,8 @@ class UiAggregator(Subscriber):
                 pass
             case PowerupTTLsMessage(powerup_ttls=powerup_ttls):
                 self._ui_elements.powerup_ttls = powerup_ttls
+            case PowerupTriggeredMessage(position=position):
+                self._ui_elements.animations.append(PowerupTriggeredAnimationSpec(total_frames=30, position=position))
             case _:
                 msg = f"Unexpected message: {message}"
                 raise ValueError(msg)
