@@ -25,7 +25,7 @@ class PowerupRule(Publisher, Subscriber, Callback, Rule):
     def __init__(
         self,
         *,
-        powerup_spawn_probability: float = 0.4,
+        powerup_spawn_probability: float = 0.04,
         # 10-20 seconds at 60 FPS
         min_ttl_frames: int = 600,
         max_ttl_frames: int = 1200,
@@ -64,9 +64,7 @@ class PowerupRule(Publisher, Subscriber, Callback, Rule):
             )
             if Board.MIN_POWERUP_CELL_VALUE <= i <= Board.MAX_POWERUP_CELL_VALUE
         }
-        assert actually_present_powerup_slots <= registered_powerup_slots, (
-            f"Board has power-ups {actually_present_powerup_slots} not registered in PowerupRule {registered_powerup_slots}"
-        )
+        assert actually_present_powerup_slots <= registered_powerup_slots
 
         self.notify_subscribers(
             PowerupTTLsMessage(

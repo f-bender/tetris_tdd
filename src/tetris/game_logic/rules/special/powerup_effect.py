@@ -42,5 +42,5 @@ class PowerupEffect(ABC):
 
 class GravityEffect(PowerupEffect, Publisher):
     def apply_effect(self, frame_counter: int, action_counter: ActionCounter, board: Board) -> None:
-        self.notify_subscribers(GravityEffectTrigger(per_col_probability=random.uniform(0.5, 1)))
+        self.notify_subscribers(GravityEffectTrigger(per_col_probability=1))
         self._active = False

@@ -14,10 +14,11 @@ from tetris.game_logic.rules.special.powerup_effect import GravityEffect
 
 
 class PostMergeRule(Publisher, Subscriber, Rule):
-    def __init__(self, effect_duration_frames: int = 30) -> None:
+    def __init__(self, effect_duration_frames: int = 30, minimum_delay_frames: int = 30) -> None:
         super().__init__()
 
         self._effect_duration_frames = effect_duration_frames
+        self._minimum_delay_frames = minimum_delay_frames
         self._effect_start_frame: int | None = None
         self._post_merge_start_frame: int | None = None
 
@@ -40,7 +41,7 @@ class PostMergeRule(Publisher, Subscriber, Rule):
 
         if effect_frame >= self._effect_duration_frames - 1 or (
             self._current_effect.done_already()
-            and frame_counter - self._post_merge_start_frame >= self._effect_duration_frames
+            and frame_counter - self._post_merge_start_frame >= self._minimum_delay_frames
         ):
             self._effect_start_frame = None
 
