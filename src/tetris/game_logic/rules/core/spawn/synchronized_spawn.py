@@ -1,15 +1,14 @@
-from typing import NamedTuple
+from typing import NamedTuple, override
 
-from tetris.game_logic.interfaces.callback import Callback
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.game_logic.rules.messages import (
-    FinishedMergeMessage,
+    PostMergeFinishedMessage,
     SynchronizedSpawnCommandMessage,
     WaitingForSpawnMessage,
 )
 
 
-class SynchronizedSpawning(Publisher, Subscriber, Callback):
+class SynchronizedSpawning(Publisher, Subscriber):
     """This class is responsible for synchronizing the spawn of pieces in the Tetris game.
 
     It ensures that pieces are spawned in a synchronized manner across different game instances.
@@ -20,10 +19,11 @@ class SynchronizedSpawning(Publisher, Subscriber, Callback):
         self._game_indices: set[int] = {self.game_index}
         self._game_indices_waiting_for_spawn: set[int] = set()
 
+    @override
     def should_be_subscribed_to(self, publisher: Publisher) -> bool:
-        from tetris.game_logic.rules.core.drop_merge.drop_merge_rule import DropMergeRule
+        from tetris.game_logic.rules.core.post_merge.post_merge_rule import PostMergeRule
 
-        if isinstance(publisher, DropMergeRule) and publisher.game_index == self.game_index:
+        if isinstance(publisher, PostMergeRule) and publisher.game_index == self.game_index:
             return True
 
         if isinstance(publisher, SynchronizedSpawning) and publisher.game_index != self.game_index:
@@ -32,9 +32,10 @@ class SynchronizedSpawning(Publisher, Subscriber, Callback):
 
         return False
 
+    @override
     def notify(self, message: NamedTuple) -> None:
         match message:
-            case FinishedMergeMessage():
+            case PostMergeFinishedMessage():
                 self._game_indices_waiting_for_spawn.add(self.game_index)
                 self.notify_subscribers(WaitingForSpawnMessage(self.game_index))
             case WaitingForSpawnMessage(game_index=game_index):
@@ -45,6 +46,3 @@ class SynchronizedSpawning(Publisher, Subscriber, Callback):
         if len(self._game_indices_waiting_for_spawn) == len(self._game_indices):
             self._game_indices_waiting_for_spawn.clear()
             self.notify_subscribers(SynchronizedSpawnCommandMessage())
-
-    def should_be_called_by(self, game_index: int) -> bool:
-        return game_index == self.game_index

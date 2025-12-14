@@ -12,7 +12,8 @@ from tetris.game_logic.interfaces.callback import Callback
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.game_logic.interfaces.rule import Rule
 from tetris.game_logic.rules.core.post_merge.post_merge_rule import PostMergeRule
-from tetris.game_logic.rules.messages import PostMergeFinishedMessage, SpawnMessage
+from tetris.game_logic.rules.core.spawn.synchronized_spawn import SynchronizedSpawning
+from tetris.game_logic.rules.messages import PostMergeFinishedMessage, SpawnMessage, SynchronizedSpawnCommandMessage
 
 
 class SpawnRule(Publisher, Subscriber, Callback, Rule):
@@ -23,6 +24,7 @@ class SpawnRule(Publisher, Subscriber, Callback, Rule):
         self._next_block = self._select_block_fn()
 
         self._should_spawn = True
+        self._synchronized_spawn = False
 
     @property
     def select_block_fn(self) -> Callable[[], Block]:
@@ -43,7 +45,7 @@ class SpawnRule(Publisher, Subscriber, Callback, Rule):
 
     @override
     def should_be_subscribed_to(self, publisher: Publisher) -> bool:
-        return isinstance(publisher, PostMergeRule) and publisher.game_index == self.game_index
+        return isinstance(publisher, PostMergeRule | SynchronizedSpawning) and publisher.game_index == self.game_index
 
     @override
     def verify_subscriptions(self, publishers: list[Publisher]) -> None:
@@ -51,9 +53,14 @@ class SpawnRule(Publisher, Subscriber, Callback, Rule):
             msg = f"{type(self).__name__} of game {self.game_index} is not subscribed to a PostMergeRule: {publishers}"
             raise RuntimeError(msg)
 
+        if any(isinstance(p, SynchronizedSpawning) for p in publishers):
+            self._synchronized_spawn = True
+
     @override
     def notify(self, message: NamedTuple) -> None:
-        if isinstance(message, PostMergeFinishedMessage):
+        if isinstance(message, SynchronizedSpawnCommandMessage) or (
+            not self._synchronized_spawn and isinstance(message, PostMergeFinishedMessage)
+        ):
             self._should_spawn = True
 
     @override

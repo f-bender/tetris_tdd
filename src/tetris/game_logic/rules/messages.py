@@ -24,10 +24,6 @@ class MergeMessage(NamedTuple):
     speed: Speed
 
 
-class FinishedMergeMessage(NamedTuple):
-    pass
-
-
 class WaitingForSpawnMessage(NamedTuple):
     game_index: int
 
