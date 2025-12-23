@@ -9,7 +9,7 @@ def configure_logging(log_dir: Path = Path(__file__).parents[2] / "logs") -> Non
     log_dir.mkdir(parents=True, exist_ok=True)
 
     file_formatter = logging.Formatter(
-        "%(asctime)s - %(levelname)s - %(pathname)s:%(lineno)d - %(threadName)s - %(message)s",
+        "%(asctime)s.%(msecs)03d - %(levelname)s - %(pathname)s:%(lineno)d - %(threadName)s - %(message)s",
         datefmt="%H:%M:%S",
     )
 
