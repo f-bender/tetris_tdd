@@ -2,7 +2,7 @@ from typing import NamedTuple
 
 from tetris.game_logic.interfaces.callback import Callback
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
-from tetris.game_logic.rules.messages import FinishedLineClearMessage, NumClearedLinesMessage
+from tetris.game_logic.rules.messages import FinishedLineFillMessage, NumClearedLinesMessage
 
 
 class ClearedLinesTracker(Callback, Publisher, Subscriber):
@@ -20,9 +20,11 @@ class ClearedLinesTracker(Callback, Publisher, Subscriber):
         return game_index == self.game_index  # own game: for on_game_start
 
     def should_be_subscribed_to(self, publisher: Publisher) -> bool:
-        from tetris.game_logic.rules.board_manipulations.clear_lines import ClearFullLines
+        from tetris.game_logic.rules.board_manipulations.fill_lines import FillLines
 
-        return isinstance(publisher, ClearFullLines) and publisher.game_index == self.game_index
+        return (
+            isinstance(publisher, FillLines) and publisher.is_line_clearer and publisher.game_index == self.game_index
+        )
 
     def verify_subscriptions(self, publishers: list[Publisher]) -> None:
         if len(publishers) != 1:
@@ -38,8 +40,8 @@ class ClearedLinesTracker(Callback, Publisher, Subscriber):
         )
 
     def notify(self, message: NamedTuple) -> None:
-        if isinstance(message, FinishedLineClearMessage):
-            self._num_cleared_lines += len(message.cleared_lines)
+        if isinstance(message, FinishedLineFillMessage):
+            self._num_cleared_lines += len(message.filled_lines)
             self._session_max_cleared_lines = max(self._session_max_cleared_lines, self._num_cleared_lines)
             self.notify_subscribers(
                 NumClearedLinesMessage(

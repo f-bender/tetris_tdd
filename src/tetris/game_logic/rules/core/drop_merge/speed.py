@@ -5,9 +5,9 @@ from typing import NamedTuple, Protocol, Self
 
 from tetris.game_logic.interfaces.callback import Callback
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
-from tetris.game_logic.rules.board_manipulations.clear_lines import ClearFullLines
+from tetris.game_logic.rules.board_manipulations.fill_lines import FillLines
 from tetris.game_logic.rules.core.scoring.level_rule import LevelTracker
-from tetris.game_logic.rules.messages import FinishedLineClearMessage, NewLevelMessage
+from tetris.game_logic.rules.messages import FinishedLineFillMessage, NewLevelMessage
 
 
 class IntIterWithFloatAverage(Iterator[int]):
@@ -136,7 +136,9 @@ class LineClearSpeedUp(Subscriber, Callback):
         self._speedup_factor = speedup_factor
 
     def should_be_subscribed_to(self, publisher: Publisher) -> bool:
-        return isinstance(publisher, ClearFullLines) and publisher.game_index == self.game_index
+        return (
+            isinstance(publisher, FillLines) and publisher.is_line_clearer and publisher.game_index == self.game_index
+        )
 
     def verify_subscriptions(self, publishers: list[Publisher]) -> None:
         if len(publishers) != 1:
@@ -145,12 +147,12 @@ class LineClearSpeedUp(Subscriber, Callback):
 
     def notify(self, message: NamedTuple) -> None:
         if (
-            not isinstance(message, FinishedLineClearMessage)
+            not isinstance(message, FinishedLineFillMessage)
             or self._speed_strategy_impl.normal_interval <= self._minimum_normal_interval
         ):
             return
 
-        self._cleared_lines += len(message.cleared_lines)
+        self._cleared_lines += len(message.filled_lines)
 
         while self._cleared_lines >= self._line_clears_between_speedup:
             self._speed_strategy_impl.set_interval(

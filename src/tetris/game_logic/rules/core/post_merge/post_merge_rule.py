@@ -1,16 +1,26 @@
 import queue
+import random
+from functools import partial
 from typing import NamedTuple, override
 
+import numpy as np
+
 from tetris.game_logic.action_counter import ActionCounter
+from tetris.game_logic.components.block import BlockType
 from tetris.game_logic.components.board import Board
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.game_logic.interfaces.rule import Rule
 from tetris.game_logic.rules.board_manipulations.board_manipulation import GradualBoardManipulation
-from tetris.game_logic.rules.board_manipulations.clear_lines import ClearFullLines
+from tetris.game_logic.rules.board_manipulations.fill_lines import FillLines
 from tetris.game_logic.rules.board_manipulations.gravity import Gravity
 from tetris.game_logic.rules.core.drop_merge.drop_merge_rule import DropMergeRule
-from tetris.game_logic.rules.messages import GravityEffectTrigger, MergeMessage, PostMergeFinishedMessage
-from tetris.game_logic.rules.special.powerup_effect import GravityEffect
+from tetris.game_logic.rules.messages import (
+    FillLinesEffectTrigger,
+    GravityEffectTrigger,
+    MergeMessage,
+    PostMergeFinishedMessage,
+)
+from tetris.game_logic.rules.special.powerup_effect import FillLinesEffect, GravityEffect
 
 
 class PostMergeRule(Publisher, Subscriber, Rule):
@@ -24,7 +34,11 @@ class PostMergeRule(Publisher, Subscriber, Rule):
 
         self._effect_queue = queue.Queue[GradualBoardManipulation]()
         self._current_effect: GradualBoardManipulation | None = None
-        self._line_clear_effect = ClearFullLines()
+        self._line_clear_effect = FillLines.clear_full_lines()
+        self._line_fill_effect = FillLines(
+            line_idx_factory=partial(self._get_random_non_empty_lines, num_lines=1),
+            fill_value=BlockType.S,
+        )
 
     @override
     def apply(self, frame_counter: int, action_counter: ActionCounter, board: Board) -> None:
@@ -53,7 +67,10 @@ class PostMergeRule(Publisher, Subscriber, Rule):
 
     @override
     def should_be_subscribed_to(self, publisher: Publisher) -> bool:
-        return isinstance(publisher, DropMergeRule | GravityEffect) and publisher.game_index == self.game_index
+        return (
+            isinstance(publisher, DropMergeRule | GravityEffect | FillLinesEffect)
+            and publisher.game_index == self.game_index
+        )
 
     @override
     def notify(self, message: NamedTuple) -> None:
@@ -63,9 +80,20 @@ class PostMergeRule(Publisher, Subscriber, Rule):
             case GravityEffectTrigger(per_col_probability=per_col_probability):
                 self._effect_queue.put(Gravity(per_col_probability=per_col_probability))
                 self._effect_queue.put(self._line_clear_effect)
+            case FillLinesEffectTrigger(num_lines=num_lines):
+                self._line_fill_effect.line_idx_factory = partial(self._get_random_non_empty_lines, num_lines=num_lines)
+                self._effect_queue.put(self._line_fill_effect)
+                self._effect_queue.put(self._line_clear_effect)
             case _:
                 msg = f"Unexpected message type {type(message)} received by {type(self).__name__}"
                 raise RuntimeError(msg)
+
+    @staticmethod
+    def _get_random_non_empty_lines(board: Board, num_lines: int) -> list[int]:
+        board_array = board.array_view_without_active_block()
+        non_empty_lines = np.where(board_array.any(axis=1))[0].tolist()
+
+        return random.sample(non_empty_lines, k=min(num_lines, len(non_empty_lines)))
 
     @override
     def verify_subscriptions(self, publishers: list[Publisher]) -> None:

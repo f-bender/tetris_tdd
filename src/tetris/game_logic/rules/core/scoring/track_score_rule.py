@@ -3,7 +3,7 @@ from typing import NamedTuple
 from tetris.game_logic.interfaces.callback import Callback
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.game_logic.rules.core.scoring.level_rule import LevelTracker
-from tetris.game_logic.rules.messages import FinishedLineClearMessage, NewLevelMessage, ScoreMessage
+from tetris.game_logic.rules.messages import FinishedLineFillMessage, NewLevelMessage, ScoreMessage
 
 
 class ScoreTracker(Callback, Publisher, Subscriber):
@@ -27,17 +27,19 @@ class ScoreTracker(Callback, Publisher, Subscriber):
         return game_index == self.game_index  # own game: for on_game_start
 
     def should_be_subscribed_to(self, publisher: Publisher) -> bool:
-        from tetris.game_logic.rules.board_manipulations.clear_lines import ClearFullLines
+        from tetris.game_logic.rules.board_manipulations.fill_lines import FillLines
 
-        return isinstance(publisher, ClearFullLines | LevelTracker) and publisher.game_index == self.game_index
+        return publisher.game_index == self.game_index and (
+            isinstance(publisher, LevelTracker) or (isinstance(publisher, FillLines) and publisher.is_line_clearer)
+        )
 
     def verify_subscriptions(self, publishers: list[Publisher]) -> None:
-        from tetris.game_logic.rules.board_manipulations.clear_lines import ClearFullLines
+        from tetris.game_logic.rules.board_manipulations.fill_lines import FillLines
 
-        if {type(publisher) for publisher in publishers} != {ClearFullLines, LevelTracker}:
+        if {type(publisher) for publisher in publishers} != {FillLines, LevelTracker}:
             msg = (
                 f"{type(self).__name__} of game {self.game_index} has unexpected subscriptions: {publishers}\n"
-                "Expected one ClearFullLines and one LevelTracker."
+                "Expected one FillLines (line clearer) and one LevelTracker."
             )
             raise RuntimeError(msg)
 
@@ -47,7 +49,7 @@ class ScoreTracker(Callback, Publisher, Subscriber):
 
     def notify(self, message: NamedTuple) -> None:
         match message:
-            case FinishedLineClearMessage(cleared_lines=cleared_lines):
+            case FinishedLineFillMessage(filled_lines=cleared_lines):
                 self._score += self.compute_points(len(cleared_lines), self._current_level)
                 self._session_high_score = max(self._session_high_score, self._score)
 

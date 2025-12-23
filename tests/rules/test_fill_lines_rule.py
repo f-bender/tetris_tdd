@@ -3,12 +3,12 @@ from collections.abc import Callable
 import pytest
 
 from tetris.game_logic.components.board import Board
-from tetris.game_logic.rules.board_manipulations.clear_lines import ClearFullLines
+from tetris.game_logic.rules.board_manipulations.fill_lines import FillLines
 
 
 @pytest.fixture(autouse=True)
 def clear_full_lines_fn() -> Callable[[Board], None]:
-    return lambda board: ClearFullLines().manipulate_gradually(board=board, current_frame=0, total_frames=1)
+    return lambda board: FillLines.clear_full_lines().manipulate_gradually(board=board, current_frame=0, total_frames=1)
 
 
 def test_one_line_cleared(clear_full_lines_fn: Callable[[Board], None]) -> None:

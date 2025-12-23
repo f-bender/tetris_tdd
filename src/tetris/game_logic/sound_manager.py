@@ -11,7 +11,7 @@ import httpx
 from tetris.game_logic.interfaces.audio_output import AudioOutput
 from tetris.game_logic.interfaces.callback import Callback
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
-from tetris.game_logic.rules.board_manipulations.clear_lines import ClearFullLines
+from tetris.game_logic.rules.board_manipulations.fill_lines import FillLines
 from tetris.game_logic.rules.core.drop_merge.drop_merge_rule import DropMergeRule
 from tetris.game_logic.rules.core.move_rotate_rules import MoveRule, RotateRule
 from tetris.game_logic.rules.core.scoring.level_rule import LevelTracker
@@ -21,7 +21,7 @@ from tetris.game_logic.rules.messages import (
     NewLevelMessage,
     PowerupTriggeredMessage,
     RotateMessage,
-    StartingLineClearMessage,
+    StartingLineFillMessage,
 )
 from tetris.game_logic.rules.special.powerup import PowerupRule
 
@@ -38,6 +38,7 @@ class Sound(StrEnum):
     NEXT_LEVEL = "next_level"
     GAME_OVER = "game_over"
     POWERUP = "powerup"
+    LINE_FILL = "line_fill"
 
 
 class SoundManager(Subscriber, Callback):
@@ -58,6 +59,7 @@ class SoundManager(Subscriber, Callback):
                 Sound.GAME_OVER: "https://fi.zophar.net/soundfiles/nintendo-nes-nsf/tetris-1989-Nintendo/SFX%2014.mp3",
                 # POWERUP: manually downloaded from https://pixabay.com/sound-effects/8-bit-powerup-6768/
                 # (has no simple download link)
+                # LINE_FILL: LINE_CLEAR, but reversed and cut to contain only the last 0.5s
             }
         }
     )
@@ -139,7 +141,7 @@ class SoundManager(Subscriber, Callback):
 
     def should_be_subscribed_to(self, publisher: Publisher) -> bool:
         return isinstance(
-            publisher, DropMergeRule | ClearFullLines | RotateRule | MoveRule | LevelTracker | PowerupRule
+            publisher, DropMergeRule | FillLines | RotateRule | MoveRule | LevelTracker | PowerupRule
         ) and (self._game_indices is None or publisher.game_index in self._game_indices)
 
     def notify(self, message: NamedTuple) -> None:
@@ -151,14 +153,8 @@ class SoundManager(Subscriber, Callback):
                 self._play_sound(Sound.MERGE)
             case NewLevelMessage(level=level) if level > 0:
                 self._play_sound(Sound.NEXT_LEVEL)
-            case StartingLineClearMessage(cleared_lines=cleared_lines):
-                num_lines_tetris_clear = 4
-                if len(cleared_lines) == num_lines_tetris_clear and (
-                    tetris_clear_sound_file := self._sound_files[Sound.TETRIS_CLEAR]
-                ):
-                    self._audio_output.play_once(tetris_clear_sound_file)
-                elif line_clear_sound_file := self._sound_files[Sound.LINE_CLEAR]:
-                    self._audio_output.play_once(line_clear_sound_file)
+            case StartingLineFillMessage(filled_lines=filled_lines, is_line_clear=is_line_clear):
+                self._play_line_fill_sound(filled_lines, is_line_clear=is_line_clear)
             case MoveMessage():
                 self._play_sound(Sound.MOVE)
             case RotateMessage():
@@ -167,6 +163,19 @@ class SoundManager(Subscriber, Callback):
                 self._play_sound(Sound.POWERUP)
             case _:
                 pass
+
+    def _play_line_fill_sound(self, filled_lines: list[int], *, is_line_clear: bool) -> None:
+        if not is_line_clear:
+            self._play_sound(Sound.LINE_FILL)
+            return
+
+        num_lines_tetris_clear = 4
+        if filled_lines == list(range(filled_lines[0], filled_lines[0] + num_lines_tetris_clear)) and (
+            tetris_clear_sound_file := self._sound_files[Sound.TETRIS_CLEAR]
+        ):
+            self._audio_output.play_once(tetris_clear_sound_file)
+        elif line_clear_sound_file := self._sound_files[Sound.LINE_CLEAR]:
+            self._audio_output.play_once(line_clear_sound_file)
 
     def should_be_called_by(self, game_index: int) -> bool:
         return self._game_indices is None or game_index in self._game_indices

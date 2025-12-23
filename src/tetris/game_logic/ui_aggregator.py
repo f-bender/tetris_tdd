@@ -8,14 +8,14 @@ from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.game_logic.interfaces.ui import SingleUiElements
 from tetris.game_logic.rules.messages import (
     ControllerSymbolUpdatedMessage,
-    FinishedLineClearMessage,
+    FinishedLineFillMessage,
     NewLevelMessage,
     NumClearedLinesMessage,
     PowerupTriggeredMessage,
     PowerupTTLsMessage,
     ScoreMessage,
     SpawnMessage,
-    StartingLineClearMessage,
+    StartingLineFillMessage,
 )
 
 
@@ -35,25 +35,19 @@ class UiAggregator(Subscriber):
 
     def should_be_subscribed_to(self, publisher: Publisher) -> bool:
         from tetris.controllers.bot_assisted import BotAssistedController
-        from tetris.game_logic.rules.board_manipulations.clear_lines import ClearFullLines
+        from tetris.game_logic.rules.board_manipulations.fill_lines import FillLines
         from tetris.game_logic.rules.core.scoring.level_rule import LevelTracker
         from tetris.game_logic.rules.core.scoring.track_cleared_lines_rule import ClearedLinesTracker
         from tetris.game_logic.rules.core.scoring.track_score_rule import ScoreTracker
         from tetris.game_logic.rules.core.spawn.spawn import SpawnRule
         from tetris.game_logic.rules.special.powerup import PowerupRule
 
-        return (
+        return publisher.game_index == self.game_index and (
             isinstance(
                 publisher,
-                ClearedLinesTracker
-                | SpawnRule
-                | ClearFullLines
-                | ScoreTracker
-                | LevelTracker
-                | PowerupRule
-                | BotAssistedController,
+                ClearedLinesTracker | SpawnRule | ScoreTracker | LevelTracker | PowerupRule | BotAssistedController,
             )
-            and publisher.game_index == self.game_index
+            or (isinstance(publisher, FillLines) and publisher.is_line_clearer)
         )
 
     def verify_subscriptions(self, publishers: list[Publisher]) -> None:
@@ -84,14 +78,13 @@ class UiAggregator(Subscriber):
                 self._ui_elements.session_high_score = session_high_score
             case SpawnMessage(next_block=next_block):
                 self._ui_elements.next_block = next_block
-            case FinishedLineClearMessage(cleared_lines=cleared_lines):
+            case FinishedLineFillMessage(filled_lines=cleared_lines):
                 max_cleared_lines = 4
-                if len(cleared_lines) == max_cleared_lines:
-                    assert cleared_lines == list(range(cleared_lines[0], cleared_lines[0] + max_cleared_lines))
+                if cleared_lines == list(range(cleared_lines[0], cleared_lines[0] + max_cleared_lines)):
                     self._ui_elements.animations.append(
                         TetrisAnimationSpec(total_frames=30, top_line_idx=cleared_lines[0])
                     )
-            case StartingLineClearMessage():
+            case StartingLineFillMessage():
                 pass
             case PowerupTTLsMessage(powerup_ttls=powerup_ttls):
                 self._ui_elements.powerup_ttls = powerup_ttls

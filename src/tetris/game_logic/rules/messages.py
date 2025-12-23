@@ -5,13 +5,15 @@ from tetris.game_logic.components.block import Block
 from tetris.game_logic.components.board import Board
 
 
-class StartingLineClearMessage(NamedTuple):
-    cleared_lines: list[int]
+class StartingLineFillMessage(NamedTuple):
+    filled_lines: list[int]
+    is_line_clear: bool
     num_frames: int
 
 
-class FinishedLineClearMessage(NamedTuple):
-    cleared_lines: list[int]
+class FinishedLineFillMessage(NamedTuple):
+    filled_lines: list[int]
+    is_line_clear: bool
 
 
 class Speed(Enum):
@@ -104,3 +106,7 @@ class BotAssistanceEnd(NamedTuple):
 
 class ControllerSymbolUpdatedMessage(NamedTuple):
     controller_symbol: str
+
+
+class FillLinesEffectTrigger(NamedTuple):
+    num_lines: int
