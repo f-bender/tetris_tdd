@@ -68,8 +68,8 @@ class GravityEffect(PowerupEffect, Publisher):
 class BotAssistanceEffect(PowerupEffect, Publisher):
     def __init__(
         self,
-        min_effect_duration_frames: int = 450,
-        max_effect_duration_frames: int = 900,
+        min_effect_duration_frames: int = 300,
+        max_effect_duration_frames: int = 600,
     ) -> None:
         super().__init__()
 
