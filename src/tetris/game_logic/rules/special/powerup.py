@@ -116,12 +116,9 @@ class PowerupRule(Publisher, Subscriber, Callback, Rule):
     @override
     def notify(self, message: NamedTuple) -> None:
         if isinstance(message, SpawnMessage):
-            self._should_spawn = True
+            self._should_spawn = random.random() < self._powerup_spawn_probability
 
     def _spawn_powerup(self, board: Board) -> None:
-        if random.random() > self._powerup_spawn_probability:
-            return
-
         assert board.active_block is not None
 
         used_powerup_slots = set(np.where(self._powerup_ttls > 0)[0])
