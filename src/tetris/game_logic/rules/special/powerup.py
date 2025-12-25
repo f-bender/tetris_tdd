@@ -1,12 +1,12 @@
 import logging
 import random
-from itertools import chain
 from typing import NamedTuple, override
 
 import numpy as np
 from numpy.typing import NDArray
 
 from tetris.game_logic.action_counter import ActionCounter
+from tetris.game_logic.components.block import Block
 from tetris.game_logic.components.board import Board
 from tetris.game_logic.interfaces.callback import Callback
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
@@ -39,53 +39,71 @@ class PowerupRule(Publisher, Subscriber, Callback, Rule):
         self._min_ttl_frames = min_ttl_frames
         self._max_ttl_frames = max_ttl_frames
 
-        self._should_spawn = False
-
         self._powerup_effect_manager = PowerupEffectManager()
+
+    def put_powerup_on_hold(self, slot: int) -> None:
+        """Put the power-up in the given slot on hold.
+
+        Meaning:
+        - it is should be no longer be on the board (responsibility of the caller)
+        - its TTL counter is frozen (its slots remains occupied and can't be taken by a new powerup)
+
+        Main envisioned use case: "held block" feature.
+        """
+        assert self._powerup_ttls[slot] > 0, "Trying to put a non-existing power-up on hold!"
+        del self._powerup_positions[slot]
 
     @override
     def apply(self, frame_counter: int, action_counter: ActionCounter, board: Board) -> None:
         """Decrease the TTL of all power-ups by 1. Remove power-ups with TTL 0."""
-        if self._should_spawn:
-            self._should_spawn = False
-            self._spawn_powerup(board)
+        board_array = board.as_array()
 
+        actually_present_powerup_slots = [
+            i for i in np.unique(board_array) if Board.MIN_POWERUP_CELL_VALUE <= i <= Board.MAX_POWERUP_CELL_VALUE
+        ]
+
+        # Update power-up positions
+        for slot in actually_present_powerup_slots:
+            positions = np.argwhere(board_array == slot)
+            assert len(positions) == 1, f"Power-up slot {slot} present {len(positions)} times on the board!"
+            self._powerup_positions[slot] = tuple(positions[0])
+
+        # Decrease TTLs of present power-ups (TTLs which are > 0 but not present on the board are on hold)
         powerups_before = self._powerup_ttls > 0
-        self._powerup_ttls[powerups_before] -= 1
+        assert powerups_before[actually_present_powerup_slots].all(), "Board contains powerups without TTL!"
+        self._powerup_ttls[actually_present_powerup_slots] -= 1
         powerups_after = self._powerup_ttls > 0
 
+        # Remove powerups whose TTL has just reached 0
         just_decayed_powerups = np.where(powerups_before & ~powerups_after)[0]
         self._decay_powerups_in_board(board=board, just_decayed_powerups=just_decayed_powerups)
 
+        # Clean up positions of decayed power-ups
         for slot in just_decayed_powerups:
             del self._powerup_positions[slot]
 
+        actually_present_powerup_slots_set = set(actually_present_powerup_slots) - set(just_decayed_powerups)
         registered_powerup_slots = set(np.where(powerups_after)[0])
-        actually_present_powerup_slots = {
-            i
-            for i in chain(
-                np.unique(board.array_view_without_active_block()),
-                np.unique(board.active_block.block.cells) if board.active_block is not None else [],
-            )
-            if Board.MIN_POWERUP_CELL_VALUE <= i <= Board.MAX_POWERUP_CELL_VALUE
-        }
-        assert actually_present_powerup_slots <= registered_powerup_slots
+        assert actually_present_powerup_slots_set <= registered_powerup_slots
 
-        for slot in actually_present_powerup_slots:
-            positions = np.argwhere(board.as_array() == slot)
-            if positions.size > 0:
-                self._powerup_positions[slot] = tuple(positions[0])
-
+        # Notify subscribers about current power-up TTLs
         self.notify_subscribers(
             PowerupTTLsMessage(
                 powerup_ttls={
-                    int(powerup): int(self._powerup_ttls[powerup]) for powerup in actually_present_powerup_slots
+                    int(powerup): int(self._powerup_ttls[powerup]) for powerup in actually_present_powerup_slots_set
                 }
             )
         )
 
-        just_triggered_powerups = registered_powerup_slots - actually_present_powerup_slots
+        # Trigger power-ups which have just been activated
+        # (i.e. are registered, and not on hold, but are not present in the board this frame)
+        just_triggered_powerups = registered_powerup_slots - actually_present_powerup_slots_set
         for slot in just_triggered_powerups:
+            if slot not in self._powerup_positions:
+                # the powerup in this slot is on hold, it isn't currently on the board
+                # (but this doesn't mean it has just been triggered)
+                continue
+
             self.notify_subscribers(PowerupTriggeredMessage(self._powerup_positions[slot]))
             del self._powerup_positions[slot]
             self._powerup_effect_manager.trigger_random_effect()
@@ -115,23 +133,22 @@ class PowerupRule(Publisher, Subscriber, Callback, Rule):
 
     @override
     def notify(self, message: NamedTuple) -> None:
-        if isinstance(message, SpawnMessage):
-            self._should_spawn = random.random() < self._powerup_spawn_probability
+        if isinstance(message, SpawnMessage) and random.random() < self._powerup_spawn_probability:
+            self._spawn_powerup(message.next_block)
 
-    def _spawn_powerup(self, board: Board) -> None:
-        assert board.active_block is not None
-
+    def _spawn_powerup(self, block: Block) -> None:
         used_powerup_slots = set(np.where(self._powerup_ttls > 0)[0])
 
-        new_powerup_slot = np.max(board.active_block.block.cells) + self.POWERUP_SLOT_OFFSET
+        # note: we assume the block doesn't yet contain any power-up cells
+        new_powerup_slot = np.max(block.cells) + self.POWERUP_SLOT_OFFSET
         while new_powerup_slot in used_powerup_slots:
             new_powerup_slot += self.POWERUP_SLOT_OFFSET
             if new_powerup_slot > Board.MAX_POWERUP_CELL_VALUE:
                 _LOGGER.warning("No available power-up slots! Not spawning a power-up.")
                 return
 
-        powerup_position = random.choice(list(zip(*np.nonzero(board.active_block.block.cells), strict=True)))
-        board.active_block.block.cells[powerup_position] = new_powerup_slot
+        powerup_position = random.choice(list(zip(*np.nonzero(block.cells), strict=True)))
+        block.cells[powerup_position] = new_powerup_slot
 
         self._powerup_ttls[new_powerup_slot] = random.randint(self._min_ttl_frames, self._max_ttl_frames)
 

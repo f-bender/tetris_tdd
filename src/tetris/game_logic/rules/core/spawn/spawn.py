@@ -48,6 +48,17 @@ class SpawnRule(Publisher, Subscriber, Callback, Rule):
         return isinstance(publisher, PostMergeRule | SynchronizedSpawning) and publisher.game_index == self.game_index
 
     @override
+    def add_subscriber(self, subscriber: Subscriber) -> None:
+        from tetris.game_logic.rules.special.powerup import PowerupRule
+
+        # make sure the PowerupRule (if it exists) is the first subscriber being notified, to ensure it has the ability
+        # to modify the next_block (in-place) before others are notified
+        if isinstance(subscriber, PowerupRule):
+            self._subscribers.insert(0, subscriber)
+        else:
+            self._subscribers.append(subscriber)
+
+    @override
     def verify_subscriptions(self, publishers: list[Publisher]) -> None:
         if not any(isinstance(p, PostMergeRule) for p in publishers):
             msg = f"{type(self).__name__} of game {self.game_index} is not subscribed to a PostMergeRule: {publishers}"

@@ -331,16 +331,33 @@ class SingleGameUI:
         texts.append(Text(text="Next", position=self.next_block_position + Vec(1, 1)))
 
         if next_block is not None:
-            block_height, block_width = next_block.actual_cells.shape
+            next_block_ui_cells = next_block.actual_cells + ColorPalette.block_color_index_offset() - 1
+
+            block_height, block_width = next_block_ui_cells.shape
             x_offset = ceil((self._RIGHT_ELEMENTS_WIDTH - 2 - block_width) / 2)
             y_offset = ceil((self._NEXT_BLOCK_HEIGHT - 3 - block_height) / 2)
+
+            # handle powerup blocks (custom dynamic color, and with "?" text on top)
+            powerup_positions = np.where(
+                (next_block.actual_cells >= Board.MIN_POWERUP_CELL_VALUE)
+                & (next_block.actual_cells <= Board.MAX_POWERUP_CELL_VALUE)
+            )
+            for y, x in zip(*powerup_positions, strict=True):
+                next_block_ui_cells[y, x] = ColorPalette.DYNAMIC_POWERUP_INDEX
+                texts.append(
+                    Text(
+                        text="?" * self.pixel_width,
+                        position=self.next_block_position + Vec(2, 1) + Vec(y_offset, x_offset) + Vec(y, x),
+                    )
+                )
+
             # fmt: off
             np.copyto(
                 ui_array[
                     self.next_block_position.y + 2 + y_offset : self.next_block_position.y + 2 + y_offset + block_height,  # noqa: E501
                     self.next_block_position.x + 1 + x_offset : self.next_block_position.x + 1 + x_offset + block_width,
                 ],
-                next_block.actual_cells + ColorPalette.block_color_index_offset() - 1,
+                next_block_ui_cells,
                 # using view() instead of astype() is an optimization that assumes that the int type of actual_cells is
                 # 8 bit wide!
                 where=next_block.actual_cells.view(bool),
