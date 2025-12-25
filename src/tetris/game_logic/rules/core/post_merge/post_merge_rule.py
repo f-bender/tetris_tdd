@@ -34,11 +34,13 @@ class PostMergeRule(Publisher, Subscriber, Rule):
 
         self._effect_queue = queue.Queue[GradualBoardManipulation]()
         self._current_effect: GradualBoardManipulation | None = None
+
         self._line_clear_effect = FillLines.clear_full_lines()
         self._line_fill_effect = FillLines(
             line_idx_factory=partial(self._get_random_non_empty_lines, num_lines=1),
             fill_value=BlockType.S,
         )
+        self._gravity_effect = Gravity()
 
     @override
     def apply(self, frame_counter: int, action_counter: ActionCounter, board: Board) -> None:
@@ -78,7 +80,8 @@ class PostMergeRule(Publisher, Subscriber, Rule):
             case MergeMessage():
                 self._current_effect = self._line_clear_effect
             case GravityEffectTrigger(per_col_probability=per_col_probability):
-                self._effect_queue.put(Gravity(per_col_probability=per_col_probability))
+                self._gravity_effect.per_col_probability = per_col_probability
+                self._effect_queue.put(self._gravity_effect)
                 self._effect_queue.put(self._line_clear_effect)
             case FillLinesEffectTrigger(num_lines=num_lines):
                 self._line_fill_effect.line_idx_factory = partial(self._get_random_non_empty_lines, num_lines=num_lines)

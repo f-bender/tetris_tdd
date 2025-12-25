@@ -110,3 +110,11 @@ class ControllerSymbolUpdatedMessage(NamedTuple):
 
 class FillLinesEffectTrigger(NamedTuple):
     num_lines: int
+
+
+class GravityFinishedMessage(NamedTuple):
+    pass
+
+
+class GravityStartedMessage(NamedTuple):
+    pass

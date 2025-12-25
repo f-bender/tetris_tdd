@@ -6,33 +6,47 @@ import numpy as np
 from numpy.typing import NDArray
 
 from tetris.game_logic.components.board import Board
+from tetris.game_logic.interfaces.pub_sub import Publisher
 from tetris.game_logic.rules.board_manipulations.board_manipulation import GradualBoardManipulation
+from tetris.game_logic.rules.messages import GravityFinishedMessage, GravityStartedMessage
 
 
-class Gravity(GradualBoardManipulation):
+class Gravity(GradualBoardManipulation, Publisher):
     def __init__(self, per_col_probability: float = 1) -> None:
+        super().__init__()
+
         self._per_col_probability = per_col_probability
         self._currently_affected_columns: list[int] | None = None
         self._currently_total_steps: int | None = None
-        self._done = False
+        self._done_already = False
+
+    @property
+    def per_col_probability(self) -> float:
+        return self._per_col_probability
+
+    @per_col_probability.setter
+    def per_col_probability(self, value: float) -> None:
+        self._per_col_probability = value
 
     @override
     def done_already(self) -> bool:
-        return self._done
+        return self._done_already
 
     @override
     def manipulate_gradually(self, board: Board, current_frame: int, total_frames: int) -> None:
         assert not board.has_active_block(), "manipulate_gradually was called with an active block on the board!"
 
         if current_frame == 0:
-            self.done = False
+            self._done_already = False
             self._currently_affected_columns = [
                 i for i in range(board.width) if random.random() < self._per_col_probability
             ]
             self._currently_total_steps = self._estimate_total_num_bubble_steps(board)
             if self._currently_total_steps == 0:
-                self._done = True
+                self._done_already = True
                 return
+
+            self.notify_subscribers(GravityStartedMessage())
 
         assert self._currently_affected_columns is not None, (
             f"manipulate_gradually was called with {current_frame = } without a preceding call with current_frame = 0!"
@@ -51,9 +65,12 @@ class Gravity(GradualBoardManipulation):
             board_after = self._bubble_falsy_up(board_after)
 
         if np.array_equal(board_before, board_after):
-            self._done = True
+            self._done_already = True
         else:
             board.set_from_array(board_after)
+
+        if current_frame == total_frames - 1 or self._done_already:
+            self.notify_subscribers(GravityFinishedMessage())
 
     @staticmethod
     def _estimate_total_num_bubble_steps(board: Board) -> int:

@@ -12,10 +12,13 @@ from tetris.game_logic.interfaces.audio_output import AudioOutput
 from tetris.game_logic.interfaces.callback import Callback
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.game_logic.rules.board_manipulations.fill_lines import FillLines
+from tetris.game_logic.rules.board_manipulations.gravity import Gravity
 from tetris.game_logic.rules.core.drop_merge.drop_merge_rule import DropMergeRule
 from tetris.game_logic.rules.core.move_rotate_rules import MoveRule, RotateRule
 from tetris.game_logic.rules.core.scoring.level_rule import LevelTracker
 from tetris.game_logic.rules.messages import (
+    GravityFinishedMessage,
+    GravityStartedMessage,
     MergeMessage,
     MoveMessage,
     NewLevelMessage,
@@ -39,6 +42,7 @@ class Sound(StrEnum):
     GAME_OVER = "game_over"
     POWERUP = "powerup"
     LINE_FILL = "line_fill"
+    GRAVITY = "gravity"
 
 
 class SoundManager(Subscriber, Callback):
@@ -58,8 +62,8 @@ class SoundManager(Subscriber, Callback):
                 Sound.NEXT_LEVEL: "https://fi.zophar.net/soundfiles/nintendo-nes-nsf/tetris-1989-Nintendo/SFX%207.mp3",
                 Sound.GAME_OVER: "https://fi.zophar.net/soundfiles/nintendo-nes-nsf/tetris-1989-Nintendo/SFX%2014.mp3",
                 # POWERUP: manually downloaded from https://pixabay.com/sound-effects/8-bit-powerup-6768/
-                # (has no simple download link)
                 # LINE_FILL: LINE_CLEAR, but reversed and cut to contain only the last 0.5s
+                # GRAVITY: downloaded from https://www.youtube.com/watch?v=__PiWa3CYJ0, sped up 9x
             }
         }
     )
@@ -141,7 +145,7 @@ class SoundManager(Subscriber, Callback):
 
     def should_be_subscribed_to(self, publisher: Publisher) -> bool:
         return isinstance(
-            publisher, DropMergeRule | FillLines | RotateRule | MoveRule | LevelTracker | PowerupRule
+            publisher, DropMergeRule | FillLines | RotateRule | MoveRule | LevelTracker | PowerupRule | Gravity
         ) and (self._game_indices is None or publisher.game_index in self._game_indices)
 
     def notify(self, message: NamedTuple) -> None:
@@ -149,7 +153,9 @@ class SoundManager(Subscriber, Callback):
             return
 
         match message:
-            case MergeMessage():
+            case GravityStartedMessage():
+                self._play_sound(Sound.GRAVITY)
+            case MergeMessage() | GravityFinishedMessage():
                 self._play_sound(Sound.MERGE)
             case NewLevelMessage(level=level) if level > 0:
                 self._play_sound(Sound.NEXT_LEVEL)
