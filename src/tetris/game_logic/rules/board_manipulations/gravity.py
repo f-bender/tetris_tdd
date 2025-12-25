@@ -65,11 +65,11 @@ class Gravity(GradualBoardManipulation):
             (~board_array).any(axis=0), board.height - 1 - np.flip(~board_array, axis=0).argmax(axis=0), -1
         )
 
-        valid_idxs = (highest_filled_cells != -1) & (lowest_empty_cells != 0)
+        valid_idxs = (highest_filled_cells != -1) & (lowest_empty_cells != -1)
         if not np.any(valid_idxs):
             return 0
 
-        return (lowest_empty_cells[valid_idxs] - highest_filled_cells[valid_idxs]).max()
+        return max(0, (lowest_empty_cells[valid_idxs] - highest_filled_cells[valid_idxs]).max())
 
     def _bubble_falsy_up(self, array: NDArray[np.uint8]) -> NDArray[np.uint8]:
         assert self._currently_affected_columns is not None
