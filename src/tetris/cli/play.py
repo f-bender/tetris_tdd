@@ -369,11 +369,11 @@ def _create_controller(controller_parameter: ControllerParameter, board: Board, 
         msg = "Unknown controller parameter."
         raise AssertionError(msg)
 
-    if powerups:
-        # one powerup os bot-assistance: we need to make the controller a bot-assisted one, without manual activateion
-        controller = BotAssistedController(controller, HeuristicBotController(board), allow_manual_activation=False)
-    elif manually_bot_assisted:
+    if manually_bot_assisted:
         controller = BotAssistedController(controller, HeuristicBotController(board), allow_manual_activation=True)
+    elif powerups:
+        # one powerup is bot-assistance: we need to make the controller a bot-assisted one, without manual activateion
+        controller = BotAssistedController(controller, HeuristicBotController(board), allow_manual_activation=False)
 
     return controller
 
