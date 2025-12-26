@@ -78,6 +78,14 @@ class BotAssistanceEffect(PowerupEffect, Publisher):
 
         self._end_frame: int | None = None
 
+    @property
+    @override
+    def is_active(self) -> bool:
+        # in case we have no subscribers, so this powerup has no effect
+        # -> mark it as always active (such that it is never selected to be triggered)
+        # (note: this is the case when bot controller is used)
+        return self._active or not self._subscribers
+
     @override
     def apply_effect(self, frame_counter: int, action_counter: ActionCounter, board: Board) -> None:
         if self._end_frame is None:
