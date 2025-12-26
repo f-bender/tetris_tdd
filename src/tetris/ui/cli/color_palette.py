@@ -166,7 +166,9 @@ class ColorPalette:
             display_bg=(50, 50, 50),
             empty=(0, 0, 0),
             dynamic_colormap_background=cls.random_colormap(),
-            dynamic_colormap_powerup=cls.rainbow_colormap(length=200),
+            dynamic_colormap_powerup=cls.rainbow_colormap(
+                saturation=1, value=0.9, length=200, reverse=random.choice([True, False])
+            ),
         )
 
     @classmethod
