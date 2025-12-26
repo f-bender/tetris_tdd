@@ -1,5 +1,6 @@
 import logging
 import random
+from itertools import chain
 from typing import NamedTuple, override
 
 import numpy as np
@@ -56,15 +57,26 @@ class PowerupRule(Publisher, Subscriber, Callback, Rule):
     @override
     def apply(self, frame_counter: int, action_counter: ActionCounter, board: Board) -> None:
         """Decrease the TTL of all power-ups by 1. Remove power-ups with TTL 0."""
-        board_array = board.as_array()
-
         actually_present_powerup_slots = [
-            i for i in np.unique(board_array) if Board.MIN_POWERUP_CELL_VALUE <= i <= Board.MAX_POWERUP_CELL_VALUE
+            i
+            for i in chain(
+                # note: need to get cells from board and from active block separately (instead of the "all-in-one"
+                # as_array()) because the active block may be partly outside the board (on top)
+                np.unique(board.array_view_without_active_block()),
+                np.unique(board.active_block.block.cells) if board.active_block is not None else [],
+            )
+            if Board.MIN_POWERUP_CELL_VALUE <= i <= Board.MAX_POWERUP_CELL_VALUE
         ]
 
         # Update power-up positions
+        board_array = board.as_array()
         for slot in actually_present_powerup_slots:
             positions = np.argwhere(board_array == slot)
+            if len(positions) == 0:
+                # edge case: the powerup is part of the active block and outside the board (on top) - skip updating its
+                # position
+                continue
+
             assert len(positions) == 1, f"Power-up slot {slot} present {len(positions)} times on the board!"
             self._powerup_positions[slot] = tuple(positions[0])
 
