@@ -194,6 +194,16 @@ type AudioBackendParameter = Literal["playsound3", "pygame", "winsound"]
     "--ghost-block/--no-ghost-block", default=True, show_default=True, help="Enable/disable display of ghost block."
 )
 @click.option("--powerups/--no-powerups", default=True, show_default=True, help="Enable/disable power-ups.")
+@click.option(
+    "--fuzz-test",
+    is_flag=True,
+    default=False,
+    help=(
+        "Flag to run a large-scale automatic fuzz testing session. Will overwrite some other options. "
+        "This runs 8 games controlled by bots, with tetris99 and powerups enabled, at max FPS, "
+        "with sounds only from game 0."
+    ),
+)
 def play(  # noqa: PLR0913
     *,
     num_games: int | None,
@@ -211,8 +221,22 @@ def play(  # noqa: PLR0913
     track_performance: bool,
     ghost_block: bool,
     powerups: bool,
+    fuzz_test: bool,
 ) -> None:
     """Play Tetris with configurable rules and controllers."""
+    if fuzz_test:
+        num_games = 8
+        controller = ("bot",)
+        tetris99 = True
+        synchronize_spawning = False
+        process_pool = True
+        fps = 1_000_000  # it will just run as fast as it can
+        seed = ()
+        sounded_game = (0,)
+        track_performance = False
+        ghost_block = True
+        powerups = True
+
     boards, controllers = _create_boards_and_controllers(
         board_size=board_size, num_games_parameter=num_games, controllers_parameter=controller, powerups=powerups
     )
