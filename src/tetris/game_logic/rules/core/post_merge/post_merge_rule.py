@@ -25,6 +25,14 @@ from tetris.game_logic.rules.special.powerup_effect import FillLinesEffect, Grav
 
 class PostMergeRule(Publisher, Subscriber, Rule):
     def __init__(self, effect_duration_frames: int = 30, minimum_delay_frames: int = 30) -> None:
+        if effect_duration_frames <= 0:
+            msg = "effect_duration_frames must be positive"
+            raise ValueError(msg)
+
+        if minimum_delay_frames <= 0:
+            msg = "minimum_delay_frames must be positive"
+            raise ValueError(msg)
+
         super().__init__()
 
         self._effect_duration_frames = effect_duration_frames

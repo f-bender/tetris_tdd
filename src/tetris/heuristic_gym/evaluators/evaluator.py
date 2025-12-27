@@ -155,7 +155,13 @@ class EvaluatorImpl(Evaluator):
                     board=board,
                     controller=controller,
                     rule_sequence=RuleSequence(
-                        (MoveRule(), RotateRule(), spawn_rule, DropMergeRule(), PostMergeRule())
+                        (
+                            MoveRule(),
+                            RotateRule(),
+                            spawn_rule,
+                            DropMergeRule(),
+                            PostMergeRule(effect_duration_frames=1, minimum_delay_frames=1),
+                        )
                     ),
                     callback_collection=CallbackCollection((cleared_lines_tracker,)),
                 )
