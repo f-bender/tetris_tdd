@@ -100,7 +100,7 @@ class Runtime:
 
 
 class StartupState:
-    ACCELERATION_FACTOR = 0.1
+    ACCELERATION_FACTOR = 0.25
     ACCELERATION_ACTION = Action(down=True)
 
     def advance(self, runtime: Runtime) -> None:

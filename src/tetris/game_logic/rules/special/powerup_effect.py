@@ -21,6 +21,10 @@ class PowerupEffectManager:
             FillLinesEffect(),
         ]
 
+    def reset(self) -> None:
+        for effect in self._effects:
+            effect.reset()
+
     def apply(self, frame_counter: int, action_counter: ActionCounter, board: Board) -> None:
         for effect in self._effects:
             if effect.is_active:
@@ -42,6 +46,9 @@ class PowerupEffect(ABC):
     @property
     def is_active(self) -> bool:
         return self._active
+
+    def reset(self) -> None:
+        self._active = False
 
     def activate(self) -> None:
         self._active = True

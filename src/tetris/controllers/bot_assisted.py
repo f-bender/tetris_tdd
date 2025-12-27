@@ -2,13 +2,14 @@ import time
 from typing import NamedTuple, override
 
 from tetris.controllers.heuristic_bot.controller import HeuristicBotController
+from tetris.game_logic.interfaces.callback import Callback
 from tetris.game_logic.interfaces.controller import Action, Controller
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.game_logic.rules.messages import BotAssistanceEnd, BotAssistanceStart, ControllerSymbolUpdatedMessage
 from tetris.game_logic.rules.special.powerup_effect import BotAssistanceEffect
 
 
-class BotAssistedController(Subscriber, Publisher, Controller):
+class BotAssistedController(Subscriber, Publisher, Callback, Controller):
     """A controller that assists the player by providing hints for the next move."""
 
     _BOT_TOGGLE_ACTION = Action(confirm=True, cancel=True, down=True, left=True)
@@ -29,6 +30,11 @@ class BotAssistedController(Subscriber, Publisher, Controller):
 
         self._using_bot = False
         self._last_bot_toggle_time: float | None = None
+
+    @override
+    def on_game_start(self) -> None:
+        self._using_bot = False
+        self._last_bot_toggle_time = None
 
     @property
     def bot_controller(self) -> HeuristicBotController:

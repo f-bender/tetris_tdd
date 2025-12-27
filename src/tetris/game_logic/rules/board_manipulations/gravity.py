@@ -67,6 +67,12 @@ class Gravity(GradualBoardManipulation, Publisher):
         if np.array_equal(board_before, board_after):
             self._done_already = True
         else:
+            if current_frame == total_frames - 1:
+                # in case we are at the end of the manipulation, make sure everything is settled
+                # note: this could happen if the total step estimation was off (which shouldn't happen),
+                # or when a tetris99 rule has added lines mid-manipulation
+                board_after = self._finish_up_manipulation(board_after)
+
             board.set_from_array(board_after)
 
         if current_frame == total_frames - 1 or self._done_already:
@@ -115,3 +121,10 @@ class Gravity(GradualBoardManipulation, Publisher):
             step_per_frames[i] += 1
 
         return step_per_frames
+
+    def _finish_up_manipulation(self, board: NDArray[np.uint8]) -> NDArray[np.uint8]:
+        current_board = board
+        while not np.array_equal(current_board, next_board := self._bubble_falsy_up(current_board)):
+            current_board = next_board
+
+        return current_board

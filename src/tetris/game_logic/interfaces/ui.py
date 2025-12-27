@@ -26,6 +26,7 @@ class SingleUiElements:
     # potential additions in the future: hold_block
 
     def reset(self) -> None:
+        self.board.fill(0)
         self.next_block = None
         self.num_cleared_lines = 0
         self.level = 0

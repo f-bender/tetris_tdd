@@ -8,6 +8,7 @@ import numpy as np
 from tetris.game_logic.action_counter import ActionCounter
 from tetris.game_logic.components.block import BlockType
 from tetris.game_logic.components.board import Board
+from tetris.game_logic.interfaces.callback import Callback
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.game_logic.interfaces.rule import Rule
 from tetris.game_logic.rules.board_manipulations.board_manipulation import GradualBoardManipulation
@@ -23,7 +24,7 @@ from tetris.game_logic.rules.messages import (
 from tetris.game_logic.rules.special.powerup_effect import FillLinesEffect, GravityEffect
 
 
-class PostMergeRule(Publisher, Subscriber, Rule):
+class PostMergeRule(Publisher, Subscriber, Callback, Rule):
     def __init__(self, effect_duration_frames: int = 30, minimum_delay_frames: int = 30) -> None:
         if effect_duration_frames <= 0:
             msg = "effect_duration_frames must be positive"
@@ -49,6 +50,13 @@ class PostMergeRule(Publisher, Subscriber, Rule):
             fill_value=BlockType.S,
         )
         self._gravity_effect = Gravity()
+
+    @override
+    def on_game_start(self) -> None:
+        self._effect_queue = queue.Queue[GradualBoardManipulation]()
+        self._current_effect = None
+        self._effect_start_frame = None
+        self._post_merge_start_frame = None
 
     @override
     def apply(self, frame_counter: int, action_counter: ActionCounter, board: Board) -> None:

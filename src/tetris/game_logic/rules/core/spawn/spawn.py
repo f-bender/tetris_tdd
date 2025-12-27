@@ -41,6 +41,7 @@ class SpawnRule(Publisher, Subscriber, Callback, Rule):
 
     @override
     def on_game_start(self) -> None:
+        self._next_block = self._select_block_fn()
         self._should_spawn = True
 
     @override

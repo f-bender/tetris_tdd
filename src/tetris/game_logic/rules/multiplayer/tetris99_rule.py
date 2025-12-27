@@ -6,6 +6,7 @@ import numpy as np
 from tetris.game_logic.action_counter import ActionCounter
 from tetris.game_logic.components.board import Board
 from tetris.game_logic.game import GameOverError
+from tetris.game_logic.interfaces.callback import Callback
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.game_logic.rules.board_manipulations.fill_lines import FillLines
 from tetris.game_logic.rules.messages import BoardTranslationMessage, FinishedLineFillMessage, Tetris99Message
@@ -30,7 +31,7 @@ class PlaceLinesManipulation:
         board.set_from_array(board_array, active_block_displacement=(-self._num_lines, 0))
 
 
-class Tetris99Rule(Publisher, Subscriber):
+class Tetris99Rule(Publisher, Subscriber, Callback):
     def __init__(self, target_idxs: list[int], targeted_by_idxs: list[int] | None = None) -> None:
         super().__init__()
 
@@ -43,6 +44,10 @@ class Tetris99Rule(Publisher, Subscriber):
 
         self._num_recently_cleared_lines: int = 0
         self._num_lines_to_place: int = 0
+
+    def on_game_start(self) -> None:
+        self._num_recently_cleared_lines = 0
+        self._num_lines_to_place = 0
 
     def should_be_subscribed_to(self, publisher: Publisher) -> bool:
         return (
@@ -69,7 +74,7 @@ class Tetris99Rule(Publisher, Subscriber):
 
     def notify(self, message: NamedTuple) -> None:
         if isinstance(message, FinishedLineFillMessage):
-            self._num_recently_cleared_lines = len(message.filled_lines)
+            self._num_recently_cleared_lines += len(message.filled_lines)
 
         elif isinstance(message, Tetris99Message) and message.target_id == self.game_index:
             self._num_lines_to_place += message.num_lines

@@ -42,6 +42,12 @@ class PowerupRule(Publisher, Subscriber, Callback, Rule):
 
         self._powerup_effect_manager = PowerupEffectManager()
 
+    @override
+    def on_game_start(self) -> None:
+        self._powerup_ttls[...] = 0
+        self._powerup_positions.clear()
+        self._powerup_effect_manager.reset()
+
     def put_powerup_on_hold(self, slot: int) -> None:
         """Put the power-up in the given slot on hold.
 
@@ -171,7 +177,3 @@ class PowerupRule(Publisher, Subscriber, Callback, Rule):
                 }
             )
         )
-
-    @override
-    def on_game_start(self) -> None:
-        self._powerup_ttls[...] = 0
