@@ -168,6 +168,18 @@ class Block:
 
         return unique_rotations
 
+    def equals_in_shape(self, other: Self) -> bool:
+        if np.array_equal(self.cells.view(bool), other.cells.view(bool)):
+            return True
+
+        other_rotated = deepcopy(other)
+        for _ in range(3):
+            other_rotated.rotate_right()
+            if np.array_equal(self.cells.view(bool), other_rotated.cells.view(bool)):
+                return True
+
+        return False
+
     @classmethod
     def create_random(cls, rng: random.Random | None = None) -> Self:
         return cls((rng or random).choice(list(BlockType)))

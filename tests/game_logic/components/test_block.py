@@ -135,3 +135,27 @@ def test_unique_rotations() -> None:
     assert len(Block(BlockType.S).unique_rotations()) == 2  # noqa: PLR2004
     assert len(Block(BlockType.J).unique_rotations()) == 4  # noqa: PLR2004
     assert len(Block(BlockType.Z).unique_rotations()) == 2  # noqa: PLR2004
+
+
+def test_equals_in_shape() -> None:
+    t1 = Block(BlockType.T)
+    t2 = Block(BlockType.T)
+    assert t1.equals_in_shape(t2)
+
+    t2.rotate_right()
+    assert t1.equals_in_shape(t2)
+
+    o = Block(BlockType.O)
+    assert not t1.equals_in_shape(o)
+
+    s = Block(BlockType.S)
+    s_rotated = Block(BlockType.S)
+    s_rotated.rotate_right()
+    assert s.equals_in_shape(s_rotated)
+
+    z = Block(BlockType.Z)
+    z_rotated = Block(BlockType.Z)
+    z_rotated.rotate_right()
+    assert z.equals_in_shape(z_rotated)
+
+    assert not s.equals_in_shape(z)
