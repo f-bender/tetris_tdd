@@ -53,7 +53,7 @@ type ControllerParameter = Literal[
     "gamepad+",
 ]
 
-type AudioBackendParameter = Literal["playsound3", "pygame", "winsound"]
+type AudioBackendParameter = Literal["pygame", "playsound3", "winsound"]
 
 
 @click.command()
@@ -174,14 +174,12 @@ type AudioBackendParameter = Literal["playsound3", "pygame", "winsound"]
 )
 @click.option(
     "--audio-backend",
-    type=click.Choice(["playsound3", "pygame", "winsound"], case_sensitive=False),
-    default="playsound3",
+    type=click.Choice(["pygame", "playsound3", "winsound"], case_sensitive=False),
+    default="pygame",
     show_default=True,
     help=(
-        "Backend to use for playing sounds. Notes: "
-        "'pygame' requires the 'pygame' extra to be installed "
-        "(`pip install tetris[pygame]` or `uv sync --extra pygame`). "
-        "'winsound' only works on Windows, and only with 'wav' files."
+        "Backend to use for playing sounds. Pygame is recommended. "
+        "Note: 'winsound' only works on Windows, and only with 'wav' files."
     ),
 )
 @click.option(
