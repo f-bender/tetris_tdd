@@ -9,6 +9,7 @@ import click
 from tetris.cli.common import BoardSize
 from tetris.clock.simple import SimpleClock
 from tetris.controllers.bot_assisted import BotAssistedController
+from tetris.controllers.composite import CompositeController
 from tetris.controllers.heuristic_bot.controller import HeuristicBotController
 from tetris.controllers.stub import StubController
 from tetris.game_logic.components import Board
@@ -222,8 +223,8 @@ def play(  # noqa: PLR0913
     fuzz_test: bool,
 ) -> None:
     """Play Tetris with configurable rules and controllers."""
-    runtime_controller: Controller | None = None
     tetris99_self_targeting_when_alone = False
+    runtime_controller: Controller | None = None
     if fuzz_test:
         num_games = 8
         controller = ("bot",)
@@ -236,9 +237,15 @@ def play(  # noqa: PLR0913
         track_performance = False
         ghost_block = True
         powerups = True
-        # make sure a new game is automatically started after all are game over
-        runtime_controller = StubController(Action(confirm=True), mode="press_repeatedly")
         tetris99_self_targeting_when_alone = True
+        # make sure a new game is automatically started after all are game over
+        repeatedly_confirm_controller = StubController(Action(confirm=True), mode="press_repeatedly")
+        try:
+            from tetris.controllers.keyboard.pynput import PynputKeyboardController
+        except Exception:  # noqa: BLE001
+            runtime_controller = repeatedly_confirm_controller
+        else:
+            runtime_controller = CompositeController((repeatedly_confirm_controller, PynputKeyboardController()))
 
     boards, controllers = _create_boards_and_controllers(
         board_size=board_size, num_games_parameter=num_games, controllers_parameter=controller, powerups=powerups
