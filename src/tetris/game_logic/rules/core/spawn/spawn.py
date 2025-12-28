@@ -40,7 +40,7 @@ class SpawnRule(Publisher, Subscriber, Callback, Rule):
         return game_index == self.game_index
 
     @override
-    def on_game_start(self) -> None:
+    def on_game_start(self, game_index: int) -> None:
         self._next_block = self._select_block_fn()
         self._should_spawn = True
 

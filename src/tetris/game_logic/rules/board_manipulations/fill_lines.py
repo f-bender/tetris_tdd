@@ -101,7 +101,7 @@ class FillLines(Callback, Publisher, Subscriber, GradualBoardManipulation):
     def should_be_called_by(self, game_index: int) -> bool:
         return game_index == self.game_index
 
-    def on_game_start(self) -> None:
+    def on_game_start(self, game_index: int) -> None:
         self._lines_to_fill = None
 
     def should_be_subscribed_to(self, publisher: Publisher) -> bool:

@@ -16,10 +16,10 @@ class TrackPerformanceCallback(Callback):
     def should_be_called_by(self, game_index: int) -> bool:
         return game_index == DependencyManager.RUNTIME_INDEX
 
-    def on_frame_start(self) -> None:
+    def on_frame_start(self, game_index: int) -> None:
         self._last_frame_start = time.perf_counter()
 
-    def on_frame_end(self) -> None:
+    def on_frame_end(self, game_index: int) -> None:
         if not self._last_frame_start:
             return
 

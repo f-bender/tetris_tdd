@@ -3,6 +3,7 @@ from tetris.game_logic.action_counter import ActionCounter
 from tetris.game_logic.components import Board
 from tetris.game_logic.interfaces.callback_collection import CallbackCollection
 from tetris.game_logic.interfaces.controller import Controller
+from tetris.game_logic.interfaces.dependency_manager import DEPENDENCY_MANAGER
 from tetris.game_logic.interfaces.rule_sequence import RuleSequence
 from tetris.game_logic.interfaces.ui import SingleUiElements
 from tetris.game_logic.ui_aggregator import UiAggregator
@@ -35,6 +36,8 @@ class Game:
         self._game_over_frame_count = 0
 
         self._ui_aggregator = UiAggregator(board=board.as_array(), controller_symbol=self._controller.symbol)
+
+        self._index = DEPENDENCY_MANAGER.current_game_index
 
     @property
     def controller(self) -> Controller:
@@ -73,12 +76,12 @@ class Game:
 
     def advance_frame(self) -> None:
         if self._frame_counter == 0:
-            self.callback_collection.on_game_start()
+            self.callback_collection.on_game_start(self._index)
 
         self._frame_counter += 1
 
         self._action_counter.update(self._controller.get_action())
-        self.callback_collection.on_action_counter_updated()
+        self.callback_collection.on_action_counter_updated(self._index)
 
         if not self._alive:
             return
@@ -86,10 +89,10 @@ class Game:
         try:
             self._rule_sequence.apply(self._frame_counter, self._action_counter, self._board)
         except GameOverError:
-            self.callback_collection.on_game_over()
+            self.callback_collection.on_game_over(self._index)
             self._alive = False
             self._game_over_frame_count = self._frame_counter
             return
-        self.callback_collection.on_rules_applied()
+        self.callback_collection.on_rules_applied(self._index)
 
         self._ui_aggregator.update(self._board.as_array(include_ghost=self._show_ghost_block))

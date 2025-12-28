@@ -43,7 +43,7 @@ class ScoreTracker(Callback, Publisher, Subscriber):
             )
             raise RuntimeError(msg)
 
-    def on_game_start(self) -> None:
+    def on_game_start(self, game_index: int) -> None:
         self._score = 0
         self.notify_subscribers(ScoreMessage(score=self._score, session_high_score=self._session_high_score))
 

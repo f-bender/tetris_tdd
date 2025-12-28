@@ -52,7 +52,7 @@ class PostMergeRule(Publisher, Subscriber, Callback, Rule):
         self._gravity_effect = Gravity()
 
     @override
-    def on_game_start(self) -> None:
+    def on_game_start(self, game_index: int) -> None:
         self._effect_queue = queue.Queue[GradualBoardManipulation]()
         self._current_effect = None
         self._effect_start_frame = None

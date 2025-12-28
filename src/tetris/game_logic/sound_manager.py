@@ -186,14 +186,14 @@ class SoundManager(Subscriber, Callback):
     def should_be_called_by(self, game_index: int) -> bool:
         return self._game_indices is None or game_index in self._game_indices
 
-    def on_game_over(self) -> None:
+    def on_game_over(self, game_index: int) -> None:  # noqa: ARG002
         self._audio_output.stop()
         self._music_playing = False
 
         if self._enabled:
             self._play_sound(Sound.GAME_OVER)
 
-    def on_game_start(self) -> None:
+    def on_game_start(self, game_index: int) -> None:  # noqa: ARG002
         if self._enabled and not self._music_playing:
             self._start_playing_music()
 

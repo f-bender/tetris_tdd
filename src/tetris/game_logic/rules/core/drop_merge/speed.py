@@ -89,7 +89,7 @@ class SpeedStrategyImpl(Callback):
         self._next_normal_interval_int = next(self._normal_interval_iter)
         self._next_quick_interval_int = next(self._quick_interval_iter)
 
-    def on_game_start(self) -> None:
+    def on_game_start(self, game_index: int) -> None:
         self.set_interval(self._base_interval)
 
     def should_trigger(self, frames_since_last_drop: int, *, quick_drop_held: bool) -> bool:
@@ -160,7 +160,7 @@ class LineClearSpeedUp(Subscriber, Callback):
             )
             self._cleared_lines -= self._line_clears_between_speedup
 
-    def on_game_start(self) -> None:
+    def on_game_start(self, game_index: int) -> None:
         self._cleared_lines = 0
 
     def should_trigger(self, frames_since_last_drop: int, *, quick_drop_held: bool) -> bool:

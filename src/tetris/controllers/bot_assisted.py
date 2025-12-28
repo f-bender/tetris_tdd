@@ -32,7 +32,7 @@ class BotAssistedController(Subscriber, Publisher, Callback, Controller):
         self._last_bot_toggle_time: float | None = None
 
     @override
-    def on_game_start(self) -> None:
+    def on_game_start(self, game_index: int) -> None:
         self._using_bot = False
         self._last_bot_toggle_time = None
 

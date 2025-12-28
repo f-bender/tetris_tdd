@@ -6,6 +6,7 @@ from tetris.game_logic.game import Game
 from tetris.game_logic.interfaces.callback_collection import CallbackCollection
 from tetris.game_logic.interfaces.clock import Clock
 from tetris.game_logic.interfaces.controller import Action, Controller
+from tetris.game_logic.interfaces.dependency_manager import DependencyManager
 from tetris.game_logic.interfaces.runtime_rule_sequence import RuntimeRuleSequence
 from tetris.game_logic.interfaces.ui import UI, UiElements
 from tetris.game_logic.sound_manager import SoundManager
@@ -69,23 +70,23 @@ class Runtime:
             game.reset()
 
     def run(self) -> None:
-        self.callback_collection.on_runtime_start()
+        self.callback_collection.on_runtime_start(DependencyManager.RUNTIME_INDEX)
         while True:
             self._clock.tick()
             self.advance_frame(self._controller.get_action())
 
     def advance_frame(self, action: Action) -> None:
-        self.callback_collection.on_frame_start()
+        self.callback_collection.on_frame_start(DependencyManager.RUNTIME_INDEX)
 
         self._action_counter.update(action)
-        self.callback_collection.on_action_counter_updated()
+        self.callback_collection.on_action_counter_updated(DependencyManager.RUNTIME_INDEX)
 
         self._rule_sequence.apply(self._frame_counter, self._action_counter)
 
         self.state.advance(self)
 
         self._ui.draw(self._ui_elements)
-        self.callback_collection.on_frame_end()
+        self.callback_collection.on_frame_end(DependencyManager.RUNTIME_INDEX)
 
         self._frame_counter += 1
 
@@ -120,7 +121,7 @@ PAUSE_ACTION = Action(cancel=True)
 
 
 class PlayingState:
-    _GAME_OVER_DELAY_FRAMES = 120
+    RESTART_AFTER_GAME_OVER_ACTION = Action(confirm=True)
 
     def advance(self, runtime: Runtime) -> None:
         if runtime.action_counter.held_since(PAUSE_ACTION) == 1:
@@ -128,7 +129,12 @@ class PlayingState:
 
         for game in runtime.games:
             game.advance_frame()
-            if not game.alive and game.frame_counter - game.game_over_frame_count >= self._GAME_OVER_DELAY_FRAMES:
+
+        if (
+            not any(game.alive for game in runtime.games)
+            and runtime.action_counter.held_since(self.RESTART_AFTER_GAME_OVER_ACTION) == 1
+        ):
+            for game in runtime.games:
                 game.reset()
 
 

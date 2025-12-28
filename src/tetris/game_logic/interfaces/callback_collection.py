@@ -9,30 +9,30 @@ class CallbackCollection:
     def __init__(self, callbacks: Collection[Callback]) -> None:
         self._callbacks = callbacks
 
-    def on_runtime_start(self) -> None:
+    def on_runtime_start(self, game_index: int) -> None:
         for callback in self._callbacks:
-            callback.on_runtime_start()
+            callback.on_runtime_start(game_index)
 
-    def on_game_start(self) -> None:
+    def on_game_start(self, game_index: int) -> None:
         for callback in self._callbacks:
-            callback.on_game_start()
+            callback.on_game_start(game_index)
 
-    def on_frame_start(self) -> None:
+    def on_frame_start(self, game_index: int) -> None:
         for callback in self._callbacks:
-            callback.on_frame_start()
+            callback.on_frame_start(game_index)
 
-    def on_action_counter_updated(self) -> None:
+    def on_action_counter_updated(self, game_index: int) -> None:
         for callback in self._callbacks:
-            callback.on_action_counter_updated()
+            callback.on_action_counter_updated(game_index)
 
-    def on_rules_applied(self) -> None:
+    def on_rules_applied(self, game_index: int) -> None:
         for callback in self._callbacks:
-            callback.on_rules_applied()
+            callback.on_rules_applied(game_index)
 
-    def on_frame_end(self) -> None:
+    def on_frame_end(self, game_index: int) -> None:
         for callback in self._callbacks:
-            callback.on_frame_end()
+            callback.on_frame_end(game_index)
 
-    def on_game_over(self) -> None:
+    def on_game_over(self, game_index: int) -> None:
         for callback in self._callbacks:
-            callback.on_game_over()
+            callback.on_game_over(game_index)

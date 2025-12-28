@@ -31,7 +31,7 @@ class ClearedLinesTracker(Callback, Publisher, Subscriber):
             msg = f"{type(self).__name__} of game {self.game_index} has {len(publishers)} subscriptions: {publishers}"
             raise RuntimeError(msg)
 
-    def on_game_start(self) -> None:
+    def on_game_start(self, game_index: int) -> None:
         self._num_cleared_lines = 0
         self.notify_subscribers(
             NumClearedLinesMessage(

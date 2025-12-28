@@ -44,7 +44,7 @@ class DropMergeRule(Callback, Publisher):
 
         self._last_drop_frame: int | None = None
 
-    def on_game_start(self) -> None:
+    def on_game_start(self, game_index: int) -> None:
         self._last_drop_frame = None
 
     def apply(

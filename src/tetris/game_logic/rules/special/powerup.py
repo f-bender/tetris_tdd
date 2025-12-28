@@ -43,7 +43,7 @@ class PowerupRule(Publisher, Subscriber, Callback, Rule):
         self._powerup_effect_manager = PowerupEffectManager()
 
     @override
-    def on_game_start(self) -> None:
+    def on_game_start(self, game_index: int) -> None:
         self._powerup_ttls[...] = 0
         self._powerup_positions.clear()
         self._powerup_effect_manager.reset()

@@ -222,6 +222,8 @@ def play(  # noqa: PLR0913
     fuzz_test: bool,
 ) -> None:
     """Play Tetris with configurable rules and controllers."""
+    runtime_controller: Controller | None = None
+    tetris99_self_targeting_when_alone = False
     if fuzz_test:
         num_games = 8
         controller = ("bot",)
@@ -234,6 +236,9 @@ def play(  # noqa: PLR0913
         track_performance = False
         ghost_block = True
         powerups = True
+        # make sure a new game is automatically started after all are game over
+        runtime_controller = StubController(Action(confirm=True), mode="press_repeatedly")
+        tetris99_self_targeting_when_alone = True
 
     boards, controllers = _create_boards_and_controllers(
         board_size=board_size, num_games_parameter=num_games, controllers_parameter=controller, powerups=powerups
@@ -267,6 +272,7 @@ def play(  # noqa: PLR0913
             controllers=controllers,
             block_selection_fns=block_selection_fns,
             tetris99=tetris99,
+            tetris99_self_targeting_when_alone=tetris99_self_targeting_when_alone,
             synchronize_spawning=synchronize_spawning,
             ghost_block=ghost_block,
             powerups=powerups,
@@ -280,7 +286,13 @@ def play(  # noqa: PLR0913
             )
         )
 
-        runtime = _create_runtime(games, fps=fps, sound_manager=sound_manager, track_performance=track_performance)
+        runtime = _create_runtime(
+            games,
+            fps=fps,
+            sound_manager=sound_manager,
+            track_performance=track_performance,
+            controller=runtime_controller,
+        )
 
         DEPENDENCY_MANAGER.wire_up(runtime=runtime, games=games)
 
@@ -446,6 +458,7 @@ def _create_games(  # noqa: PLR0913
     block_selection_fns: list[Callable[[], Block]],
     *,
     tetris99: bool,
+    tetris99_self_targeting_when_alone: bool = False,
     synchronize_spawning: bool,
     ghost_block: bool,
     powerups: bool,
@@ -472,6 +485,7 @@ def _create_games(  # noqa: PLR0913
         rule_sequence = _create_rules_and_callbacks(
             num_games=len(boards),
             create_tetris_99_rule=tetris99,
+            tetris99_self_targeting_when_alone=tetris99_self_targeting_when_alone,
             synchronize_spawning=synchronize_spawning,
             block_selection_fn=block_selection_fn,
             powerups=powerups,
@@ -484,10 +498,11 @@ def _create_games(  # noqa: PLR0913
     return games
 
 
-def _create_rules_and_callbacks(
+def _create_rules_and_callbacks(  # noqa: PLR0913
     num_games: int,
     *,
     create_tetris_99_rule: bool,
+    tetris99_self_targeting_when_alone: bool = False,
     synchronize_spawning: bool,
     block_selection_fn: Callable[[], Block] = Block.create_random,
     powerups: bool,
@@ -500,6 +515,7 @@ def _create_rules_and_callbacks(
     Args:
         num_games: Total number of games being created overall.
         create_tetris_99_rule: Whether to create a Tetris99Rule in case there are multiple games.
+        tetris99_self_targeting_when_alone: Whether to enable self-targeting when no other games are alive.
         synchronize_spawning: Whether to synchronize spawning in case there are multiple games.
         block_selection_fn: Function to select blocks to spawn.
         powerups: Whether to enable power-ups.
@@ -515,7 +531,12 @@ def _create_rules_and_callbacks(
         rules.append(PowerupRule())
 
     if create_tetris_99_rule and num_games > 1:
-        rules.append(Tetris99Rule(target_idxs=list(set(range(num_games)) - {DEPENDENCY_MANAGER.current_game_index})))
+        rules.append(
+            Tetris99Rule(
+                target_idxs=list(set(range(num_games)) - {DEPENDENCY_MANAGER.current_game_index}),
+                self_targeting_when_alone=tetris99_self_targeting_when_alone,
+            )
+        )
 
     if synchronize_spawning:
         SynchronizedSpawning()  # not useless; will be added to DEPENDENCY_MANAGER.all_callbacks
