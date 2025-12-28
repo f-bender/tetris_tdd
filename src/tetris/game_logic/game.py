@@ -83,16 +83,14 @@ class Game:
         self._action_counter.update(self._controller.get_action())
         self.callback_collection.on_action_counter_updated(self._index)
 
-        if not self._alive:
-            return
-
-        try:
-            self._rule_sequence.apply(self._frame_counter, self._action_counter, self._board)
-        except GameOverError:
-            self.callback_collection.on_game_over(self._index)
-            self._alive = False
-            self._game_over_frame_count = self._frame_counter
-            return
-        self.callback_collection.on_rules_applied(self._index)
+        if self._alive:
+            try:
+                self._rule_sequence.apply(self._frame_counter, self._action_counter, self._board)
+            except GameOverError:
+                self.callback_collection.on_game_over(self._index)
+                self._alive = False
+                self._game_over_frame_count = self._frame_counter
+                return
+            self.callback_collection.on_rules_applied(self._index)
 
         self._ui_aggregator.update(self._board.as_array(include_ghost=self._show_ghost_block))

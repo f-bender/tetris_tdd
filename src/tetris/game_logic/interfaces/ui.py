@@ -19,6 +19,7 @@ class SingleUiElements:
     num_cleared_lines: int = 0
     level: int = 0
     score: int = 0
+    rank: int = 1
     session_high_score: int = 0
     powerup_ttls: dict[int, int] = field(default_factory=dict[int, int])
 

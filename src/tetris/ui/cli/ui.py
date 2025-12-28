@@ -132,7 +132,7 @@ class CLI(UI):
             msg = "num_boards must be greater than 0"
             raise ValueError(msg)
 
-        self._single_game_ui = SingleGameUI(board_height, board_width, self._PIXEL_WIDTH)
+        self._single_game_ui = SingleGameUI(board_height, board_width, self._PIXEL_WIDTH, total_num_games=num_boards)
         self._initialize_board_ui_offsets(num_boards)
         self._initialize_terminal()
 

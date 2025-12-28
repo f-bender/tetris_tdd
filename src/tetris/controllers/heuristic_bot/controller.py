@@ -5,7 +5,7 @@ import time
 from concurrent.futures import Future, ProcessPoolExecutor, as_completed
 from copy import deepcopy
 from threading import Lock, Thread
-from typing import Final, NamedTuple, cast
+from typing import Final, NamedTuple, cast, override
 
 import numpy as np
 
@@ -13,6 +13,7 @@ from tetris.controllers.heuristic_bot.heuristic import Heuristic
 from tetris.game_logic.components.block import Block, Vec
 from tetris.game_logic.components.board import Board, PositionedBlock
 from tetris.game_logic.components.exceptions import CannotDropBlockError
+from tetris.game_logic.interfaces.callback import Callback
 from tetris.game_logic.interfaces.controller import Action, Controller
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.game_logic.rules.core.drop_merge.drop_merge_rule import DropMergeRule
@@ -36,7 +37,7 @@ class Misalignment(NamedTuple):
 
 
 # TODO refactor; split into (at least) 2 classes
-class HeuristicBotController(Controller, Subscriber):
+class HeuristicBotController(Controller, Subscriber, Callback):
     # we assume that the block will spawn in the top _SPAWN_ROWS rows, meaning that we are guaranteed to be able to
     # execute a plan immediately after spawning if these rows are empty
     _SPAWN_ROWS = 2
@@ -105,6 +106,23 @@ class HeuristicBotController(Controller, Subscriber):
 
         if not self._lightning_mode:
             Thread(target=self._continuously_plan_recovering_from_exceptions, daemon=True).start()
+
+        self._active = False
+
+    @override
+    def on_game_start(self, game_index: int) -> None:
+        self._active = True
+
+    @override
+    def on_game_over(self, game_index: int) -> None:
+        with self._planning_lock:
+            self._active = False
+
+            self._current_block = None
+            self._next_block = None
+            self._current_plan = None
+            self._next_plan = None
+            self._cancel_planning_flag = True
 
     @property
     def symbol(self) -> str:
@@ -192,6 +210,10 @@ class HeuristicBotController(Controller, Subscriber):
         It is checked whether the expected board state before the plan matches the current real board state.
         If this is not the case, the current and next plans are both set to None, and the bot replans from scratch.
         """
+        if not self._active:
+            LOGGER.debug("Trying to set plan while game is not active; ignoring")
+            return
+
         if np.array_equal(
             plan.expected_board_before.array_view_without_active_block().view(bool),
             self._real_board.array_view_without_active_block().view(bool),
@@ -199,8 +221,7 @@ class HeuristicBotController(Controller, Subscriber):
             # start executing the plan (in get_action) by setting _current_plan to the next plan
             self._current_plan = plan
         else:
-            # we have made a false assumption about the board state; don't execute any plan, and replan from
-            # scratch
+            # we have made a false assumption about the board state; don't execute any plan, and replan from scratch
             self._current_plan = self._next_plan = None
             LOGGER.debug("Need to completely replan as the board is not as expected for the plan")
 
@@ -214,16 +235,14 @@ class HeuristicBotController(Controller, Subscriber):
                 )
 
     def _continuously_plan(self) -> None:
-        while self._current_block is None or self._next_block is None:
-            # wait until the first block has spawned
-            time.sleep(1 / self._fps)
-
         expected_board_after_latest_plan = Board(None)
         while True:
-            while self._next_plan is not None:
-                assert self._current_plan is not None
-                # all the planning has been done in time; wait for the next block to spawn, that will need to be planned
-                # for again
+            assert not (self._next_plan is not None and self._current_plan is None)
+
+            while (self._current_block is None or self._next_block is None) or self._next_plan is not None:
+                # Either, no blocks are currently available, (before start, or after game over)
+                # Or, we have already planned for both current and next block
+                # Either way, wait until there is a new block to plan for
                 time.sleep(1 / self._fps)
 
             with self._planning_lock:

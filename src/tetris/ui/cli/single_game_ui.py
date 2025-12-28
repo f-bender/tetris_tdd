@@ -58,6 +58,7 @@ class SingleGameUI:
     board_width: int
 
     pixel_width: int
+    total_num_games: int
 
     _RIGHT_GAP_WIDTH = 2
     _RIGHT_ELEMENTS_WIDTH = 6
@@ -65,7 +66,11 @@ class SingleGameUI:
     _LINES_HEIGHT = 3
     _CONTROLLER_SYMBOL_HEIGHT = 3
     _DISPLAY_GAP_HEIGHT = 1
-    _SCORE_HEIGHT = 6
+
+    @cached_property
+    def _score_height(self) -> int:
+        return 6 if self.total_num_games == 1 else 8
+
     _NEXT_BLOCK_HEIGHT = 5
     _LEVEL_HEIGHT = 4
 
@@ -85,6 +90,8 @@ class SingleGameUI:
     #               |  ####################....__99999999__  | SCORE_HEIGHT
     #               |  ####################....__Score_____  |
     #               |  ####################...._____12345__  |
+    #               |  ####################....__Rank______  | [Rank: only if total_num_games > 1]
+    #               |  ####################...._______2/5__  |
     #               |  ####################....____________  v
     #               |  ####################................    | DISPLAY_GAP_HEIGHT
     # board_height  |  ####################....____________  ^
@@ -126,7 +133,7 @@ class SingleGameUI:
                 (
                     self._CONTROLLER_SYMBOL_HEIGHT
                     + self._DISPLAY_GAP_HEIGHT
-                    + self._SCORE_HEIGHT
+                    + self._score_height
                     + self._DISPLAY_GAP_HEIGHT
                     + self._NEXT_BLOCK_HEIGHT
                     + self._DISPLAY_GAP_HEIGHT
@@ -161,7 +168,7 @@ class SingleGameUI:
     @cached_property
     def next_block_position(self) -> Vec:
         return Vec(
-            self._CONTROLLER_SYMBOL_HEIGHT + self._DISPLAY_GAP_HEIGHT + self._SCORE_HEIGHT + self._DISPLAY_GAP_HEIGHT,
+            self._CONTROLLER_SYMBOL_HEIGHT + self._DISPLAY_GAP_HEIGHT + self._score_height + self._DISPLAY_GAP_HEIGHT,
             self.board_width + self._RIGHT_GAP_WIDTH,
         )
 
@@ -171,7 +178,7 @@ class SingleGameUI:
             (
                 self._CONTROLLER_SYMBOL_HEIGHT
                 + self._DISPLAY_GAP_HEIGHT
-                + self._SCORE_HEIGHT
+                + self._score_height
                 + self._DISPLAY_GAP_HEIGHT
                 + self._NEXT_BLOCK_HEIGHT
                 + self._DISPLAY_GAP_HEIGHT
@@ -196,7 +203,7 @@ class SingleGameUI:
             self.controller_symbol_position.x : self.controller_symbol_position.x + self._RIGHT_ELEMENTS_WIDTH,
         ] = True
         mask[
-            self.score_position.y : self.score_position.y + self._SCORE_HEIGHT,
+            self.score_position.y : self.score_position.y + self._score_height,
             self.score_position.x : self.score_position.x + self._RIGHT_ELEMENTS_WIDTH,
         ] = True
         mask[
@@ -222,7 +229,11 @@ class SingleGameUI:
             controller_symbol=elements.controller_symbol, ui_array=ui_array, texts=texts
         )
         self._add_score_display(
-            score=elements.score, session_high_score=elements.session_high_score, ui_array=ui_array, texts=texts
+            score=elements.score,
+            session_high_score=elements.session_high_score,
+            rank=elements.rank,
+            ui_array=ui_array,
+            texts=texts,
         )
         self._add_next_block_display(next_block=elements.next_block, ui_array=ui_array, texts=texts)
         self._add_level_display(level=elements.level, ui_array=ui_array, texts=texts)
@@ -300,10 +311,10 @@ class SingleGameUI:
         )
 
     def _add_score_display(
-        self, score: int, session_high_score: int, ui_array: NDArray[np.uint8], texts: list[Text]
+        self, score: int, session_high_score: int, rank: int, ui_array: NDArray[np.uint8], texts: list[Text]
     ) -> None:
         ui_array[
-            self.score_position.y : self.score_position.y + self._SCORE_HEIGHT,
+            self.score_position.y : self.score_position.y + self._score_height,
             self.score_position.x : self.score_position.x + self._RIGHT_ELEMENTS_WIDTH,
         ] = ColorPalette.index_of_color("display_bg")
         texts.append(Text(text="Top", position=self.score_position + Vec(1, 1)))
@@ -322,6 +333,15 @@ class SingleGameUI:
                 alignment=Alignment.RIGHT,
             )
         )
+        if self.total_num_games > 1:
+            texts.append(Text(text="Rank", position=self.score_position + Vec(5, 1)))
+            texts.append(
+                Text(
+                    text=f"{rank}/{self.total_num_games}",
+                    position=self.score_position + Vec(6, self._RIGHT_ELEMENTS_WIDTH - 1),
+                    alignment=Alignment.RIGHT,
+                )
+            )
 
     def _add_next_block_display(self, next_block: Block | None, ui_array: NDArray[np.uint8], texts: list[Text]) -> None:
         ui_array[

@@ -21,8 +21,7 @@ class PlaceLinesManipulation:
     def manipulate(self, board: Board) -> None:
         board_array = board.array_view_without_active_block().copy()
 
-        if np.any(board_array[: self._num_lines]):
-            raise GameOverError
+        game_over = np.any(board_array[: self._num_lines])
 
         row_to_fill_in = np.ones_like(board_array[0]) * board.NEUTRAL_BLOCK_INDEX
         row_to_fill_in[random.randrange(len(board_array[0]))] = 0
@@ -31,6 +30,9 @@ class PlaceLinesManipulation:
         board_array[-self._num_lines :] = row_to_fill_in
 
         board.set_from_array(board_array, active_block_displacement=(-self._num_lines, 0))
+
+        if game_over:
+            raise GameOverError
 
 
 class Tetris99Rule(Publisher, Subscriber, Callback, Rule):
@@ -58,7 +60,7 @@ class Tetris99Rule(Publisher, Subscriber, Callback, Rule):
 
         self._target_idxs = target_idxs
         self._targeted_by_idxs = targeted_by_idxs or target_idxs
-        self._alive_target_idxs = []
+        self._alive_target_idxs: list[int] = []
 
         self._num_recently_cleared_lines = 0
         self._num_lines_to_place = 0

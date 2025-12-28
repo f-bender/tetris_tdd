@@ -77,7 +77,9 @@ class NewLevelMessage(NamedTuple):
 
 class ScoreMessage(NamedTuple):
     score: int
+    rank: int
     session_high_score: int
+    game_index: int
 
 
 class PowerupTTLsMessage(NamedTuple):
