@@ -1,9 +1,13 @@
+from typing import Literal
+
 from tetris.game_logic.interfaces.controller import Action, Controller
 
 
 class StubController(Controller):
-    def __init__(self, action: Action) -> None:
+    def __init__(self, action: Action, mode: Literal["hold", "press_repeatedly"] = "hold") -> None:
         self._action = action
+        self._hold = mode == "hold"
+        self._press_flag = True
 
     @property
     def symbol(self) -> str:
@@ -18,4 +22,8 @@ class StubController(Controller):
         return description or "<nothing>"
 
     def get_action(self) -> Action:
-        return self._action
+        if self._hold:
+            return self._action
+
+        self._press_flag = not self._press_flag
+        return self._action if self._press_flag else Action()
