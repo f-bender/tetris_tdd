@@ -5,7 +5,7 @@ from tetris.game_logic.sound_manager import SoundManager
 
 
 class SoundToggleRule(RuntimeRule):
-    _SOUND_TOGGLE_ACTION = Action(up=True, confirm=True)
+    _SOUND_TOGGLE_ACTION = Action(up=True, right=True, confirm=True, cancel=True)
 
     def __init__(self, sound_manager: SoundManager) -> None:
         super().__init__()
