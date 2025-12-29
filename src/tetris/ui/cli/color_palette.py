@@ -50,8 +50,9 @@ class _Colors(NamedTuple):
     block_7: str
     # neutral color for blocks of "unknown origin", not from the standard set (e.g. placed by tetris99 rule)
     block_neutral: str
-    # background of score and next block display
+    # background of display sections
     display_bg: str
+    overlay_display_bg: str
     # animation colors
     tetris_sparkle: str
     # background that has not (yet) been filled or (four-)colored
@@ -164,6 +165,7 @@ class ColorPalette:
             tetris_sparkle=(255, 255, 0),
             # dark gray background for the text, black for emptiness
             display_bg=(50, 50, 50),
+            overlay_display_bg=(0, 0, 0),
             empty=(0, 0, 0),
             dynamic_colormap_background=cls.random_colormap(),
             dynamic_colormap_powerup=cls.rainbow_colormap(
@@ -202,6 +204,7 @@ class ColorPalette:
         block_7: tuple[int, int, int],
         block_neutral: tuple[int, int, int],
         display_bg: tuple[int, int, int],
+        overlay_display_bg: tuple[int, int, int],
         tetris_sparkle: tuple[int, int, int],
         empty: tuple[int, int, int],
         dynamic_colormap_background: Iterable[tuple[int, int, int]],
@@ -237,6 +240,7 @@ class ColorPalette:
                 block_7=color_fn(*block_7),
                 block_neutral=color_fn(*block_neutral),
                 display_bg=color_fn(*display_bg),
+                overlay_display_bg=color_fn(*overlay_display_bg),
                 tetris_sparkle=color_fn(*tetris_sparkle),
                 empty=color_fn(*empty),
             ),
@@ -277,6 +281,7 @@ class ColorPalette:
             "block_7",
             "block_neutral",
             "display_bg",
+            "overlay_display_bg",
             "tetris_sparkle",
             "empty",
         ],

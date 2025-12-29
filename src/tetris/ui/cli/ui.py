@@ -13,11 +13,10 @@ from numpy.typing import NDArray
 from tetris.ansi_extensions import cursor as cursorx
 from tetris.game_logic.interfaces.ui import UI, UiElements
 from tetris.space_filling_coloring import fill_and_colorize
-from tetris.ui.cli.animations import Overlay
 from tetris.ui.cli.buffered_printing import BufferedPrint
 from tetris.ui.cli.color_palette import BackgroundColorType, ColorPalette
 from tetris.ui.cli.dynamic_layer import random_layer
-from tetris.ui.cli.single_game_ui import Alignment, SingleGameUI, Text
+from tetris.ui.cli.single_game_ui import Alignment, Overlay, SingleGameUI, Text
 from tetris.ui.cli.vec import Vec
 
 if TYPE_CHECKING:
@@ -513,6 +512,11 @@ class CLI(UI):
         # remove text where overlay is drawn (i.e. let overlay draw *over* the text)
         ys, xs = np.nonzero(overlay.frame)
         text_buffer[ys + overlay.position.y, xs + overlay.position.x] = ""
+
+        # and add texts that belong to the overlay *on top* of it
+        for text in overlay.texts:
+            text.position += overlay.position
+            CLI._add_text(text=text, text_buffer=text_buffer)
 
     def _handle_terminal_size_change(self) -> None:
         if (new_terminal_size := os.get_terminal_size()) != self._last_terminal_size:

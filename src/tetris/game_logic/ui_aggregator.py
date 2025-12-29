@@ -1,9 +1,10 @@
-from typing import NamedTuple
+from typing import NamedTuple, override
 
 import numpy as np
 from numpy.typing import NDArray
 
 from tetris.game_logic.interfaces.animations import PowerupTriggeredAnimationSpec, TetrisAnimationSpec
+from tetris.game_logic.interfaces.callback import Callback
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.game_logic.interfaces.ui import SingleUiElements
 from tetris.game_logic.rules.messages import (
@@ -19,7 +20,7 @@ from tetris.game_logic.rules.messages import (
 )
 
 
-class UiAggregator(Subscriber):
+class UiAggregator(Subscriber, Callback):
     """Subscriber to all UI-relevant events, aggregating them into UiElements."""
 
     def __init__(self, board: NDArray[np.uint8], controller_symbol: str) -> None:
@@ -96,6 +97,14 @@ class UiAggregator(Subscriber):
             case _:
                 msg = f"Unexpected message: {message}"
                 raise ValueError(msg)
+
+    @override
+    def on_game_start(self, game_index: int) -> None:
+        self._ui_elements.game_over = False
+
+    @override
+    def on_game_over(self, game_index: int) -> None:
+        self._ui_elements.game_over = True
 
     def update(self, board: NDArray[np.uint8]) -> None:
         self._ui_elements.board = board

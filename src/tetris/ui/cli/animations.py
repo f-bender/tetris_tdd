@@ -1,5 +1,4 @@
 from abc import ABC
-from dataclasses import dataclass
 from typing import ClassVar
 
 import numpy as np
@@ -7,20 +6,6 @@ from numpy.typing import NDArray
 
 from tetris.ui.cli.color_palette import ColorPalette
 from tetris.ui.cli.vec import Vec
-
-
-@dataclass(slots=True)
-class Overlay:
-    position: Vec
-    frame: NDArray[np.uint8]
-
-    @property
-    def height(self) -> int:
-        return self.frame.shape[0]
-
-    @property
-    def width(self) -> int:
-        return self.frame.shape[1]
 
 
 class OverlayAnimation(ABC):

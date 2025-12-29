@@ -22,6 +22,7 @@ class SingleUiElements:
     rank: int = 1
     session_high_score: int = 0
     powerup_ttls: dict[int, int] = field(default_factory=dict[int, int])
+    game_over: bool = False
 
     animations: list[AnimationSpec] = field(default_factory=list[AnimationSpec])
     # potential additions in the future: hold_block

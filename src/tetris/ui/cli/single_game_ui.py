@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum, auto
 from functools import cached_property
 from math import ceil
@@ -13,7 +13,7 @@ from tetris.game_logic.components.board import Board
 from tetris.game_logic.interfaces.animations import AnimationSpec, PowerupTriggeredAnimationSpec, TetrisAnimationSpec
 from tetris.game_logic.interfaces.ui import SingleUiElements
 from tetris.game_logic.rules.special.powerup import PowerupRule
-from tetris.ui.cli.animations import Overlay, PowerupTriggeredAnimation, TetrisAnimationLeft, TetrisAnimationRight
+from tetris.ui.cli.animations import PowerupTriggeredAnimation, TetrisAnimationLeft, TetrisAnimationRight
 from tetris.ui.cli.color_palette import ColorPalette
 from tetris.ui.cli.vec import Vec
 
@@ -29,6 +29,21 @@ class Text:
     text: str
     position: Vec
     alignment: Alignment = Alignment.LEFT
+
+
+@dataclass(slots=True)
+class Overlay:
+    position: Vec
+    frame: NDArray[np.uint8]
+    texts: list[Text] = field(default_factory=list)
+
+    @property
+    def height(self) -> int:
+        return self.frame.shape[0]
+
+    @property
+    def width(self) -> int:
+        return self.frame.shape[1]
 
 
 class _Blink(NamedTuple):
@@ -73,6 +88,12 @@ class SingleGameUI:
 
     _NEXT_BLOCK_HEIGHT = 5
     _LEVEL_HEIGHT = 4
+
+    @cached_property
+    def _game_over_overlay_height(self) -> int:
+        return 5 if self.total_num_games == 1 else 6
+
+    _GAME_OVER_OVERLAY_WIDTH = 10
 
     _POWERUP_TTL_VALUES_BLINKED_OFF = generate_blink_off_frames()
 
@@ -187,6 +208,14 @@ class SingleGameUI:
         )
 
     @cached_property
+    def game_over_overlay_position(self) -> Vec:
+        total_height, total_width = self.total_size
+        return Vec(
+            (total_height - self._game_over_overlay_height) // 2,
+            (total_width - self._GAME_OVER_OVERLAY_WIDTH) // 2,
+        )
+
+    @cached_property
     def mask(self) -> NDArray[np.bool]:
         mask = np.zeros(self.total_size, dtype=np.bool)
 
@@ -237,9 +266,12 @@ class SingleGameUI:
         )
         self._add_next_block_display(next_block=elements.next_block, ui_array=ui_array, texts=texts)
         self._add_level_display(level=elements.level, ui_array=ui_array, texts=texts)
-        overlay_animations = self._add_animations(elements.animations)
 
-        return ui_array, texts, overlay_animations
+        overlays = self._animation_overlays(elements.animations)
+        if elements.game_over:
+            overlays.append(self._game_over_overlay(score=elements.score, rank=elements.rank))
+
+        return ui_array, texts, overlays
 
     def _add_lines_display(self, num_cleared_lines: int, ui_array: NDArray[np.uint8], texts: list[Text]) -> None:
         ui_array[
@@ -398,7 +430,7 @@ class SingleGameUI:
             )
         )
 
-    def _add_animations(self, animations: list[AnimationSpec]) -> list[Overlay]:
+    def _animation_overlays(self, animations: list[AnimationSpec]) -> list[Overlay]:
         overlay_animations: list[Overlay] = []
         for animation in animations:
             match animation:
@@ -435,3 +467,47 @@ class SingleGameUI:
                     raise ValueError(msg)
 
         return overlay_animations
+
+    def _game_over_overlay(self, score: int, rank: int) -> Overlay:
+        texts = [
+            Text(
+                text="GAME OVER",
+                position=Vec(1, self._GAME_OVER_OVERLAY_WIDTH // 2),
+                alignment=Alignment.CENTER,
+            ),
+            Text(
+                text="Score:",
+                position=Vec(3, 1),
+                alignment=Alignment.LEFT,
+            ),
+            Text(
+                text=str(score),
+                position=Vec(3, self._GAME_OVER_OVERLAY_WIDTH - 1),
+                alignment=Alignment.RIGHT,
+            ),
+        ]
+        if self.total_num_games > 1:
+            texts.append(
+                Text(
+                    text="Rank:",
+                    position=Vec(4, 1),
+                    alignment=Alignment.LEFT,
+                )
+            )
+            texts.append(
+                Text(
+                    text=f"{rank}/{self.total_num_games}",
+                    position=Vec(4, self._GAME_OVER_OVERLAY_WIDTH - 1),
+                    alignment=Alignment.RIGHT,
+                )
+            )
+
+        return Overlay(
+            position=self.game_over_overlay_position,
+            frame=np.full(
+                (self._game_over_overlay_height, self._GAME_OVER_OVERLAY_WIDTH),
+                fill_value=ColorPalette.index_of_color("overlay_display_bg"),
+                dtype=np.uint8,
+            ),
+            texts=texts,
+        )
