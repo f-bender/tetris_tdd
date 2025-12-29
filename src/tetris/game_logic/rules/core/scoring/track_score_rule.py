@@ -85,7 +85,7 @@ class ScoreTracker(Callback, Publisher, Subscriber):
         if num_cleared_lines in base_points_by_lines:
             base_points = base_points_by_lines[num_cleared_lines]
         else:
-            # more than 4 lines (e.g. through a powerup) -> double the points for each additional line
-            base_points = base_points_by_lines[4] * 2 ** (num_cleared_lines - 4)
+            # more than 4 lines (e.g. through a powerup) -> linearly increase the score with each additional line
+            base_points = base_points_by_lines[4] * (num_cleared_lines - 3)
 
         return base_points * (level + 1)
