@@ -398,12 +398,12 @@ class CLI(UI):
         if not self._randomize_background_colors_on_levelup:
             return
 
-        combined_level = sum(game.level for game in elements.games)
-        if self._level is not None and combined_level != self._level:
+        max_level = max(game.level for game in elements.games)
+        if self._level is not None and max_level != self._level:
             self._randomize_outer_bg_palette()
             self._last_image_buffer = None  # force full redraw on next draw call
 
-        self._level = combined_level
+        self._level = max_level
 
     def _randomize_outer_bg_palette(self) -> None:
         assert self._outer_background is not None
