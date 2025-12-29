@@ -204,7 +204,7 @@ type AudioBackendParameter = Literal["pygame", "playsound3", "winsound"]
         "with sounds only from game 0."
     ),
 )
-def play(  # noqa: PLR0913
+def play(  # noqa: C901, PLR0913
     *,
     num_games: int | None,
     controller: tuple[ControllerParameter, ...],
@@ -249,9 +249,15 @@ def play(  # noqa: PLR0913
     )
 
     # if not yet specified, try making the runtime controller the first non-bot controller
-    runtime_controller = runtime_controller or next(
-        (controller for controller in controllers if not isinstance(controller, HeuristicBotController)), None
-    )
+    if runtime_controller is None:
+        first_non_bot_controller = next(
+            (controller for controller in controllers if not isinstance(controller, HeuristicBotController)), None
+        )
+        if isinstance(first_non_bot_controller, BotAssistedController):
+            first_non_bot_controller = first_non_bot_controller.main_controller
+
+        if first_non_bot_controller is not None:
+            runtime_controller = first_non_bot_controller
 
     if not all(0 <= game_index < len(boards) for game_index in sounded_game):
         invalid_indices = [str(game_index) for game_index in sounded_game if 0 <= game_index < len(boards)]

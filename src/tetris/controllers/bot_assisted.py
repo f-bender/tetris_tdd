@@ -37,6 +37,10 @@ class BotAssistedController(Subscriber, Publisher, Callback, Controller):
         self._last_bot_toggle_time = None
 
     @property
+    def main_controller(self) -> Controller:
+        return self._main_controller
+
+    @property
     def bot_controller(self) -> HeuristicBotController:
         return self._bot_controller
 
