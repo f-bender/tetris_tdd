@@ -11,6 +11,7 @@ from tetris.clock.simple import SimpleClock
 from tetris.controllers.bot_assisted import BotAssistedController
 from tetris.controllers.composite import CompositeController
 from tetris.controllers.heuristic_bot.controller import HeuristicBotController
+from tetris.controllers.keyboard.pynput import PynputKeyboardController
 from tetris.controllers.stub import StubController
 from tetris.game_logic.components import Board
 from tetris.game_logic.components.block import Block
@@ -240,15 +241,16 @@ def play(  # noqa: PLR0913
         tetris99_self_targeting_when_alone = True
         # make sure a new game is automatically started after all are game over
         repeatedly_confirm_controller = StubController(Action(confirm=True), mode="press_repeatedly")
-        try:
-            from tetris.controllers.keyboard.pynput import PynputKeyboardController
-        except Exception:  # noqa: BLE001
-            runtime_controller = repeatedly_confirm_controller
-        else:
-            runtime_controller = CompositeController((repeatedly_confirm_controller, PynputKeyboardController()))
+        if keyboard_controller := _try_pynput_controller():
+            runtime_controller = CompositeController((repeatedly_confirm_controller, keyboard_controller))
 
     boards, controllers = _create_boards_and_controllers(
         board_size=board_size, num_games_parameter=num_games, controllers_parameter=controller, powerups=powerups
+    )
+
+    # if not yet specified, try making the runtime controller the first non-bot controller
+    runtime_controller = runtime_controller or next(
+        (controller for controller in controllers if not isinstance(controller, HeuristicBotController)), None
     )
 
     if not all(0 <= game_index < len(boards) for game_index in sounded_game):
@@ -304,6 +306,15 @@ def play(  # noqa: PLR0913
         DEPENDENCY_MANAGER.wire_up(runtime=runtime, games=games)
 
         runtime.run()
+
+
+def _try_pynput_controller() -> PynputKeyboardController | None:
+    try:
+        from tetris.controllers.keyboard.pynput import PynputKeyboardController
+    except Exception:  # noqa: BLE001
+        return None
+    else:
+        return PynputKeyboardController()
 
 
 def _create_boards_and_controllers(
@@ -422,7 +433,7 @@ def _create_controller(controller_parameter: ControllerParameter, board: Board, 
 def _default_controllers() -> list[Controller]:
     from tetris.controllers.keyboard.pynput import PynputKeyboardController
 
-    default_controllers: list[Controller] = [PynputKeyboardController.arrow_keys()]
+    default_controllers: list[Controller] = [PynputKeyboardController.wasd()]
 
     with contextlib.suppress(ImportError):
         from inputs import devices
@@ -431,7 +442,7 @@ def _default_controllers() -> list[Controller]:
 
         default_controllers.extend(GamepadController(gamepad_index=i) for i in range(len(devices.gamepads)))
 
-    default_controllers.append(PynputKeyboardController.wasd())
+    default_controllers.append(PynputKeyboardController.arrow_keys())
     default_controllers.append(PynputKeyboardController.vim())
 
     return default_controllers
@@ -595,12 +606,7 @@ def _create_runtime(
     clock = SimpleClock(fps)
 
     if controller is None:
-        try:
-            from tetris.controllers.keyboard.pynput import PynputKeyboardController
-        except Exception:  # noqa: BLE001
-            controller = StubController(Action())
-        else:
-            controller = PynputKeyboardController()
+        controller = _try_pynput_controller() or StubController(Action())
 
     return Runtime(
         ui=ui,
