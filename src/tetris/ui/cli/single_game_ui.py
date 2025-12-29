@@ -91,9 +91,9 @@ class SingleGameUI:
 
     @cached_property
     def _game_over_overlay_height(self) -> int:
-        return 5 if self.total_num_games == 1 else 6
+        return 7 if self.total_num_games == 1 else 8
 
-    _GAME_OVER_OVERLAY_WIDTH = 10
+    _GAME_OVER_OVERLAY_WIDTH = 12
 
     _POWERUP_TTL_VALUES_BLINKED_OFF = generate_blink_off_frames()
 
@@ -214,6 +214,18 @@ class SingleGameUI:
             (total_height - self._game_over_overlay_height) // 2,
             (total_width - self._GAME_OVER_OVERLAY_WIDTH) // 2,
         )
+
+    @cached_property
+    def game_over_overlay_frame(self) -> NDArray[np.uint8]:
+        game_over_frame = np.full(
+            (self._game_over_overlay_height, self._GAME_OVER_OVERLAY_WIDTH),
+            fill_value=ColorPalette.index_of_color("overlay_display_bg"),
+            dtype=np.uint8,
+        )
+        game_over_frame[0, :] = game_over_frame[-1, :] = game_over_frame[:, 0] = game_over_frame[:, -1] = (
+            ColorPalette.index_of_color("overlay_display_border")
+        )
+        return game_over_frame
 
     @cached_property
     def mask(self) -> NDArray[np.bool]:
@@ -472,17 +484,17 @@ class SingleGameUI:
         texts = [
             Text(
                 text="GAME OVER",
-                position=Vec(1, self._GAME_OVER_OVERLAY_WIDTH // 2),
+                position=Vec(2, self._GAME_OVER_OVERLAY_WIDTH // 2),
                 alignment=Alignment.CENTER,
             ),
             Text(
                 text="Score:",
-                position=Vec(3, 1),
+                position=Vec(4, 2),
                 alignment=Alignment.LEFT,
             ),
             Text(
                 text=str(score),
-                position=Vec(3, self._GAME_OVER_OVERLAY_WIDTH - 1),
+                position=Vec(4, self._GAME_OVER_OVERLAY_WIDTH - 2),
                 alignment=Alignment.RIGHT,
             ),
         ]
@@ -490,24 +502,16 @@ class SingleGameUI:
             texts.append(
                 Text(
                     text="Rank:",
-                    position=Vec(4, 1),
+                    position=Vec(5, 2),
                     alignment=Alignment.LEFT,
                 )
             )
             texts.append(
                 Text(
                     text=f"{rank}/{self.total_num_games}",
-                    position=Vec(4, self._GAME_OVER_OVERLAY_WIDTH - 1),
+                    position=Vec(5, self._GAME_OVER_OVERLAY_WIDTH - 2),
                     alignment=Alignment.RIGHT,
                 )
             )
 
-        return Overlay(
-            position=self.game_over_overlay_position,
-            frame=np.full(
-                (self._game_over_overlay_height, self._GAME_OVER_OVERLAY_WIDTH),
-                fill_value=ColorPalette.index_of_color("overlay_display_bg"),
-                dtype=np.uint8,
-            ),
-            texts=texts,
-        )
+        return Overlay(position=self.game_over_overlay_position, frame=self.game_over_overlay_frame, texts=texts)
