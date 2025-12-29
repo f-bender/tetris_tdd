@@ -380,6 +380,15 @@ def _create_boards_and_controllers(
             # If not specified, all available keyboard and gamepad controllers are used, and the rest of games are
             # filled up with bots.
             controllers = _default_controllers()[:num_games]
+
+            if powerups:
+                # one powerup is bot-assistance: we need to make the controller a bot-assisted one, without manual
+                # activation
+                controllers = [
+                    BotAssistedController(controller, HeuristicBotController(board), allow_manual_activation=False)
+                    for controller, board in zip(controllers, boards[: len(controllers)], strict=True)
+                ]
+
             if len(controllers) < num_games:
                 controllers += [HeuristicBotController(board) for board in boards[len(controllers) :]]
 
@@ -430,7 +439,7 @@ def _create_controller(controller_parameter: ControllerParameter, board: Board, 
     if manually_bot_assisted:
         controller = BotAssistedController(controller, HeuristicBotController(board), allow_manual_activation=True)
     elif powerups:
-        # one powerup is bot-assistance: we need to make the controller a bot-assisted one, without manual activateion
+        # one powerup is bot-assistance: we need to make the controller a bot-assisted one, without manual activation
         controller = BotAssistedController(controller, HeuristicBotController(board), allow_manual_activation=False)
 
     return controller
