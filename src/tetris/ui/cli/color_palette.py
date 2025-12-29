@@ -65,7 +65,7 @@ class BackgroundColorType(Enum):
     DYNAMIC = auto()
 
     @classmethod
-    def random(cls, shiny_probability: float = 0.05, dynamic_probability: float = 0.05) -> "BackgroundColorType":
+    def random(cls, shiny_probability: float = 0.01, dynamic_probability: float = 0.05) -> "BackgroundColorType":
         if shiny_probability < 0 or dynamic_probability < 0 or shiny_probability + dynamic_probability > 1:
             msg = f"Invalid probability values: {shiny_probability = }, {dynamic_probability = }"
             raise ValueError(msg)
