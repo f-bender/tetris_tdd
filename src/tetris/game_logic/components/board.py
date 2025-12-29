@@ -1,4 +1,3 @@
-import logging
 from collections.abc import Iterable
 from copy import deepcopy
 from dataclasses import dataclass
@@ -18,8 +17,6 @@ from tetris.game_logic.components.exceptions import (
     NoActiveBlockError,
 )
 
-_LOGGER = logging.getLogger(__name__)
-
 
 @dataclass(frozen=True, slots=True)
 class PositionedBlock:
@@ -32,11 +29,10 @@ class PositionedBlock:
 
 
 class Board:
-    MAX_REGULAR_CELL_VALUE: int = max(bt.value for bt in BlockType)  # 7
-    MIN_POWERUP_CELL_VALUE: int = MAX_REGULAR_CELL_VALUE + 1  # 8
+    NEUTRAL_BLOCK_INDEX = MAX_REGULAR_CELL_VALUE = max(bt.value for bt in BlockType) + 1  # 8
+    MIN_POWERUP_CELL_VALUE: int = MAX_REGULAR_CELL_VALUE + 1  # 9
     # in between, slots for powerup values...
-    MAX_POWERUP_CELL_VALUE = np.iinfo(np.uint8).max - 3  # 252
-    NEUTRAL_BLOCK_INDEX = np.iinfo(np.uint8).max - 2  # 253
+    MAX_POWERUP_CELL_VALUE = np.iinfo(np.uint8).max - 2  # 252
     POWERUP_GHOST_BLOCK_CELL_VALUE = np.iinfo(np.uint8).max - 1  # 254
     GHOST_BLOCK_CELL_VALUE = np.iinfo(np.uint8).max  # 255
 

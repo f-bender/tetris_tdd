@@ -159,7 +159,10 @@ class PowerupRule(Publisher, Subscriber, Callback, Rule):
             return
 
         regular_cell_positions = list(
-            zip(*np.where((cells > 0) & (cells <= Board.MAX_REGULAR_CELL_VALUE)), strict=True)
+            zip(
+                *np.where((cells > 0) & (cells <= Board.MAX_REGULAR_CELL_VALUE) | (cells == Board.NEUTRAL_BLOCK_INDEX)),
+                strict=True,
+            )
         )
         if not regular_cell_positions:
             return
