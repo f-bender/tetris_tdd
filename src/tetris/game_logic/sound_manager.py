@@ -10,7 +10,6 @@ import httpx
 
 from tetris.game_logic.interfaces.audio_output import AudioOutput
 from tetris.game_logic.interfaces.callback import Callback
-from tetris.game_logic.interfaces.dependency_manager import DependencyManager
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.game_logic.rules.board_manipulations.fill_lines import FillLines
 from tetris.game_logic.rules.board_manipulations.gravity import Gravity
@@ -188,11 +187,9 @@ class SoundManager(Subscriber, Callback):
 
     @override
     def should_be_called_by(self, game_index: int) -> bool:
-        return (
-            self._game_indices is None
-            or game_index in self._game_indices
-            or game_index == DependencyManager.RUNTIME_INDEX
-        )
+        # even non-sounded games should call this; the only sound being produced by this is the game over sound which
+        # makes sense to play even for non-sounded games
+        return True
 
     @override
     def on_all_games_over(self) -> None:
