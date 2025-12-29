@@ -1,4 +1,6 @@
+import random
 from abc import ABC
+from functools import lru_cache
 from typing import ClassVar
 
 import numpy as np
@@ -145,3 +147,64 @@ class PowerupTriggeredAnimation(OverlayAnimation):
     # offset from the left side of the board at the height of the top cleared tetris row to the intended root of the
     # animation
     OFFSET = Vec(-2, -5)
+
+
+@lru_cache
+def generate_blooper_overlay(size: tuple[int, int], seed: int) -> NDArray[np.uint8]:
+    overlay = np.zeros(size, dtype=np.uint8)
+
+    shorter_side, longer_side = min(size), max(size)
+    if shorter_side < 3:  # noqa: PLR2004
+        msg = "Boards skinnier than 3 pixels are currently not supported for blooper overlays"
+        raise ValueError(msg)
+
+    rng = random.Random(seed)
+
+    min_num_smudges = 4
+    # make sure a very elongated overlay *could* still contain enough smudges to basically fill it up
+    max_num_smudges = max(longer_side // shorter_side, 7)
+    num_smudges = rng.randint(min_num_smudges, max_num_smudges)
+
+    max_radius = max(1, shorter_side // 3)
+    min_radius = min(3, max_radius)
+
+    y_coords, x_coords = np.ogrid[: size[0], : size[1]]
+
+    for _ in range(num_smudges):
+        radius = rng.randint(min_radius, max_radius)
+
+        y_center = rng.randrange(radius, size[0] - radius)
+        x_center = rng.randrange(radius, size[1] - radius)
+
+        overlay[(y_coords - y_center) ** 2 + (x_coords - x_center) ** 2 <= radius**2] = ColorPalette.index_of_color(
+            "blooper_overlay"
+        )
+
+    return overlay
+
+
+class BlooperAnimation:
+    _OVERHANG = 3
+    _HEIGHT_RATIO = 0.6
+
+    def __init__(self, board_size: tuple[int, int], seed: int) -> None:
+        base_overlay_height = int(board_size[0] * self._HEIGHT_RATIO)
+
+        self._overlay = generate_blooper_overlay(
+            size=(
+                base_overlay_height + self._OVERHANG * 2,
+                board_size[1] + self._OVERHANG * 2,
+            ),
+            seed=seed,
+        )
+        # without the (empirically adjusted) "+ 4", it disappears too abruptly
+        self._final_y_offset = board_size[0] - base_overlay_height + 4
+
+    def get_offset_and_frame(self, current_frame: int, total_frames: int) -> tuple[Vec, NDArray[np.uint8]]:
+        offset_from_board_origin = Vec(-self._OVERHANG, -self._OVERHANG)
+
+        # slide down, starting slowly and speeding up (quadratically)
+        y_offset = round(self._final_y_offset * (current_frame / total_frames) ** 2)
+        offset_from_board_origin += Vec(y_offset, 0)
+
+        return offset_from_board_origin, self._overlay

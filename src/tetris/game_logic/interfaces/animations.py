@@ -1,5 +1,6 @@
+import random
 from abc import ABC
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass(kw_only=True)
@@ -23,3 +24,8 @@ class TetrisAnimationSpec(AnimationSpec):
 @dataclass(kw_only=True)
 class PowerupTriggeredAnimationSpec(AnimationSpec):
     position: tuple[int, int]
+
+
+@dataclass(kw_only=True)
+class BlooperAnimationSpec(AnimationSpec):
+    seed: int = field(default_factory=lambda: random.randrange(2**32))

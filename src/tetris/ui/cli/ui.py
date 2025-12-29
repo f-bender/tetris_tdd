@@ -498,19 +498,21 @@ class CLI(UI):
     @staticmethod
     def _draw_overlay(overlay: Overlay, image_buffer: NDArray[np.uint8], text_buffer: NDArray[np.str_]) -> None:
         # draw the overlay on the image
+        image_buffer_target = image_buffer[
+            overlay.position.y : overlay.position.y + overlay.height,
+            overlay.position.x : overlay.position.x + overlay.width,
+        ]
+        frame = overlay.frame[: image_buffer_target.shape[0], : image_buffer_target.shape[1]]
         np.copyto(
-            image_buffer[
-                overlay.position.y : overlay.position.y + overlay.height,
-                overlay.position.x : overlay.position.x + overlay.width,
-            ],
-            overlay.frame,
+            image_buffer_target,
+            frame,
             # using view() instead of astype() is an optimization that assumes that the int type of frame is
             # 8 bit wide!
-            where=overlay.frame.view(bool),
+            where=frame.view(bool),
         )
 
         # remove text where overlay is drawn (i.e. let overlay draw *over* the text)
-        ys, xs = np.nonzero(overlay.frame)
+        ys, xs = np.nonzero(frame)
         text_buffer[ys + overlay.position.y, xs + overlay.position.x] = ""
 
         # and add texts that belong to the overlay *on top* of it

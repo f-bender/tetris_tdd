@@ -3,11 +3,16 @@ from typing import NamedTuple, override
 import numpy as np
 from numpy.typing import NDArray
 
-from tetris.game_logic.interfaces.animations import PowerupTriggeredAnimationSpec, TetrisAnimationSpec
+from tetris.game_logic.interfaces.animations import (
+    BlooperAnimationSpec,
+    PowerupTriggeredAnimationSpec,
+    TetrisAnimationSpec,
+)
 from tetris.game_logic.interfaces.callback import Callback
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.game_logic.interfaces.ui import SingleUiElements
 from tetris.game_logic.rules.messages import (
+    BlooperOverlayTrigger,
     ControllerSymbolUpdatedMessage,
     FinishedLineFillMessage,
     NewLevelMessage,
@@ -16,8 +21,8 @@ from tetris.game_logic.rules.messages import (
     PowerupTTLsMessage,
     ScoreMessage,
     SpawnMessage,
-    StartingLineFillMessage,
 )
+from tetris.game_logic.rules.special.powerup_effect import BlooperEffect
 
 
 class UiAggregator(Subscriber, Callback):
@@ -46,7 +51,13 @@ class UiAggregator(Subscriber, Callback):
         return publisher.game_index == self.game_index and (
             isinstance(
                 publisher,
-                ClearedLinesTracker | SpawnRule | ScoreTracker | LevelTracker | PowerupRule | BotAssistedController,
+                ClearedLinesTracker
+                | SpawnRule
+                | ScoreTracker
+                | LevelTracker
+                | PowerupRule
+                | BotAssistedController
+                | BlooperEffect,
             )
             or (isinstance(publisher, FillLines) and publisher.is_line_clearer)
         )
@@ -86,17 +97,19 @@ class UiAggregator(Subscriber, Callback):
                     self._ui_elements.animations.append(
                         TetrisAnimationSpec(total_frames=30, top_line_idx=cleared_lines[0])
                     )
-            case StartingLineFillMessage():
-                pass
             case PowerupTTLsMessage(powerup_ttls=powerup_ttls):
                 self._ui_elements.powerup_ttls = powerup_ttls
             case PowerupTriggeredMessage(position=position):
                 self._ui_elements.animations.append(PowerupTriggeredAnimationSpec(total_frames=20, position=position))
             case ControllerSymbolUpdatedMessage(controller_symbol=controller_symbol):
                 self._ui_elements.controller_symbol = controller_symbol
+            case BlooperOverlayTrigger():
+                # ignore it if we are already game over
+                if not self._ui_elements.game_over:
+                    # make it last for 5 seconds (at 60 fps)
+                    self._ui_elements.animations.append(BlooperAnimationSpec(total_frames=300))
             case _:
-                msg = f"Unexpected message: {message}"
-                raise ValueError(msg)
+                pass
 
     @override
     def on_game_start(self, game_index: int) -> None:

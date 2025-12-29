@@ -10,10 +10,20 @@ from numpy.typing import NDArray
 
 from tetris.game_logic.components.block import Block
 from tetris.game_logic.components.board import Board
-from tetris.game_logic.interfaces.animations import AnimationSpec, PowerupTriggeredAnimationSpec, TetrisAnimationSpec
+from tetris.game_logic.interfaces.animations import (
+    AnimationSpec,
+    BlooperAnimationSpec,
+    PowerupTriggeredAnimationSpec,
+    TetrisAnimationSpec,
+)
 from tetris.game_logic.interfaces.ui import SingleUiElements
 from tetris.game_logic.rules.special.powerup import PowerupRule
-from tetris.ui.cli.animations import PowerupTriggeredAnimation, TetrisAnimationLeft, TetrisAnimationRight
+from tetris.ui.cli.animations import (
+    BlooperAnimation,
+    PowerupTriggeredAnimation,
+    TetrisAnimationLeft,
+    TetrisAnimationRight,
+)
 from tetris.ui.cli.color_palette import ColorPalette
 from tetris.ui.cli.vec import Vec
 
@@ -470,10 +480,16 @@ class SingleGameUI:
                 ):
                     overlay_animations.append(
                         Overlay(
-                            position=(self.board_position + Vec(y, x) + PowerupTriggeredAnimation.OFFSET),
+                            position=self.board_position + Vec(y, x) + PowerupTriggeredAnimation.OFFSET,
                             frame=PowerupTriggeredAnimation.get_frame(current_frame, total_frames),
                         )
                     )
+                case BlooperAnimationSpec(current_frame=current_frame, total_frames=total_frames, seed=seed):
+                    offset, frame = BlooperAnimation(
+                        board_size=(self.board_height, self.board_width), seed=seed
+                    ).get_offset_and_frame(current_frame=current_frame, total_frames=total_frames)
+
+                    overlay_animations.append(Overlay(position=self.board_position + offset, frame=frame))
                 case _:
                     msg = f"Unknown animation type: {type(animation)}"
                     raise ValueError(msg)

@@ -120,3 +120,7 @@ class GravityFinishedMessage(NamedTuple):
 
 class GravityStartedMessage(NamedTuple):
     pass
+
+
+class BlooperOverlayTrigger(NamedTuple):
+    pass
