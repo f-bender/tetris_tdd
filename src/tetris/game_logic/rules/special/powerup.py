@@ -7,7 +7,6 @@ import numpy as np
 from numpy.typing import NDArray
 
 from tetris.game_logic.action_counter import ActionCounter
-from tetris.game_logic.components.block import Block
 from tetris.game_logic.components.board import Board
 from tetris.game_logic.interfaces.callback import Callback
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
@@ -40,7 +39,7 @@ class PowerupRule(Publisher, Subscriber, Callback, Rule):
         self._min_ttl_frames = min_ttl_frames
         self._max_ttl_frames = max_ttl_frames
 
-        self._powerup_effect_manager = PowerupEffectManager()
+        self._powerup_effect_manager = PowerupEffectManager(self)
 
     @override
     def on_game_start(self, game_index: int) -> None:
@@ -152,28 +151,40 @@ class PowerupRule(Publisher, Subscriber, Callback, Rule):
     @override
     def notify(self, message: NamedTuple) -> None:
         if isinstance(message, SpawnMessage) and random.random() < self._powerup_spawn_probability:
-            self._spawn_powerup(message.next_block)
+            self.spawn_powerups(message.next_block.cells)
 
-    def _spawn_powerup(self, block: Block) -> None:
+    def spawn_powerups(self, cells: NDArray[np.uint8], n: int = 1) -> None:
+        """Spawn n new powerups at the positions of randomly chosen non-empty, non-powerup cells in the cells array."""
+        if n < 1:
+            return
+
+        regular_cell_positions = list(
+            zip(*np.where((cells > 0) & (cells <= Board.MAX_REGULAR_CELL_VALUE)), strict=True)
+        )
+        if not regular_cell_positions:
+            return
+
         used_powerup_slots = set(np.where(self._powerup_ttls > 0)[0])
+        new_powerup_positions = random.sample(regular_cell_positions, k=min(len(regular_cell_positions), n))
 
-        # note: we assume the block doesn't yet contain any power-up cells
-        new_powerup_slot = np.max(block.cells) + self.POWERUP_SLOT_OFFSET
-        while new_powerup_slot in used_powerup_slots:
-            new_powerup_slot += self.POWERUP_SLOT_OFFSET
-            if new_powerup_slot > Board.MAX_POWERUP_CELL_VALUE:
-                _LOGGER.warning("No available power-up slots! Not spawning a power-up.")
-                return
+        for new_powerup_position in new_powerup_positions:
+            new_powerup_slot = cells[new_powerup_position] + self.POWERUP_SLOT_OFFSET
+            while new_powerup_slot in used_powerup_slots:
+                new_powerup_slot += self.POWERUP_SLOT_OFFSET
+                if new_powerup_slot > Board.MAX_POWERUP_CELL_VALUE:
+                    _LOGGER.warning(
+                        "No available power-up slots for regular cell value %d! Not spawning a power-up.",
+                        new_powerup_slot % self.POWERUP_SLOT_OFFSET,
+                    )
+                    break
+            else:
+                cells[new_powerup_position] = new_powerup_slot
 
-        powerup_position = random.choice(list(zip(*np.nonzero(block.cells), strict=True)))
-        block.cells[powerup_position] = new_powerup_slot
-
-        self._powerup_ttls[new_powerup_slot] = random.randint(self._min_ttl_frames, self._max_ttl_frames)
+                used_powerup_slots.add(new_powerup_slot)
+                self._powerup_ttls[new_powerup_slot] = random.randint(self._min_ttl_frames, self._max_ttl_frames)
 
         self.notify_subscribers(
             PowerupTTLsMessage(
-                powerup_ttls={
-                    int(powerup): int(self._powerup_ttls[powerup]) for powerup in np.where(self._powerup_ttls > 0)[0]
-                }
+                powerup_ttls={int(powerup): int(self._powerup_ttls[powerup]) for powerup in used_powerup_slots}
             )
         )
