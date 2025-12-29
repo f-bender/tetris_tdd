@@ -4,12 +4,13 @@ from collections.abc import Collection, Mapping
 from enum import StrEnum
 from pathlib import Path
 from types import MappingProxyType
-from typing import NamedTuple
+from typing import NamedTuple, override
 
 import httpx
 
 from tetris.game_logic.interfaces.audio_output import AudioOutput
 from tetris.game_logic.interfaces.callback import Callback
+from tetris.game_logic.interfaces.dependency_manager import DependencyManager
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.game_logic.rules.board_manipulations.fill_lines import FillLines
 from tetris.game_logic.rules.board_manipulations.gravity import Gravity
@@ -143,11 +144,13 @@ class SoundManager(Subscriber, Callback):
             else:
                 self._audio_output.play_once(sound_file, volume=volume)
 
+    @override
     def should_be_subscribed_to(self, publisher: Publisher) -> bool:
         return isinstance(
             publisher, DropMergeRule | FillLines | RotateRule | MoveRule | LevelTracker | PowerupRule | Gravity
         ) and (self._game_indices is None or publisher.game_index in self._game_indices)
 
+    @override
     def notify(self, message: NamedTuple) -> None:
         if not self._enabled:
             return
@@ -183,17 +186,29 @@ class SoundManager(Subscriber, Callback):
         elif line_clear_sound_file := self._sound_files[Sound.LINE_CLEAR]:
             self._audio_output.play_once(line_clear_sound_file)
 
+    @override
     def should_be_called_by(self, game_index: int) -> bool:
-        return self._game_indices is None or game_index in self._game_indices
+        return (
+            self._game_indices is None
+            or game_index in self._game_indices
+            or game_index == DependencyManager.RUNTIME_INDEX
+        )
 
-    def on_game_over(self, game_index: int) -> None:  # noqa: ARG002
+    @override
+    def on_all_games_over(self) -> None:
         self._audio_output.stop()
         self._music_playing = False
 
         if self._enabled:
             self._play_sound(Sound.GAME_OVER)
 
-    def on_game_start(self, game_index: int) -> None:  # noqa: ARG002
+    @override
+    def on_game_over(self, game_index: int) -> None:
+        if self._enabled:
+            self._play_sound(Sound.GAME_OVER)
+
+    @override
+    def on_game_start(self, game_index: int) -> None:
         if self._enabled and not self._music_playing:
             self._start_playing_music()
 

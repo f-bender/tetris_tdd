@@ -9,9 +9,9 @@ class CallbackCollection:
     def __init__(self, callbacks: Collection[Callback]) -> None:
         self._callbacks = callbacks
 
-    def on_runtime_start(self, game_index: int) -> None:
+    def on_runtime_start(self) -> None:
         for callback in self._callbacks:
-            callback.on_runtime_start(game_index)
+            callback.on_runtime_start()
 
     def on_game_start(self, game_index: int) -> None:
         for callback in self._callbacks:
@@ -36,3 +36,7 @@ class CallbackCollection:
     def on_game_over(self, game_index: int) -> None:
         for callback in self._callbacks:
             callback.on_game_over(game_index)
+
+    def on_all_games_over(self) -> None:
+        for callback in self._callbacks:
+            callback.on_all_games_over()

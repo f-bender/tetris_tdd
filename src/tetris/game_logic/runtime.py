@@ -70,7 +70,7 @@ class Runtime:
             game.reset()
 
     def run(self) -> None:
-        self.callback_collection.on_runtime_start(DependencyManager.RUNTIME_INDEX)
+        self.callback_collection.on_runtime_start()
         while True:
             self._clock.tick()
             self.advance_frame(self._controller.get_action())
@@ -123,6 +123,9 @@ PAUSE_ACTION = Action(cancel=True)
 class PlayingState:
     RESTART_AFTER_GAME_OVER_ACTION = Action(confirm=True)
 
+    def __init__(self) -> None:
+        self._game_over_notification_sent = False
+
     def advance(self, runtime: Runtime) -> None:
         if runtime.action_counter.held_since(PAUSE_ACTION) == 1:
             runtime.state = PAUSED_STATE
@@ -130,12 +133,15 @@ class PlayingState:
         for game in runtime.games:
             game.advance_frame()
 
-        if (
-            not any(game.alive for game in runtime.games)
-            and runtime.action_counter.held_since(self.RESTART_AFTER_GAME_OVER_ACTION) == 1
-        ):
-            for game in runtime.games:
-                game.reset()
+        if not any(game.alive for game in runtime.games):
+            if not self._game_over_notification_sent:
+                runtime.callback_collection.on_all_games_over()
+                self._game_over_notification_sent = True
+
+            if runtime.action_counter.held_since(self.RESTART_AFTER_GAME_OVER_ACTION) == 1:
+                for game in runtime.games:
+                    game.reset()
+                self._game_over_notification_sent = False
 
 
 class PausedState:
