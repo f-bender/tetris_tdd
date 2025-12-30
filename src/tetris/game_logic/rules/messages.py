@@ -123,7 +123,7 @@ class GravityStartedMessage(NamedTuple):
 
 
 class BlooperOverlayTrigger(NamedTuple):
-    pass
+    num_frames: int
 
 
 class Tetris99FromPowerup(NamedTuple):

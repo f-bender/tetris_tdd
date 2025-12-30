@@ -103,11 +103,11 @@ class UiAggregator(Subscriber, Callback):
                 self._ui_elements.animations.append(PowerupTriggeredAnimationSpec(total_frames=20, position=position))
             case ControllerSymbolUpdatedMessage(controller_symbol=controller_symbol):
                 self._ui_elements.controller_symbol = controller_symbol
-            case BlooperOverlayTrigger():
+            case BlooperOverlayTrigger(num_frames=num_frames):
                 # ignore it if we are already game over
                 if not self._ui_elements.game_over:
                     # make it last for 5 seconds (at 60 fps)
-                    self._ui_elements.animations.append(BlooperAnimationSpec(total_frames=300))
+                    self._ui_elements.animations.append(BlooperAnimationSpec(total_frames=num_frames))
             case _:
                 pass
 

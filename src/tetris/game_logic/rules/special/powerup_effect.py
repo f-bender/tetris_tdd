@@ -260,11 +260,18 @@ class _BlooperCooldownMessage(NamedTuple):
 
 
 class BlooperEffect(PowerupEffect, Publisher, Subscriber, Callback):
-    # prevent activation while any blooper overlay is still present
-    _COOLDOWN_FRAMES = 300
-
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        min_effect_frames: int = 180,
+        max_effect_frames: int = 360,
+        # prevent activation while any blooper overlay is still present
+        num_cooldown_frames: int = 360,
+    ) -> None:
         super().__init__()
+
+        self._min_effect_frames = min_effect_frames
+        self._max_effect_frames = max_effect_frames
+        self._num_cooldown_frames = num_cooldown_frames
 
         self._cooldown_frame: int | None = None
         self._on_cooldown = False
@@ -312,7 +319,9 @@ class BlooperEffect(PowerupEffect, Publisher, Subscriber, Callback):
         match message:
             case _BlooperTriggerMessage():
                 self._on_cooldown = True
-                self.notify_subscribers(BlooperOverlayTrigger())
+                self.notify_subscribers(
+                    BlooperOverlayTrigger(num_frames=random.randint(self._min_effect_frames, self._max_effect_frames))
+                )
             case _BlooperCooldownMessage():
                 self._on_cooldown = False
             case _:
@@ -324,7 +333,7 @@ class BlooperEffect(PowerupEffect, Publisher, Subscriber, Callback):
     ) -> None:
         if self._cooldown_frame is None:
             self.notify_subscribers(_BlooperTriggerMessage())
-            self._cooldown_frame = frame_counter + self._COOLDOWN_FRAMES
+            self._cooldown_frame = frame_counter + self._num_cooldown_frames
         elif frame_counter >= self._cooldown_frame:
             self.notify_subscribers(_BlooperCooldownMessage())
             self._active = False
