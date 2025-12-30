@@ -176,8 +176,9 @@ def generate_blooper_overlay(size: tuple[int, int], seed: int) -> NDArray[np.uin
         y_center = rng.randrange(radius, size[0] - radius)
         x_center = rng.randrange(radius, size[1] - radius)
 
-        overlay[(y_coords - y_center) ** 2 + (x_coords - x_center) ** 2 <= radius**2] = ColorPalette.index_of_color(
-            "blooper_overlay"
+        # Note: without the "+ 0.5", there would be single-pixel "spikes" in all cardinal directions
+        overlay[(y_coords - y_center) ** 2 + (x_coords - x_center) ** 2 <= (radius + 0.5) ** 2] = (
+            ColorPalette.index_of_color("blooper_overlay")
         )
 
     return overlay
