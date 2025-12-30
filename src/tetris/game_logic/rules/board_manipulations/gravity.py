@@ -41,7 +41,7 @@ class Gravity(GradualBoardManipulation, Publisher):
             self._currently_affected_columns = [
                 i for i in range(board.width) if random.random() < self._per_col_probability
             ]
-            self._currently_total_steps = self._estimate_total_num_bubble_steps(board)
+            self._currently_total_steps = self.estimate_total_num_bubble_steps(board)
             if self._currently_total_steps == 0:
                 self._done_already = True
                 return
@@ -79,7 +79,7 @@ class Gravity(GradualBoardManipulation, Publisher):
             self.notify_subscribers(GravityFinishedMessage())
 
     @staticmethod
-    def _estimate_total_num_bubble_steps(board: Board) -> int:
+    def estimate_total_num_bubble_steps(board: Board) -> int:
         board_array = board.array_view_without_active_block().view(bool)
 
         highest_filled_cells = np.where(board_array.any(axis=0), board_array.argmax(axis=0), -1)

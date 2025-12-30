@@ -1,17 +1,24 @@
 import random
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from typing import TYPE_CHECKING, NamedTuple, override
+
+import numpy as np
 
 from tetris.game_logic.action_counter import ActionCounter
 from tetris.game_logic.components.board import Board
 from tetris.game_logic.interfaces.callback import Callback
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
+from tetris.game_logic.rules.board_manipulations.fill_lines import FillLines
+from tetris.game_logic.rules.board_manipulations.gravity import Gravity
 from tetris.game_logic.rules.messages import (
     BlooperOverlayTrigger,
     BotAssistanceEnd,
     BotAssistanceStart,
     FillLinesEffectTrigger,
+    FinishedLineFillMessage,
     GravityEffectTrigger,
+    StartingLineFillMessage,
 )
 
 if TYPE_CHECKING:
@@ -39,8 +46,8 @@ class PowerupEffectManager:
             if effect.is_active:
                 effect.apply_effect(frame_counter, action_counter, board, powerup_rule=self._powerup_rule)
 
-    def trigger_random_effect(self) -> None:
-        inactive_effects = [effect for effect in self._effects if effect.is_available]
+    def trigger_random_effect(self, board: Board) -> None:
+        inactive_effects = [effect for effect in self._effects if effect.is_available(board)]
 
         if inactive_effects:
             random.choice(inactive_effects).activate()
@@ -56,8 +63,7 @@ class PowerupEffect(ABC):
     def is_active(self) -> bool:
         return self._active
 
-    @property
-    def is_available(self) -> bool:
+    def is_available(self, board: Board) -> bool:
         return not self._active
 
     def reset(self) -> None:
@@ -75,11 +81,36 @@ class PowerupEffect(ABC):
 # --- Effects ---
 
 
-class GravityEffect(PowerupEffect, Publisher):
+class GravityEffect(PowerupEffect, Publisher, Subscriber):
     def __init__(self, per_col_probability: float = 1.0) -> None:
         super().__init__()
 
         self._per_col_probability = per_col_probability
+        self._lines_being_currently_cleared: list[int] | None = None
+
+    @override
+    def should_be_subscribed_to(self, publisher: Publisher) -> bool:
+        return publisher.game_index == self.game_index and isinstance(publisher, FillLines)
+
+    @override
+    def notify(self, message: NamedTuple) -> None:
+        match message:
+            case StartingLineFillMessage(filled_lines=lines_being_cleared):
+                self._lines_being_currently_cleared = lines_being_cleared
+            case FinishedLineFillMessage():
+                self._lines_being_currently_cleared = None
+
+    @override
+    def is_available(self, board: Board) -> bool:
+        # before testing, remove lines currently being cleared (if any)
+        if self._lines_being_currently_cleared is not None:
+            board = deepcopy(board)
+            board.clear_lines(self._lines_being_currently_cleared)
+
+        # if there is no "gravity bubbling" to be done, don't choose the gravity powerup effect
+        # Note: in case of a "chain reaction", and a post-merge queue, gravity might end up actually not having an
+        # effect by the time Gravity is applied, even though we would think so right now. But that should be rare.
+        return Gravity.estimate_total_num_bubble_steps(board) != 0
 
     @override
     def apply_effect(
@@ -102,9 +133,8 @@ class BotAssistanceEffect(PowerupEffect, Publisher):
 
         self._end_frame: int | None = None
 
-    @property
     @override
-    def is_available(self) -> bool:
+    def is_available(self, board: Board) -> bool:
         # in case we have no subscribers, so this powerup has no effect
         # -> mark it as always unavailable (such that it is never selected to be triggered)
         # (note: this is the case when bot controller is used)
@@ -125,12 +155,35 @@ class BotAssistanceEffect(PowerupEffect, Publisher):
             self._end_frame = None
 
 
-class FillLinesEffect(PowerupEffect, Publisher):
+class FillLinesEffect(PowerupEffect, Publisher, Subscriber):
     def __init__(self, min_num_lines: int = 1, max_num_lines: int = 4) -> None:
         super().__init__()
 
         self._min_num_lines = min_num_lines
         self._max_num_lines = max_num_lines
+
+        self._lines_being_currently_cleared: list[int] | None = None
+
+    @override
+    def should_be_subscribed_to(self, publisher: Publisher) -> bool:
+        return publisher.game_index == self.game_index and isinstance(publisher, FillLines)
+
+    @override
+    def notify(self, message: NamedTuple) -> None:
+        match message:
+            case StartingLineFillMessage(filled_lines=lines_being_cleared):
+                self._lines_being_currently_cleared = lines_being_cleared
+            case FinishedLineFillMessage():
+                self._lines_being_currently_cleared = None
+
+    @override
+    def is_available(self, board: Board) -> bool:
+        non_empty_line_idxs = np.where(board.array_view_without_active_block().any(axis=1))[0]
+
+        return len(non_empty_line_idxs) != 0 and (
+            self._lines_being_currently_cleared is None
+            or len(set(non_empty_line_idxs) - set(self._lines_being_currently_cleared)) != 0
+        )
 
     @override
     def apply_effect(
@@ -142,7 +195,7 @@ class FillLinesEffect(PowerupEffect, Publisher):
         self._active = False
 
 
-class SpawnPowerupsEffect(PowerupEffect):
+class SpawnPowerupsEffect(PowerupEffect, Subscriber):
     # limit the activation of this to once every 3 seconds (at 60 fps), to avoid a chain reaction resulting in many
     # powerups in a short amount of time
     _COOLDOWN_FRAMES = 180
@@ -154,6 +207,30 @@ class SpawnPowerupsEffect(PowerupEffect):
         self._max_num_powerups = max_num_powerups
 
         self._cooldown_frame: int | None = None
+        self._lines_being_currently_cleared: list[int] | None = None
+
+    @override
+    def should_be_subscribed_to(self, publisher: Publisher) -> bool:
+        return publisher.game_index == self.game_index and isinstance(publisher, FillLines)
+
+    @override
+    def notify(self, message: NamedTuple) -> None:
+        match message:
+            case StartingLineFillMessage(filled_lines=lines_being_cleared):
+                self._lines_being_currently_cleared = lines_being_cleared
+            case FinishedLineFillMessage():
+                self._lines_being_currently_cleared = None
+
+    @override
+    def is_available(self, board: Board) -> bool:
+        if self._lines_being_currently_cleared is None:
+            return bool(board.array_view_without_active_block().any())
+
+        return bool(
+            board.array_view_without_active_block()[
+                list(set(range(board.height)) - set(self._lines_being_currently_cleared))
+            ].any()
+        )
 
     @override
     def apply_effect(
@@ -188,9 +265,8 @@ class BlooperEffect(PowerupEffect, Publisher, Subscriber, Callback):
         self._on_cooldown = False
         self._game_over = False
 
-    @property
     @override
-    def is_available(self) -> bool:
+    def is_available(self, board: Board) -> bool:
         return (
             not self._active
             and not self._on_cooldown

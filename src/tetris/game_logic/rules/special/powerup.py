@@ -123,7 +123,7 @@ class PowerupRule(Publisher, Subscriber, Callback, Rule):
 
             self.notify_subscribers(PowerupTriggeredMessage(self._powerup_positions[slot]))
             del self._powerup_positions[slot]
-            self._powerup_effect_manager.trigger_random_effect()
+            self._powerup_effect_manager.trigger_random_effect(board)
             self._powerup_ttls[slot] = 0
 
         self._powerup_effect_manager.apply(frame_counter, action_counter, board)

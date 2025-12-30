@@ -86,6 +86,6 @@ from tetris.game_logic.rules.board_manipulations.gravity import Gravity
 def test_estimate_total_num_bubble_steps(board_string: str, expected_steps: int) -> None:
     board = Board.from_string_representation(board_string)
 
-    estimated_steps = Gravity._estimate_total_num_bubble_steps(board)  # noqa: SLF001
+    estimated_steps = Gravity.estimate_total_num_bubble_steps(board)
 
     assert estimated_steps == expected_steps, f"Expected {expected_steps} steps, got {estimated_steps}. Board:\n{board}"
