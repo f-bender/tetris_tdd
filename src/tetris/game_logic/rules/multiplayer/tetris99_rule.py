@@ -11,7 +11,13 @@ from tetris.game_logic.interfaces.dependency_manager import DependencyManager
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.game_logic.interfaces.rule import Rule
 from tetris.game_logic.rules.board_manipulations.fill_lines import FillLines
-from tetris.game_logic.rules.messages import BoardTranslationMessage, FinishedLineFillMessage, Tetris99Message
+from tetris.game_logic.rules.messages import (
+    BoardTranslationMessage,
+    FinishedLineFillMessage,
+    Tetris99FromPowerup,
+    Tetris99Message,
+)
+from tetris.game_logic.rules.special.powerup_effect import Tetris99LinePlaceEffect
 
 
 class PlaceLinesManipulation:
@@ -88,7 +94,11 @@ class Tetris99Rule(Publisher, Subscriber, Callback, Rule):
     @override
     def should_be_subscribed_to(self, publisher: Publisher) -> bool:
         return (
-            isinstance(publisher, FillLines) and publisher.is_line_clearer and publisher.game_index == self.game_index
+            (
+                (isinstance(publisher, FillLines) and publisher.is_line_clearer)
+                or isinstance(publisher, Tetris99LinePlaceEffect)
+            )
+            and publisher.game_index == self.game_index
         ) or (isinstance(publisher, Tetris99Rule) and publisher.game_index in self._targeted_by_idxs)
 
     @override
@@ -115,7 +125,9 @@ class Tetris99Rule(Publisher, Subscriber, Callback, Rule):
         if isinstance(message, FinishedLineFillMessage):
             self._num_recently_cleared_lines += len(message.filled_lines)
 
-        elif isinstance(message, Tetris99Message) and message.target_id == self.game_index:
+        elif (isinstance(message, Tetris99Message) and message.target_id == self.game_index) or isinstance(
+            message, Tetris99FromPowerup
+        ):
             self._num_lines_to_place += message.num_lines
 
     @override

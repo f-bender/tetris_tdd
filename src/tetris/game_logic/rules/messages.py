@@ -124,3 +124,7 @@ class GravityStartedMessage(NamedTuple):
 
 class BlooperOverlayTrigger(NamedTuple):
     pass
+
+
+class Tetris99FromPowerup(NamedTuple):
+    num_lines: int

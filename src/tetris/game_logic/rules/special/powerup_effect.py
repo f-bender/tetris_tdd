@@ -19,6 +19,7 @@ from tetris.game_logic.rules.messages import (
     FinishedLineFillMessage,
     GravityEffectTrigger,
     StartingLineFillMessage,
+    Tetris99FromPowerup,
 )
 
 if TYPE_CHECKING:
@@ -35,6 +36,7 @@ class PowerupEffectManager:
             FillLinesEffect(),
             SpawnPowerupsEffect(),
             BlooperEffect(),
+            Tetris99LinePlaceEffect(),
         ]
 
     def reset(self) -> None:
@@ -47,10 +49,10 @@ class PowerupEffectManager:
                 effect.apply_effect(frame_counter, action_counter, board, powerup_rule=self._powerup_rule)
 
     def trigger_random_effect(self, board: Board) -> None:
-        inactive_effects = [effect for effect in self._effects if effect.is_available(board)]
+        available_effects = [effect for effect in self._effects if effect.is_available(board)]
 
-        if inactive_effects:
-            random.choice(inactive_effects).activate()
+        if available_effects:
+            random.choice(available_effects).activate()
 
 
 class PowerupEffect(ABC):
@@ -223,6 +225,9 @@ class SpawnPowerupsEffect(PowerupEffect, Subscriber):
 
     @override
     def is_available(self, board: Board) -> bool:
+        if self._active:
+            return False
+
         if self._lines_being_currently_cleared is None:
             return bool(board.array_view_without_active_block().any())
 
@@ -324,3 +329,63 @@ class BlooperEffect(PowerupEffect, Publisher, Subscriber, Callback):
             self.notify_subscribers(_BlooperCooldownMessage())
             self._active = False
             self._cooldown_frame = None
+
+
+class _Tetris99LinePlaceMessage(NamedTuple):
+    pass
+
+
+class Tetris99LinePlaceEffect(PowerupEffect, Publisher, Subscriber, Callback):
+    def __init__(self, min_num_lines: int = 1, max_num_lines: int = 4) -> None:
+        super().__init__()
+
+        self._game_over = False
+
+        self._min_num_lines = min_num_lines
+        self._max_num_lines = max_num_lines
+
+    @override
+    def on_game_over(self, game_index: int) -> None:
+        self._game_over = True
+
+    @override
+    def on_game_start(self, game_index: int) -> None:
+        self._game_over = False
+
+    @property
+    def game_over(self) -> bool:
+        return self._game_over
+
+    @override
+    def should_be_subscribed_to(self, publisher: Publisher) -> bool:
+        return isinstance(publisher, Tetris99LinePlaceEffect) and publisher.game_index != self.game_index
+
+    @override
+    def is_available(self, board: Board) -> bool:
+        from tetris.game_logic.rules.multiplayer.tetris99_rule import Tetris99Rule
+
+        return (
+            # only available if tetris99 is active
+            any(isinstance(subscriber, Tetris99Rule) for subscriber in self._subscribers)
+            # unavailable in case we have no subscribers (i.e. single-player, would have no effect)
+            and len(self._subscribers) > 0
+            # unavailable in case all other games are game over (same thing, would have no effect)
+            and any(
+                (isinstance(subscriber, Tetris99LinePlaceEffect) and not subscriber.game_over)
+                for subscriber in self._subscribers
+            )
+        )
+
+    @override
+    def notify(self, message: NamedTuple) -> None:
+        if isinstance(message, _Tetris99LinePlaceMessage):
+            self.notify_subscribers(
+                Tetris99FromPowerup(num_lines=random.randint(self._min_num_lines, self._max_num_lines))
+            )
+
+    @override
+    def apply_effect(
+        self, frame_counter: int, action_counter: ActionCounter, board: Board, powerup_rule: "PowerupRule"
+    ) -> None:
+        self.notify_subscribers(_Tetris99LinePlaceMessage())
+        self._active = False
