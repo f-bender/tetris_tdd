@@ -54,6 +54,7 @@ class _Colors(NamedTuple):
     display_bg: str
     overlay_display_bg: str
     overlay_display_border: str
+    board_border: str
     # animation colors
     tetris_sparkle: str
     blooper_overlay: str
@@ -170,6 +171,7 @@ class ColorPalette:
             display_bg=(50, 50, 50),
             overlay_display_bg=(0, 0, 0),
             overlay_display_border=(255, 255, 255),
+            board_border=(160, 160, 160),
             empty=(0, 0, 0),
             dynamic_colormap_background=cls.random_colormap(),
             dynamic_colormap_powerup=cls.rainbow_colormap(
@@ -210,6 +212,7 @@ class ColorPalette:
         display_bg: tuple[int, int, int],
         overlay_display_bg: tuple[int, int, int],
         overlay_display_border: tuple[int, int, int],
+        board_border: tuple[int, int, int],
         tetris_sparkle: tuple[int, int, int],
         blooper_overlay: tuple[int, int, int],
         empty: tuple[int, int, int],
@@ -248,6 +251,7 @@ class ColorPalette:
                 display_bg=color_fn(*display_bg),
                 overlay_display_bg=color_fn(*overlay_display_bg),
                 overlay_display_border=color_fn(*overlay_display_border),
+                board_border=color_fn(*board_border),
                 tetris_sparkle=color_fn(*tetris_sparkle),
                 blooper_overlay=color_fn(*blooper_overlay),
                 empty=color_fn(*empty),
@@ -291,6 +295,7 @@ class ColorPalette:
             "display_bg",
             "overlay_display_bg",
             "overlay_display_border",
+            "board_border",
             "tetris_sparkle",
             "blooper_overlay",
             "empty",
