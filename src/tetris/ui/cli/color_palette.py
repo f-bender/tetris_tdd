@@ -58,6 +58,7 @@ class _Colors(NamedTuple):
     # animation colors
     tetris_sparkle: str
     blooper_overlay: str
+    screen_wipe_overlay: str
     # background that has not (yet) been filled or (four-)colored
     empty: str
 
@@ -167,6 +168,7 @@ class ColorPalette:
             # yellow tetris sparkle animation
             tetris_sparkle=(255, 255, 0),
             blooper_overlay=(0, 0, 0),
+            screen_wipe_overlay=(172, 221, 222),
             # dark gray background for the text, black for emptiness
             display_bg=(50, 50, 50),
             overlay_display_bg=(0, 0, 0),
@@ -215,6 +217,7 @@ class ColorPalette:
         board_border: tuple[int, int, int],
         tetris_sparkle: tuple[int, int, int],
         blooper_overlay: tuple[int, int, int],
+        screen_wipe_overlay: tuple[int, int, int],
         empty: tuple[int, int, int],
         dynamic_colormap_background: Iterable[tuple[int, int, int]],
         dynamic_colormap_powerup: Iterable[tuple[int, int, int]],
@@ -254,6 +257,7 @@ class ColorPalette:
                 board_border=color_fn(*board_border),
                 tetris_sparkle=color_fn(*tetris_sparkle),
                 blooper_overlay=color_fn(*blooper_overlay),
+                screen_wipe_overlay=color_fn(*screen_wipe_overlay),
                 empty=color_fn(*empty),
             ),
             dynamic_colormap_background=tuple(color_fn(r, g, b) for r, g, b in dynamic_colormap_background),
@@ -298,6 +302,7 @@ class ColorPalette:
             "board_border",
             "tetris_sparkle",
             "blooper_overlay",
+            "screen_wipe_overlay",
             "empty",
         ],
     ) -> int:

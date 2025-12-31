@@ -224,7 +224,9 @@ def generate_screen_hide_overlay(
         # last line fills up from global_fill_ratio values 0.5 to 1 (is completely empty when global_fill_ratio < 0.5)
         # in between, these limits change linearly
         line_specific_fill_ratio = max(0, min(1, (global_fill_ratio - y / screen_size[0] / 2) * 2))
-        overlay[y, : round(screen_size[1] * line_specific_fill_ratio**2)] = ColorPalette.index_of_color("block_5")
+        overlay[y, : round(screen_size[1] * line_specific_fill_ratio**2)] = ColorPalette.index_of_color(
+            "screen_wipe_overlay"
+        )
 
     return overlay
 
