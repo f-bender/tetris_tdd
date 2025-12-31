@@ -1,8 +1,10 @@
+from enum import Enum, auto
 from itertools import count
 from typing import Protocol
 
 from tetris.game_logic.action_counter import ActionCounter
 from tetris.game_logic.game import Game
+from tetris.game_logic.interfaces.animations import ScreenHideAnimationSpec, ScreenRevealAnimationSpec
 from tetris.game_logic.interfaces.callback_collection import CallbackCollection
 from tetris.game_logic.interfaces.clock import Clock
 from tetris.game_logic.interfaces.controller import Action, Controller
@@ -59,6 +61,10 @@ class Runtime:
         return self._frame_counter
 
     @property
+    def ui_elements(self) -> UiElements:
+        return self._ui_elements
+
+    @property
     def games(self) -> list[Game]:
         return self._games
 
@@ -104,15 +110,16 @@ class StartupState:
     ACCELERATION_FACTOR = 0.25
     ACCELERATION_ACTION = Action(down=True)
 
-    def advance(self, runtime: Runtime) -> None:
+    @classmethod
+    def advance(cls, runtime: Runtime) -> None:
         for i in count():
             finished = runtime.advance_ui_startup()
             if finished:
                 runtime.state = PLAYING_STATE
                 break
 
-            if runtime.tick_is_overdue() or i >= self.ACCELERATION_FACTOR * runtime.action_counter.held_since(
-                self.ACCELERATION_ACTION
+            if runtime.tick_is_overdue() or i >= cls.ACCELERATION_FACTOR * runtime.action_counter.held_since(
+                cls.ACCELERATION_ACTION
             ):
                 break
 
@@ -121,12 +128,8 @@ PAUSE_ACTION = Action(cancel=True)
 
 
 class PlayingState:
-    RESTART_AFTER_GAME_OVER_ACTION = Action(confirm=True)
-
-    def __init__(self) -> None:
-        self._game_over_notification_sent = False
-
-    def advance(self, runtime: Runtime) -> None:
+    @classmethod
+    def advance(cls, runtime: Runtime) -> None:
         if runtime.action_counter.held_since(PAUSE_ACTION) == 1:
             runtime.state = PAUSED_STATE
 
@@ -134,26 +137,85 @@ class PlayingState:
             game.advance_frame()
 
         if not any(game.alive for game in runtime.games):
-            if not self._game_over_notification_sent:
-                runtime.callback_collection.on_all_games_over()
-                self._game_over_notification_sent = True
+            runtime.callback_collection.on_all_games_over()
+            runtime.state = ALL_GAMES_OVER_STATE
 
-            if runtime.action_counter.held_since(self.RESTART_AFTER_GAME_OVER_ACTION) == 1:
+
+class AllGamesOverState:
+    RESTART_AFTER_GAME_OVER_ACTION = Action(confirm=True)
+
+    class _State(Enum):
+        NOT_READY = auto()
+        SCREEN_HIDE = auto()
+        SCREEN_REVEAL = auto()
+
+    _STATE = _State.NOT_READY
+
+    NUM_ACTION_FRAMES = 60
+    _SCREEN_HIDE_ANIMATION = ScreenHideAnimationSpec(total_frames=NUM_ACTION_FRAMES)
+    _SCREEN_REVEAL_ANIMATION = ScreenRevealAnimationSpec(total_frames=NUM_ACTION_FRAMES)
+
+    _ready = False
+
+    @classmethod
+    def advance(cls, runtime: Runtime) -> None:
+        action_held_frames = runtime.action_counter.held_since(cls.RESTART_AFTER_GAME_OVER_ACTION)
+
+        if cls._STATE == cls._State.NOT_READY and action_held_frames == 0:
+            # avoid directly starting into the middle of the animation, in case the action was already being held
+            # while the games went game over (i.e. only start doing anything after the action has been released
+            # once)
+            cls._STATE = cls._State.SCREEN_HIDE
+
+        if cls._STATE == cls._State.SCREEN_HIDE:
+            cls._advance_screen_hide(runtime, action_held_frames=action_held_frames)
+
+            if cls._SCREEN_HIDE_ANIMATION.done:
                 for game in runtime.games:
                     game.reset()
-                self._game_over_notification_sent = False
+                cls._STATE = cls._State.SCREEN_REVEAL
+
+        if cls._STATE == cls._State.SCREEN_REVEAL:
+            cls._advance_screen_reveal(runtime)
+
+            if cls._SCREEN_REVEAL_ANIMATION.done:
+                runtime.ui_elements.animations = []
+                cls._SCREEN_HIDE_ANIMATION.current_frame = -1
+                cls._SCREEN_REVEAL_ANIMATION.current_frame = -1
+                cls._STATE = cls._State.NOT_READY
+                runtime.state = PLAYING_STATE
+
+    @classmethod
+    def _advance_screen_hide(cls, runtime: Runtime, action_held_frames: int) -> None:
+        if action_held_frames > 0:
+            cls._SCREEN_HIDE_ANIMATION.current_frame += 1
+        elif cls._SCREEN_HIDE_ANIMATION.current_frame >= 0:
+            cls._SCREEN_HIDE_ANIMATION.current_frame -= 1
+
+        if cls._SCREEN_HIDE_ANIMATION.current_frame >= 0:
+            runtime.ui_elements.animations = [cls._SCREEN_HIDE_ANIMATION]
+
+    @classmethod
+    def _advance_screen_reveal(cls, runtime: Runtime) -> None:
+        cls._SCREEN_REVEAL_ANIMATION.current_frame += 1
+
+        if cls._SCREEN_REVEAL_ANIMATION.current_frame >= 0:
+            runtime.ui_elements.animations = [cls._SCREEN_REVEAL_ANIMATION]
 
 
 class PausedState:
-    def advance(self, runtime: Runtime) -> None:
+    @classmethod
+    def advance(cls, runtime: Runtime) -> None:
         if runtime.action_counter.held_since(PAUSE_ACTION) == 1:
             runtime.state = PLAYING_STATE
 
 
 class State(Protocol):
-    def advance(self, runtime: Runtime) -> None: ...
+    @classmethod
+    def advance(cls, runtime: Runtime) -> None: ...
 
 
 STARTUP_STATE = StartupState()
 PLAYING_STATE = PlayingState()
 PAUSED_STATE = PausedState()
+ALL_GAMES_OVER_STATE = AllGamesOverState()

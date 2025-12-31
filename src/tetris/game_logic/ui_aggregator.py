@@ -1,4 +1,4 @@
-from typing import NamedTuple, override
+from typing import NamedTuple
 
 import numpy as np
 from numpy.typing import NDArray
@@ -8,7 +8,6 @@ from tetris.game_logic.interfaces.animations import (
     PowerupTriggeredAnimationSpec,
     TetrisAnimationSpec,
 )
-from tetris.game_logic.interfaces.callback import Callback
 from tetris.game_logic.interfaces.pub_sub import Publisher, Subscriber
 from tetris.game_logic.interfaces.ui import SingleUiElements
 from tetris.game_logic.rules.messages import (
@@ -25,7 +24,7 @@ from tetris.game_logic.rules.messages import (
 from tetris.game_logic.rules.special.powerup_effect import BlooperEffect
 
 
-class UiAggregator(Subscriber, Callback):
+class UiAggregator(Subscriber):
     """Subscriber to all UI-relevant events, aggregating them into UiElements."""
 
     def __init__(self, board: NDArray[np.uint8], controller_symbol: str) -> None:
@@ -38,6 +37,14 @@ class UiAggregator(Subscriber, Callback):
     @property
     def ui_elements(self) -> SingleUiElements:
         return self._ui_elements
+
+    @property
+    def game_over(self) -> bool:
+        return self._ui_elements.game_over
+
+    @game_over.setter
+    def game_over(self, value: bool) -> None:
+        self._ui_elements.game_over = value
 
     def should_be_subscribed_to(self, publisher: Publisher) -> bool:
         from tetris.controllers.bot_assisted import BotAssistedController
@@ -110,14 +117,6 @@ class UiAggregator(Subscriber, Callback):
                     self._ui_elements.animations.append(BlooperAnimationSpec(total_frames=num_frames))
             case _:
                 pass
-
-    @override
-    def on_game_start(self, game_index: int) -> None:
-        self._ui_elements.game_over = False
-
-    @override
-    def on_game_over(self, game_index: int) -> None:
-        self._ui_elements.game_over = True
 
     def update(self, board: NDArray[np.uint8]) -> None:
         self._ui_elements.board = board

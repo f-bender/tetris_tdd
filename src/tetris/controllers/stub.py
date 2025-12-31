@@ -4,10 +4,13 @@ from tetris.game_logic.interfaces.controller import Action, Controller
 
 
 class StubController(Controller):
-    def __init__(self, action: Action, mode: Literal["hold", "press_repeatedly"] = "hold") -> None:
+    def __init__(
+        self, action: Action, mode: Literal["hold", "press_repeatedly"] = "hold", press_duration_frames: int = 1
+    ) -> None:
         self._action = action
         self._hold = mode == "hold"
-        self._press_flag = True
+        self._press_counter = 0
+        self._press_duration_frames = press_duration_frames
 
     @property
     def symbol(self) -> str:
@@ -25,5 +28,9 @@ class StubController(Controller):
         if self._hold:
             return self._action
 
-        self._press_flag = not self._press_flag
-        return self._action if self._press_flag else Action()
+        self._press_counter += 1
+        if self._press_counter >= self._press_duration_frames:
+            self._press_counter = 0
+            return Action()
+
+        return self._action

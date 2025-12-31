@@ -34,7 +34,7 @@ from tetris.game_logic.rules.monitoring.track_performance_rule import TrackPerfo
 from tetris.game_logic.rules.multiplayer.tetris99_rule import Tetris99Rule
 from tetris.game_logic.rules.runtime.sound_toggle import SoundToggleRule
 from tetris.game_logic.rules.special.powerup import PowerupRule
-from tetris.game_logic.runtime import Runtime
+from tetris.game_logic.runtime import AllGamesOverState, Runtime
 from tetris.game_logic.sound_manager import SoundManager
 from tetris.ui.cli import CLI
 
@@ -240,7 +240,9 @@ def play(  # noqa: C901, PLR0913
         powerups = True
         tetris99_self_targeting_when_alone = True
         # make sure a new game is automatically started after all are game over
-        repeatedly_confirm_controller = StubController(Action(confirm=True), mode="press_repeatedly")
+        repeatedly_confirm_controller = StubController(
+            Action(confirm=True), mode="press_repeatedly", press_duration_frames=AllGamesOverState.NUM_ACTION_FRAMES
+        )
         if keyboard_controller := _try_pynput_controller():
             runtime_controller = CompositeController((repeatedly_confirm_controller, keyboard_controller))
 

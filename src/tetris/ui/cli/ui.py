@@ -11,8 +11,10 @@ from ansi import color, cursor
 from numpy.typing import NDArray
 
 from tetris.ansi_extensions import cursor as cursorx
+from tetris.game_logic.interfaces.animations import AnimationSpec, ScreenHideAnimationSpec, ScreenRevealAnimationSpec
 from tetris.game_logic.interfaces.ui import UI, UiElements
 from tetris.space_filling_coloring import fill_and_colorize
+from tetris.ui.cli.animations import generate_screen_hide_overlay, generate_screen_reveal_overlay
 from tetris.ui.cli.buffered_printing import BufferedPrint
 from tetris.ui.cli.color_palette import BackgroundColorType, ColorPalette
 from tetris.ui.cli.dynamic_layer import random_layer
@@ -391,8 +393,34 @@ class CLI(UI):
                 overlay.position += offset
             all_overlays.extend(overlays)
 
+        all_overlays.extend(
+            overlay
+            for animation_spec in elements.animations
+            if (overlay := self._create_global_overlay(animation_spec)) is not None
+        )
+
         for overlay in all_overlays:
             self._draw_overlay(overlay=overlay, image_buffer=image_buffer, text_buffer=text_buffer)
+
+    def _create_global_overlay(self, animation_spec: AnimationSpec) -> Overlay:
+        match animation_spec:
+            case ScreenHideAnimationSpec(current_frame=current_frame, total_frames=total_frames):
+                return Overlay(
+                    position=Vec(0, 0),
+                    frame=generate_screen_hide_overlay(
+                        current_frame=current_frame, total_frames=total_frames, screen_size=self.total_size
+                    ),
+                )
+            case ScreenRevealAnimationSpec(current_frame=current_frame, total_frames=total_frames):
+                return Overlay(
+                    position=Vec(0, 0),
+                    frame=generate_screen_reveal_overlay(
+                        current_frame=current_frame, total_frames=total_frames, screen_size=self.total_size
+                    ),
+                )
+            case _:
+                msg = f"Unknown animation spec type {type(animation_spec)}"
+                raise RuntimeError(msg)
 
     def _handle_level_change(self, elements: UiElements) -> None:
         if not self._randomize_background_colors_on_levelup:

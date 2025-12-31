@@ -87,6 +87,7 @@ class Game:
             try:
                 self._rule_sequence.apply(self._frame_counter, self._action_counter, self._board)
             except GameOverError:
+                self._ui_aggregator.game_over = True
                 self.callback_collection.on_game_over(self._index)
                 self._alive = False
                 self._game_over_frame_count = self._frame_counter

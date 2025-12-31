@@ -1,6 +1,6 @@
 import random
 from abc import ABC
-from functools import lru_cache
+from functools import cache, lru_cache
 from typing import ClassVar
 
 import numpy as np
@@ -209,3 +209,27 @@ class BlooperAnimation:
         offset_from_board_origin += Vec(y_offset, 0)
 
         return offset_from_board_origin, self._overlay
+
+
+@cache
+def generate_screen_hide_overlay(
+    current_frame: int, total_frames: int, screen_size: tuple[int, int]
+) -> NDArray[np.uint8]:
+    overlay = np.zeros(screen_size, dtype=np.uint8)
+
+    global_fill_ratio = (current_frame + 1) / total_frames
+
+    for y in range(screen_size[0]):
+        # first line fills up from global_fill_ratio values 0 to 0.5 (is completely full when global_fill_ratio > 0.5)
+        # last line fills up from global_fill_ratio values 0.5 to 1 (is completely empty when global_fill_ratio < 0.5)
+        # in between, these limits change linearly
+        line_specific_fill_ratio = max(0, min(1, (global_fill_ratio - y / screen_size[0] / 2) * 2))
+        overlay[y, : round(screen_size[1] * line_specific_fill_ratio**2)] = ColorPalette.index_of_color("block_5")
+
+    return overlay
+
+
+def generate_screen_reveal_overlay(
+    current_frame: int, total_frames: int, screen_size: tuple[int, int]
+) -> NDArray[np.uint8]:
+    return generate_screen_hide_overlay(total_frames - current_frame - 1, total_frames, screen_size)[::-1, ::-1]

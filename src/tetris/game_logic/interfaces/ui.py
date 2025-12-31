@@ -35,6 +35,7 @@ class SingleUiElements:
         self.score = 0
         self.animations = []
         self.powerup_ttls = {}
+        self.game_over = False
 
 
 @dataclass
@@ -42,6 +43,8 @@ class UiElements:
     """All elements to be drawn on the UI."""
 
     games: Sequence[SingleUiElements]
+
+    animations: list[AnimationSpec] = field(default_factory=list[AnimationSpec])
     # global UI elements to be added in the future (e.g. pause menu)
 
 

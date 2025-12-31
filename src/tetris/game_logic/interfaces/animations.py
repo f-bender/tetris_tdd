@@ -29,3 +29,13 @@ class PowerupTriggeredAnimationSpec(AnimationSpec):
 @dataclass(kw_only=True)
 class BlooperAnimationSpec(AnimationSpec):
     seed: int = field(default_factory=lambda: random.randrange(2**32))
+
+
+@dataclass(kw_only=True)
+class ScreenHideAnimationSpec(AnimationSpec):
+    pass
+
+
+@dataclass(kw_only=True)
+class ScreenRevealAnimationSpec(AnimationSpec):
+    pass
